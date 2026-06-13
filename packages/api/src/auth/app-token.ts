@@ -97,8 +97,16 @@ export const createAppTokenIssuer = async (
     return nullAppTokenIssuer;
   }
 
-  const privateKey = await importPKCS8(privateKeyPem, ALG);
-  const publicJwk: JWK = await exportJWK(await importSPKI(publicKeyPem, ALG));
+  // Accept either a raw PEM or a base64-encoded PEM. Many env systems (Railway,
+  // .env, CI) mangle the literal newlines a PEM needs; base64 is a safe
+  // single-line transport. jose needs real newlines, so decode first.
+  const pem = (raw: string): string =>
+    raw.includes("-----BEGIN")
+      ? raw
+      : Buffer.from(raw, "base64").toString("utf8");
+
+  const privateKey = await importPKCS8(pem(privateKeyPem), ALG);
+  const publicJwk: JWK = await exportJWK(await importSPKI(pem(publicKeyPem), ALG));
   publicJwk.kid = kid;
   publicJwk.alg = ALG;
   publicJwk.use = "sig";
