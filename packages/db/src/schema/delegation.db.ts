@@ -1,5 +1,5 @@
 import { jsonb, pgTable, text } from "drizzle-orm/pg-core";
-import { baseEntityFields, typeIdPk } from "../utils/db-utils.ts";
+import { baseEntityFields, typeId, typeIdPk } from "../utils/db-utils.ts";
 import { user } from "./user.db.ts";
 
 // Dynamic Delegated Access (§23) — the decrypted per-user MPC delegation the
@@ -11,7 +11,7 @@ import { user } from "./user.db.ts";
 export const userDelegation = pgTable("user_delegation", {
   id: typeIdPk("userDelegation"),
   /** Our user (one delegation per user). */
-  userId: text("user_id")
+  userId: typeId("user", "user_id")
     .notNull()
     .unique()
     .references(() => user.id),

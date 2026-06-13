@@ -59,6 +59,8 @@ export interface DelegatedUnlinkDeps {
   unlinkApiKey: string;
   /** Arc RPC for the private chain. */
   rpcUrl?: string;
+  /** Funded EOA key for the platform welcome-faucet shielded pool (ARC_PAYER_EOA_KEY). */
+  faucetKey?: string;
   /** Load the persisted per-user delegation creds (populated by the webhook). */
   loadCreds: (userId: string) => Promise<DelegationCreds | null>;
 }
@@ -118,5 +120,6 @@ export const createDelegatedUnlinkService = (
     apiKey: deps.unlinkApiKey,
     rpcUrl: deps.rpcUrl,
     getUserSigner,
+    faucetKey: deps.faucetKey,
   });
 };

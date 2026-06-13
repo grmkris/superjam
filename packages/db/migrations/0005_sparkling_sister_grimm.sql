@@ -1,6 +1,6 @@
 CREATE TABLE "user_delegation" (
 	"id" uuid PRIMARY KEY NOT NULL,
-	"user_id" text NOT NULL,
+	"user_id" uuid NOT NULL,
 	"dynamic_user_id" text NOT NULL,
 	"wallet_id" text NOT NULL,
 	"address" text NOT NULL,

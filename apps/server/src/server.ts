@@ -63,11 +63,12 @@ const unlinkTransport = loadLiveUnlinkTransport(env);
 // Agent signer: a Dynamic TSS-MPC server wallet when configured (Best Agentic
 // Build — no raw key), else the funded plain-key fallback. The MPC client auth
 // is async, so it's built here at boot and injected as a pre-made ServerWallet.
-// The same wallet signs the public rail (PUBLIC_CHAIN) and ENS mints (Base
+// The same wallet signs the public rail (PUBLIC_CHAIN) and ERC-8004 (Base
 // Sepolia). Any failure degrades to the raw-key path so boot never breaks.
+// (ENS is ENSv2-native on Sepolia with its own dedicated signer — see ensV2.)
 const dynEnv = dynamicWalletEnv();
 let dynServerWallet: Awaited<ReturnType<typeof createDynamicServerWallet>> | undefined;
-let dynEnsWallet: typeof dynServerWallet;
+let dynBaseSepoliaWallet: typeof dynServerWallet;
 if (dynEnv) {
   try {
     dynServerWallet = await createDynamicServerWallet(
@@ -75,7 +76,7 @@ if (dynEnv) {
       PUBLIC_CHAIN,
       PUBLIC_CHAIN === "arcTestnet" ? env.ARC_RPC_URL : env.BASE_SEPOLIA_RPC_URL,
     );
-    dynEnsWallet = await createDynamicServerWallet(
+    dynBaseSepoliaWallet = await createDynamicServerWallet(
       dynEnv,
       "baseSepolia",
       env.BASE_SEPOLIA_RPC_URL,
@@ -90,13 +91,13 @@ if (dynEnv) {
       "Dynamic server wallet init failed — falling back to raw key",
     );
     dynServerWallet = undefined;
-    dynEnsWallet = undefined;
+    dynBaseSepoliaWallet = undefined;
   }
 }
 const onchain =
   createOnchainFromConfig({
     serverWallet: dynServerWallet,
-    ensWallet: dynEnsWallet,
+    baseSepoliaWallet: dynBaseSepoliaWallet,
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
     baseSepoliaRpcUrl: env.BASE_SEPOLIA_RPC_URL,
     arcRpcUrl: env.ARC_RPC_URL,
@@ -107,23 +108,15 @@ const onchain =
         ? { transport: unlinkTransport, gatewayConfigured: true }
         : {}),
     },
-    ens:
-      env.ENS_L2_REGISTRY && env.ENS_PARENT_NODE
-        ? {
-            registryAddress: env.ENS_L2_REGISTRY as `0x${string}`,
-            parentNode: env.ENS_PARENT_NODE as `0x${string}`,
-            parentName: "superjam.eth", // §16 ship path (Sepolia parent)
-          }
-        : undefined,
     // ERC-8004 (§14/§16): the canonical reference IdentityRegistry, set via
     // ERC8004_REGISTRY (Base Sepolia). ReputationRegistry defaults to the paired
     // canonical address in the binding. Absent ⇒ 8004 ops degrade (never fail).
     erc8004: env.ERC8004_REGISTRY
       ? { identityRegistry: env.ERC8004_REGISTRY as `0x${string}` }
       : undefined,
-    // ENSv2-native (§16): mints `<slug>.superjam.eth` resolvable in standard ENS
-    // tooling (Sepolia L1 SuperjamRegistry, agent-owned). Distinct chain + signer
-    // from Durin. Absent ⇒ the v2 mint degrades (never fails a build).
+    // ENSv2-native (§16) — the SINGLE naming path: mints `<label>.superjam.eth`
+    // resolvable in standard ENS tooling (Sepolia L1 SuperjamRegistry, agent-owned,
+    // own dedicated signer). Absent ⇒ the v2 mint degrades (never fails a build).
     ensV2:
       env.ENS_V2_REGISTRY && env.SEPOLIA_RPC_URL && env.ENS_V2_SIGNER_KEY
         ? { registry: env.ENS_V2_REGISTRY as `0x${string}` }
@@ -142,6 +135,7 @@ const unlink =
         dynamicApiKey: dynEnv.authToken,
         unlinkApiKey: env.UNLINK_API_KEY,
         rpcUrl: env.ARC_RPC_URL,
+        faucetKey: env.ARC_PAYER_EOA_KEY,
         loadCreds: (userId) => loadDelegationCreds(db, userId),
       })
     : undefined;

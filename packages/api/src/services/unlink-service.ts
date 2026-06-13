@@ -10,6 +10,7 @@ import { OnchainError, type Usdc, usdc } from "@superjam/onchain";
 // of the @superjam/onchain barrel (the barrel is reachable from the web client).
 import { type UserUnlink, createUserUnlink } from "@superjam/onchain/unlink-user";
 import type { Hex, LocalAccount } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 
 export interface UnlinkServiceDeps {
   /** Unlink admin API key (control-plane: register + auth tokens). */
@@ -19,6 +20,10 @@ export interface UnlinkServiceDeps {
   /** Per-user EVM signer (signs the derivation message + funds deposits). The
    *  Dynamic delegated signer in prod; a plain `privateKeyToAccount` in tests. */
   getUserSigner: (userId: string) => Promise<LocalAccount>;
+  /** Funded EOA private key for the PLATFORM faucet shielded pool (the welcome
+   *  2-USDC grant). Its shielded balance must be pre-funded (deposit). Absent ⇒
+   *  faucet() rejects. Sourced from ARC_PAYER_EOA_KEY. */
+  faucetKey?: string;
 }
 
 export interface UnlinkService {
@@ -34,6 +39,9 @@ export interface UnlinkService {
   transfer(userId: string, toUnlinkAddress: string, amount: Usdc): Promise<Hex>;
   /** Private → public: off-ramp to an EVM address. */
   withdraw(userId: string, toEvmAddress: string, amount: Usdc): Promise<Hex>;
+  /** Platform → user: a private transfer from the funded faucet pool (the welcome
+   *  grant so a new user can test immediately). Rejects if no faucetKey. */
+  faucet(toUnlinkAddress: string, amount: Usdc): Promise<Hex>;
 }
 
 /** Compose the live per-user Unlink rail. Caches one `UserUnlink` per userId
@@ -42,8 +50,29 @@ export const createUnlinkService = ({
   apiKey,
   rpcUrl,
   getUserSigner,
+  faucetKey,
 }: UnlinkServiceDeps): UnlinkService => {
   const cache = new Map<string, Promise<UserUnlink>>();
+
+  // The platform faucet's own shielded account (one per process), built from the
+  // funded EOA key. Its shielded balance is the welcome-grant pool.
+  let faucetPool: Promise<UserUnlink> | undefined;
+  const faucetAccount = (): Promise<UserUnlink> => {
+    if (!faucetKey) {
+      return Promise.reject(
+        new OnchainError("CHAIN_UNAVAILABLE", "Faucet key not configured")
+      );
+    }
+    faucetPool ??= createUserUnlink({
+      apiKey,
+      account: privateKeyToAccount(faucetKey as Hex),
+      rpcUrl,
+    });
+    faucetPool.catch(() => {
+      faucetPool = undefined;
+    });
+    return faucetPool;
+  };
 
   const forUser = (userId: string): Promise<UserUnlink> => {
     let pending = cache.get(userId);
@@ -73,6 +102,8 @@ export const createUnlinkService = ({
       (await forUser(userId)).privateTransfer(toUnlinkAddress, amount),
     withdraw: async (userId, toEvmAddress, amount) =>
       (await forUser(userId)).withdraw(toEvmAddress, amount),
+    faucet: async (toUnlinkAddress, amount) =>
+      (await faucetAccount()).privateTransfer(toUnlinkAddress, amount),
   };
 };
 
@@ -90,5 +121,7 @@ export const nullUnlinkService: UnlinkService = {
   transfer: () =>
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "Unlink not configured")),
   withdraw: () =>
+    Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "Unlink not configured")),
+  faucet: () =>
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "Unlink not configured")),
 };

@@ -34,6 +34,7 @@ const Hex0x = z.string().regex(/^0x[0-9a-fA-F]+$/, "Invalid hex");
 const Uint = z.string().regex(/^\d+$/, "Expected a base-unit integer");
 
 const TX_CAP = parseUsdc(TX_CAP_USDC);
+const WELCOME_FAUCET = parseUsdc("2"); // §23 one-time shielded welcome grant
 
 // The EIP-3009 authorization, wire form: bigints as decimal-integer strings.
 const AuthorizationInput = z.object({
@@ -237,6 +238,30 @@ export const paymentsRouter = {
       .set({ unlinkAddress })
       .where(eq(user.id, context.user.id));
     return { unlinkAddress };
+  }),
+
+  /** No-toggle auto-provision — the web calls this once on login. Derives +
+   *  registers the shielded account, persists the address, and (first time only)
+   *  grants the 2-USDC welcome faucet so a new user can test instantly. Idempotent;
+   *  the faucet is best-effort (never blocks provisioning). */
+  ensurePrivacy: protectedProcedure.handler(async ({ context }) => {
+    const { unlinkAddress } = await tryOnchain(() =>
+      context.unlink.enable(context.user.id)
+    );
+    const set: { unlinkAddress: string; lastTopupAt?: Date } = { unlinkAddress };
+    let welcomeFauceted = false;
+    // Gate on lastTopupAt = "never funded" so the welcome grant is once-per-user.
+    if (!context.user.lastTopupAt) {
+      try {
+        await context.unlink.faucet(unlinkAddress, WELCOME_FAUCET);
+        set.lastTopupAt = new Date();
+        welcomeFauceted = true;
+      } catch (err) {
+        context.logger.debug({ err: String(err) }, "welcome faucet skipped");
+      }
+    }
+    await context.db.update(user).set(set).where(eq(user.id, context.user.id));
+    return { unlinkAddress, welcomeFauceted };
   }),
 
   /** The caller's SHIELDED balance — the in-app wallet (private by default).

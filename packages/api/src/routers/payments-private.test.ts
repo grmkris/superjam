@@ -26,6 +26,7 @@ const HASH = `0x${"c".repeat(64)}` as Hex;
 const makeMockUnlink = () => {
   const balances = new Map<string, bigint>();
   const transfers: { from: string; to: string; amount: Usdc }[] = [];
+  const faucets: { to: string; amount: Usdc }[] = [];
   const addr = (userId: string) => `unlink1${userId}`;
   const svc: UnlinkService = {
     available: true,
@@ -41,8 +42,12 @@ const makeMockUnlink = () => {
       return HASH;
     },
     withdraw: async () => HASH,
+    faucet: async (to, amount) => {
+      faucets.push({ to, amount });
+      return HASH;
+    },
   };
-  return { svc, balances, transfers, addr };
+  return { svc, balances, transfers, faucets, addr };
 };
 
 let db: Database;
@@ -98,6 +103,27 @@ describe("payments.enablePrivacy", () => {
         context: ctxFor(token, nullUnlinkService),
       })
     ).rejects.toBeDefined();
+  });
+});
+
+describe("payments.ensurePrivacy (no-toggle auto-provision + welcome faucet)", () => {
+  test("provisions + grants the 2-USDC welcome faucet once", async () => {
+    const { user, token } = await seedUser();
+    const res = await call(appRouter.payments.ensurePrivacy, undefined, {
+      context: ctxFor(token),
+    });
+    expect(res.unlinkAddress).toBe(mock.addr(user.id));
+    expect(res.welcomeFauceted).toBe(true);
+    expect(mock.faucets.at(-1)).toEqual({
+      to: mock.addr(user.id),
+      amount: parseUsdc("2"),
+    });
+    // second call is idempotent — no second faucet (lastTopupAt now set).
+    const again = await call(appRouter.payments.ensurePrivacy, undefined, {
+      context: ctxFor(token),
+    });
+    expect(again.welcomeFauceted).toBe(false);
+    expect(mock.faucets).toHaveLength(1);
   });
 });
 
