@@ -4,18 +4,11 @@ import type { NextConfig } from "next";
 // config stays minimal here.
 const nextConfig: NextConfig = {
   transpilePackages: ["@superjam/sdk", "@superjam/shared", "@superjam/api"],
-  // @worldcoin/idkit v4 runs its connect/proof logic in WebAssembly
-  // (idkit-core ships idkit_wasm_bg.wasm, loaded via `new URL(..., import.meta.url)`
-  // + WebAssembly.instantiate). Without this webpack never emits/serves the .wasm,
-  // so the widget silently no-ops on open. Enable async WASM + give the module a
-  // stable served path (client vs server output dirs differ).
-  webpack: (config, { isServer }) => {
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
-    config.output.webassemblyModuleFilename = isServer
-      ? "../static/wasm/[modulehash].wasm"
-      : "static/wasm/[modulehash].wasm";
-    return config;
-  },
+  // @worldcoin/idkit v4 runs on WASM (idkit-core's idkit_wasm_bg.wasm, loaded via
+  // `new URL(..., import.meta.url)`). Turbopack (the Next 16 default) serves that
+  // pattern natively — no config needed; the widget is kept client-only via
+  // next/dynamic({ssr:false}) in world-gate.tsx so the WASM never instantiates
+  // during SSR. (That dynamic import — not the bundler — was the real fix.)
 };
 
 export default nextConfig;
