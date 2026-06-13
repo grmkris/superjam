@@ -118,13 +118,28 @@ describe("specNeedsData", () => {
   test("false for a zero-backend app", () => {
     expect(specNeedsData(baseSpec)).toBe(false);
   });
-  test("true when any collection/counter/storage is declared", () => {
+  test("true only when collections are declared (its own Neon schema)", () => {
     expect(
       specNeedsData({
         ...baseSpec,
-        data: { ...baseSpec.data, counters: [{ name: "c", keyedBy: "k", meaning: "m" }] },
+        data: {
+          ...baseSpec.data,
+          collections: [{ name: "posts", doc: { t: "string" }, writtenWhen: "post" }],
+        },
       })
     ).toBe(true);
+  });
+  test("false for a counter/storage-only app (zero-backend bridge tier)", () => {
+    expect(
+      specNeedsData({
+        ...baseSpec,
+        data: {
+          collections: [],
+          counters: [{ name: "c", keyedBy: "k", meaning: "m" }],
+          storage: [{ key: "s", meaning: "m" }],
+        },
+      })
+    ).toBe(false); // counters + storage → zero-backend bridge, no Neon
   });
 });
 

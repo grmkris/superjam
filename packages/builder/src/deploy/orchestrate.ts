@@ -235,11 +235,16 @@ const pollUntilReady = async (
   }
 };
 
-/** Whether an AppSpec declares any persistence → needs its own Neon project. */
+/**
+ * Whether the app needs its OWN Neon project. Only `collections` (shared
+ * structured docs the template schematizes into Drizzle tables) live in the
+ * app's Neon DB. `counters` (leaderboards → app_counter) and `storage`
+ * (per-user KV → app_storage) map to the platform's zero-backend bridge
+ * (sdk.counter / sdk.storage, §9), so a counter/storage-only app provisions NO
+ * Neon project — avoids burning one against the free 100-cap (deploy doc §A.4).
+ */
 export const specNeedsData = (spec: AppSpec): boolean =>
-  spec.data.collections.length > 0 ||
-  spec.data.counters.length > 0 ||
-  spec.data.storage.length > 0;
+  spec.data.collections.length > 0;
 
 /** DNS-safe Vercel/Neon project name, ≤100 chars (deploy doc §C). */
 export const projectNameFor = (appId: string): string =>
