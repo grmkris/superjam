@@ -47,11 +47,14 @@
       "dependencies": {
         "@orpc/client": "catalog:",
         "@orpc/server": "catalog:",
+        "@superjam/builder": "workspace:*",
         "@superjam/db": "workspace:*",
         "@superjam/logger": "workspace:*",
+        "@superjam/onchain": "workspace:*",
         "@superjam/shared": "workspace:*",
         "drizzle-orm": "catalog:",
         "jose": "catalog:",
+        "viem": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
