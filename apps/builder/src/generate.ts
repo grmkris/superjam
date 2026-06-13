@@ -5,9 +5,19 @@
 // Next+SDK template supersede. The orchestration is generator-agnostic (a
 // `Generator` port), so swapping this for the agent path is a one-line change in
 // server.ts.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { AppManifest, AppSpec } from "@superjam/shared";
 import { specNeedsData } from "@superjam/builder/deploy";
 import type { GeneratedApp, Generator } from "@superjam/builder/deploy";
+
+// The self-contained @superjam/sdk bundle (scripts/bundle-sdk.ts), emitted into
+// every app at lib/superjam-sdk.js + aliased in tsconfig, so a standalone Vercel
+// app resolves `@superjam/sdk` without the monorepo. Read once at module load.
+const VENDORED_SDK = readFileSync(
+  join(import.meta.dir, "..", "vendor", "superjam-sdk.js"),
+  "utf8"
+);
 
 const manifestOf = (spec: AppSpec): AppManifest => ({
   name: spec.name,
@@ -37,6 +47,45 @@ const packageJson = (spec: AppSpec, needsData: boolean): string =>
             }
           : {}),
       },
+      // Standalone Vercel build needs TS + types in the app itself (literal
+      // versions only — `catalog:`/`workspace:` don't resolve off-monorepo).
+      devDependencies: {
+        typescript: "^5.7.0",
+        "@types/node": "^22.0.0",
+        "@types/react": "^19.2.0",
+        "@types/react-dom": "^19.2.0",
+      },
+    },
+    null,
+    2
+  );
+
+// Self-contained tsconfig (do NOT extend the monorepo base — the app deploys
+// alone). `@superjam/sdk` aliases to the vendored bundle; allowJs lets the app
+// import it. Next's plugin + bundler-resolution match a stock Next 16 TS app.
+const tsconfig = (): string =>
+  JSON.stringify(
+    {
+      compilerOptions: {
+        target: "ES2022",
+        lib: ["dom", "dom.iterable", "esnext"],
+        allowJs: true,
+        skipLibCheck: true,
+        strict: false,
+        noEmit: true,
+        esModuleInterop: true,
+        module: "esnext",
+        moduleResolution: "bundler",
+        resolveJsonModule: true,
+        isolatedModules: true,
+        jsx: "preserve",
+        incremental: true,
+        plugins: [{ name: "next" }],
+        baseUrl: ".",
+        paths: { "@superjam/sdk": ["./lib/superjam-sdk.js"], "@/*": ["./*"] },
+      },
+      include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+      exclude: ["node_modules"],
     },
     null,
     2
@@ -47,6 +96,9 @@ const packageJson = (spec: AppSpec, needsData: boolean): string =>
 const nextConfig = (): string => `import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Generated/agent code must never fail a deploy on a type nit. (Next 16
+  // removed \`next lint\`, so there is no eslint key to set.)
+  typescript: { ignoreBuildErrors: true },
   async headers() {
     return [
       {
@@ -135,11 +187,13 @@ export const generateApp = (spec: AppSpec): GeneratedApp => {
   const needsData = specNeedsData(spec);
   const files: Record<string, string> = {
     "package.json": packageJson(spec, needsData),
+    "tsconfig.json": tsconfig(),
     "next.config.ts": nextConfig(),
     "superjam.json": JSON.stringify(manifestOf(spec), null, 2),
     "app/layout.tsx": layout(spec),
     "app/page.tsx": page(spec),
     "lib/auth.ts": authLib(),
+    "lib/superjam-sdk.js": VENDORED_SDK,
   };
   if (needsData) {
     files["lib/db.ts"] = dbLib();

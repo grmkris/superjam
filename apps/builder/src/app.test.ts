@@ -183,6 +183,30 @@ describe("builder service", () => {
     expect(g.files["lib/schema.ts"]).toContain('pgTable("posts"');
     expect(g.manifest.slug).toBe("wall");
   });
+
+  test("generated app is a self-contained, buildable Next app", () => {
+    const g = generateApp(spec); // zero-backend
+    // tsconfig: self-contained (no monorepo extends) + the SDK alias
+    expect(g.files["tsconfig.json"]).toBeDefined();
+    expect(g.files["tsconfig.json"]).not.toContain("extends");
+    const ts = JSON.parse(g.files["tsconfig.json"]!) as {
+      compilerOptions: { paths: Record<string, string[]> };
+    };
+    expect(ts.compilerOptions.paths["@superjam/sdk"]).toEqual([
+      "./lib/superjam-sdk.js",
+    ]);
+    // TS + types in the app itself (literal versions, no catalog:/workspace:)
+    const pkg = JSON.parse(g.files["package.json"]!) as {
+      devDependencies: Record<string, string>;
+    };
+    expect(pkg.devDependencies.typescript).toMatch(/^\^?\d/);
+    expect(Object.values(pkg.devDependencies)).not.toContain("catalog:");
+    // vendored SDK present + exports the public surface
+    expect(g.files["lib/superjam-sdk.js"]).toContain("as default");
+    expect(g.files["lib/superjam-sdk.js"]).toContain("SuperJam");
+    // deploys never blocked by a type/lint nit in generated code
+    expect(g.files["next.config.ts"]).toContain("ignoreBuildErrors: true");
+  });
 });
 
 const teardownReq = (body: unknown): RequestInit => ({
