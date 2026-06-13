@@ -1,6 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "react"],
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "react"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
@@ -11,9 +15,12 @@
     "**/.next/**",
     "**/.builds/**",
     "**/migrations/**",
-    "packages/db/migrations/**"
+    "packages/db/migrations/**",
+    "docs/**"
   ],
   "rules": {
-    "no-unused-vars": "warn"
+    "no-unused-vars": "warn",
+    "react/react-in-jsx-scope": "off",
+    "react-hooks/exhaustive-deps": "warn"
   }
 }

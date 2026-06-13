@@ -13,6 +13,7 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
   const [votes, setVotes] = useState<Doc[]>([]);
   const mine = votes.find((v) => v.username === me);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void poll.list({ limit: 500 }).then((r) => setVotes(r.docs)); }, []);
 
   const data = useMemo(

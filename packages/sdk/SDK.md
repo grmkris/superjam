@@ -352,3 +352,57 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
   );
 }
 ```
+
+---
+
+## Bridge result contract (host adapter — Opus A)
+
+> Not for mini-app authors. This pins the exact `result` the host's
+> postMessage→oRPC adapter must put on each §8 reply envelope, so `@superjam/sdk`
+> and the host never drift. The SDK also defensively normalizes the ⚠️ items
+> (see `toMs`/`unwrapNum` in `src/index.ts`), but the adapter should emit these
+> shapes directly. **postMessage uses structured clone — a `Date` survives as a
+> `Date`, NOT an ISO string — so timestamps MUST be converted explicitly.**
+
+- **All timestamps are epoch-ms `number`** — `.getTime()` every `Date` before
+  replying: `Doc.createdAt`, `data.insert → createdAt`, `Payment.at`,
+  `Message.createdAt`. ⚠️ the services currently emit `Date`.
+- **`counter.increment` → bare `number`** (not `{ value }`). ⚠️ `bridge.ts`
+  returns `{ value }`; the adapter must unwrap.
+- `Doc = { id:string, userId:string, username:string, worldVerified:boolean, createdAt:number, data:Record<string,Json> }`
+  — identity server-stamped; the app's fields are nested under `data`.
+
+| method | `result` shape |
+|---|---|
+| `host.hello` / `app.context` | `AppContext` (`{ appId, slug, name, ensName, category, remixOf, launch, user:{ id, username, walletAddress, worldVerified } }`) |
+| `wallet.getAddress` | `string` (`0x…`) |
+| `wallet.sendTransaction` | `{ hash: string }` |
+| `payments.payUSDC` | `{ hash: string }` |
+| `payments.usdcBalance` | `{ formatted: string, raw: string }` |
+| `payments.mine` | `{ payments: Payment[] }`, `Payment = { to, amountUsdc(string), memo:string\|null, txHash, at(number) }` |
+| `payments.payX402` | `{ paid: boolean, result?: Json }` |
+| `storage.get` | `Json \| null` |
+| `storage.getMany` | `Record<string, Json\|null>` |
+| `storage.set` / `delete` / `clear` | `null` (void) |
+| `storage.list` | `{ keys: string[], cursor?: string }` |
+| `data.insert` | `{ id: string, createdAt: number }` |
+| `data.get` | `Doc \| null` |
+| `data.update` / `delete` | `null` (void) |
+| `data.list` | `{ docs: Doc[], cursor?: string }` |
+| `counter.increment` | `number` |
+| `counter.top` | `{ key: string, value: number }[]` |
+| `ai.chat` | `{ text: string }` |
+| `messages.send` | `{ id: string }` |
+| `messages.list` | `{ messages: Message[] }`, `Message = { id, from, text, data:Json\|null, link:string\|null, createdAt(number), read }` |
+| `share.link` | `{ url: string }` |
+| `files.upload` | `{ id: string, url: string }` (request param is `{ dataBase64 }` — the SDK strips the data-URL prefix) |
+| `pot.create` | `{ id: string }` |
+| `pot.stake` | `{ txHash: string }` |
+| `pot.get` | `Pot = { question, options:string[], totals:Record<string,string>, myStake:{option,amount}\|null, status:"open"\|"resolved"\|"void", resolvedOption:string\|null }` |
+| `pot.resolve` | `null` (void) |
+| `ui.toast` | `null` (fire-and-forget) |
+
+Request params per method are defined by `makeBridgeSdk` in `src/index.ts`; the
+host injects the trusted `appId` from its `Window→app` map (§8) — the iframe
+never sends it. Errors reply `{ ok:false, error:{ code, message } }` with a §8
+`TJErrorCode`.

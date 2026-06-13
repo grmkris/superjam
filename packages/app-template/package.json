@@ -3,10 +3,12 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify": "bun run scripts/verify.ts"
   },
   "dependencies": {
     "@superjam/sdk": "workspace:*",
+    "@superjam/shared": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
     "@react-three/fiber": "^9.1.0",

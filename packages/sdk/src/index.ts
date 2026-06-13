@@ -225,6 +225,17 @@ function connectBridge(): Promise<{ call: CallFn; ctx: AppContext } | null> {
 // ── Real (bridged) SDK ─────────────────────────────────────────────────────
 const MAX_UPLOAD = 2 * 1024 * 1024;
 
+// Result normalization at the bridge boundary (see SDK.md "Bridge result
+// contract"). postMessage uses structured clone, which PRESERVES Date objects,
+// and the platform's oRPC services currently emit Date `createdAt`/`at` and a
+// wrapped `{ value }` counter result. Coerce to the §9 wire shapes here so apps
+// always receive epoch-ms numbers and bare numbers — correct regardless of when
+// the host adapter normalizes.
+const toMs = (v: unknown): number =>
+  typeof v === "number" ? v : v instanceof Date ? v.getTime() : typeof v === "string" ? +new Date(v) : Number(v);
+const normDoc = (d: Doc): Doc => ({ ...d, createdAt: toMs(d.createdAt) });
+const unwrapNum = (v: number | { value: number }): number => (typeof v === "number" ? v : v.value);
+
 function bridgeUpload(call: CallFn, dataUrl: string): Promise<{ id: string; url: string }> {
   const comma = dataUrl.indexOf(",");
   const dataBase64 = comma === -1 ? dataUrl : dataUrl.slice(comma + 1);
@@ -236,14 +247,18 @@ function bridgeUpload(call: CallFn, dataUrl: string): Promise<{ id: string; url:
 
 function makeBridgeSdk(call: CallFn, ctx: AppContext): SuperJamSdk {
   const collection = (name: string): Collection => ({
-    insert: (doc) => call("data.insert", { collection: name, doc }),
-    get: (id) => call("data.get", { collection: name, id }),
+    insert: (doc) =>
+      call<{ id: string; createdAt: number }>("data.insert", { collection: name, doc })
+        .then((r) => ({ ...r, createdAt: toMs(r.createdAt) })),
+    get: (id) => call<Doc | null>("data.get", { collection: name, id }).then((d) => (d ? normDoc(d) : null)),
     update: (id, patch) => call("data.update", { collection: name, id, patch }),
     delete: (id) => call("data.delete", { collection: name, id }),
-    list: (opts) => call("data.list", { collection: name, ...(opts ?? {}) }),
+    list: (opts) =>
+      call<ListResult>("data.list", { collection: name, ...opts })
+        .then((r) => ({ ...r, docs: r.docs.map(normDoc) })),
   });
   const counter = (name: string): Counter => ({
-    increment: (key, by = 1) => call("counter.increment", { counter: name, key, by }),
+    increment: (key, by = 1) => call<number | { value: number }>("counter.increment", { counter: name, key, by }).then(unwrapNum),
     top: (limit = 10) => call("counter.top", { counter: name, limit }),
   });
   return {
@@ -256,7 +271,7 @@ function makeBridgeSdk(call: CallFn, ctx: AppContext): SuperJamSdk {
     payments: {
       payUSDC: (a) => call("payments.payUSDC", a),
       usdcBalance: () => call("payments.usdcBalance"),
-      mine: () => call("payments.mine"),
+      mine: () => call<{ payments: Payment[] }>("payments.mine").then((r) => ({ payments: r.payments.map((p) => ({ ...p, at: toMs(p.at) })) })),
       payX402: (a) => call("payments.payX402", a),
     },
     storage: {
@@ -268,10 +283,10 @@ function makeBridgeSdk(call: CallFn, ctx: AppContext): SuperJamSdk {
       list: (opts) => call("storage.list", opts ?? {}),
     },
     data: { collection, counter },
-    ai: { chat: (messages, opts) => call("ai.chat", { messages, ...(opts ?? {}) }) },
+    ai: { chat: (messages, opts) => call("ai.chat", { messages, ...opts }) },
     messages: {
       send: (msg) => call("messages.send", msg),
-      list: (opts) => call("messages.list", opts ?? {}),
+      list: (opts) => call<{ messages: Message[] }>("messages.list", opts ?? {}).then((r) => ({ messages: r.messages.map((m) => ({ ...m, createdAt: toMs(m.createdAt) })) })),
     },
     share: { link: (a) => call("share.link", a ?? {}) },
     files: { upload: (dataUrl) => bridgeUpload(call, dataUrl) },
@@ -383,7 +398,7 @@ function makeStandalone(): SuperJamSdk {
         const map = read<Record<string, number>>(key) ?? {};
         return Object.entries(map)
           .map(([k, value]) => ({ key: k, value }))
-          .sort((a, b) => b.value - a.value)
+          .toSorted((a, b) => b.value - a.value)
           .slice(0, limit);
       },
     };

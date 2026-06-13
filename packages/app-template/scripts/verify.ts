@@ -78,4 +78,36 @@ for (const r of results) {
   }
 }
 console.log(`\n${results.length - failed}/${results.length} built` + (failed ? ` — ${failed} FAILED` : " — all green"));
-process.exit(failed ? 1 : 0);
+
+// ── Contract validation: skill-CI fixtures + Discover seed manifest ─────────
+// Cheap schema gates (the real agent build for fixtures runs on the builder).
+const { AppSpecSchema } = await import("@superjam/shared/appspec");
+const { SEED_JAMS } = await import("../seeds.ts");
+let contractFail = 0;
+
+const fixDir = join(skillDir, "fixtures");
+for (const f of (await readdir(fixDir)).filter((f) => f.endsWith(".json")).sort()) {
+  const skill = f.replace(/\.json$/, "");
+  try {
+    const spec = AppSpecSchema.parse(JSON.parse(await readFile(join(fixDir, f), "utf8")));
+    if (!spec.skills?.includes(skill as never)) throw new Error(`fixture must list skill "${skill}" in spec.skills`);
+    console.log(`✅ fixtures/${f}`);
+  } catch (e) {
+    contractFail++;
+    console.log(`❌ fixtures/${f}\n${e instanceof Error ? e.message : String(e)}\n`);
+  }
+}
+
+for (const jam of SEED_JAMS) {
+  const exists = (await readdir(exDir)).includes(jam.entry.replace("examples/", ""));
+  if (exists && AppSpecSchema) {
+    console.log(`✅ seed ${jam.manifest.slug.padEnd(20)} (${jam.entry})`);
+  } else {
+    contractFail++;
+    console.log(`❌ seed ${jam.manifest.slug} — missing entry ${jam.entry}`);
+  }
+}
+// seeds.ts already AppManifestSchema.parses each manifest at import time above.
+console.log(`${SEED_JAMS.length} seed jams · ${(await readdir(fixDir)).filter((f) => f.endsWith(".json")).length} fixtures` + (contractFail ? ` — ${contractFail} FAILED` : " — contracts green"));
+
+process.exit(failed || contractFail ? 1 : 0);
