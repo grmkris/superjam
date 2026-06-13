@@ -309,18 +309,18 @@ const ownerWithWallet = async (db: Awaited<ReturnType<typeof harness>>["db"]) =>
   return u!.id;
 };
 
-const stubOnchain = (mintApp: Onchain["mintApp"]): Onchain =>
-  ({ mintApp }) as unknown as Onchain;
+const stubOnchain = (mintV2Subname: Onchain["mintV2Subname"]): Onchain =>
+  ({ mintV2Subname }) as unknown as Onchain;
 
 describe("finalizeExternalApp — best-effort ENS mint (§16)", () => {
-  test("mints slug.username.<parent> + records ensName/ensTxHash on the app", async () => {
+  test("mints <slug>.superjam.eth (ENSv2) + records ensName/ensTxHash on the app", async () => {
     const { db } = await harness();
     const owner = await ownerWithWallet(db);
     const seen: unknown[] = [];
     const onchain = stubOnchain((params) => {
       seen.push(params);
       return Promise.resolve({
-        ensName: `${params.slug}.${params.username}.superjam.eth`,
+        ensName: `${params.slug}.superjam.eth`,
         node: ("0x" + "c".repeat(64)) as Hex,
         txHash: ("0x" + "d".repeat(64)) as Hex,
       });
@@ -334,14 +334,13 @@ describe("finalizeExternalApp — best-effort ENS mint (§16)", () => {
       logger
     );
     expect(row.status).toBe("listed");
-    expect(row.ensName).toBe("tip-jar.kris.superjam.eth");
+    expect(row.ensName).toBe("tip-jar.superjam.eth");
     expect(row.ensTxHash).toBe("0x" + "d".repeat(64));
     expect(seen).toEqual([
       {
         slug: "tip-jar",
-        username: "kris",
         owner: "0x" + "a".repeat(40),
-        records: { url: "https://tip-jar.vercel.app/", category: "tool", remixOf: undefined },
+        records: { url: "https://tip-jar.vercel.app/" },
       },
     ]);
   });

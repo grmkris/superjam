@@ -65,8 +65,6 @@ export const serverEnvSchema = z.object({
   WORLD_ENVIRONMENT: z.enum(["staging", "production"]).default("production"),
 
   // ENS / onchain
-  ENS_L2_REGISTRY: optionalStr,
-  ENS_PARENT_NODE: optionalStr,
   // ENSv2-native (resolvable in standard ENS tooling): SuperjamRegistry on
   // Sepolia L1 + the dedicated ENS-admin signer that owns it (distinct from the
   // Dynamic payment wallet). Absent ⇒ the v2 mint degrades (build unaffected).

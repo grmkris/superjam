@@ -84,14 +84,12 @@ const onchain =
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
     baseSepoliaRpcUrl: process.env.BASE_SEPOLIA_RPC_URL,
     arcRpcUrl: process.env.ARC_RPC_URL,
-    ens:
-      process.env.ENS_L2_REGISTRY && process.env.ENS_PARENT_NODE
-        ? {
-            registryAddress: process.env.ENS_L2_REGISTRY as `0x${string}`,
-            parentNode: process.env.ENS_PARENT_NODE as `0x${string}`,
-            parentName: "superjam.eth",
-          }
-        : undefined,
+    // ENSv2-native (the single naming path): SuperjamRegistry on Sepolia L1.
+    ensV2: process.env.ENS_V2_REGISTRY
+      ? { registry: process.env.ENS_V2_REGISTRY as `0x${string}` }
+      : undefined,
+    sepoliaRpcUrl: process.env.SEPOLIA_RPC_URL,
+    ensV2SignerKey: process.env.ENS_V2_SIGNER_KEY,
   }) ?? nullOnchain;
 console.log(`\nonchain: ${onchain === nullOnchain ? "NULL (no ENS mint)" : "live (ENS mint will run)"}`);
 

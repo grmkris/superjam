@@ -78,11 +78,16 @@ export const profileRouter = {
       let ensName = context.user.ensName;
       if (context.user.walletAddress) {
         try {
-          const node = await context.onchain.ensureUserNode(
-            name,
-            context.user.walletAddress as `0x${string}`
-          );
-          ensName = node.name;
+          // ENSv2-native `<username>.superjam.eth` — the single naming path,
+          // resolvable in standard ENS tooling. Flat namespace (shared with app
+          // slugs); the DB stays source of truth and the mint is best-effort, so
+          // a rare username==slug clash is last-writer-wins on-chain only.
+          const minted = await context.onchain.mintV2Subname({
+            slug: name,
+            owner: context.user.walletAddress as `0x${string}`,
+            records: { url: `https://superjam.fun/@${name}` },
+          });
+          ensName = minted.ensName;
         } catch (err) {
           context.logger.debug({ err: String(err) }, "ENS mint skipped (onchain off)");
         }

@@ -16,7 +16,6 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { CHAINS, type ChainKey, PUBLIC_CHAIN, USDC } from "./chains.ts";
-import { type EnsConfig, createEns } from "./ens.ts";
 import { type EnsV2, type EnsV2Config, createEnsV2 } from "./ens-v2.ts";
 import { type Erc8004Config, createErc8004 } from "./erc8004.ts";
 import { OnchainError } from "./errors.ts";
@@ -47,16 +46,13 @@ export interface OnchainDeps {
   arcClient?: PublicClient;
   /** The privacy rail. Defaults to the degraded client (public fallback). */
   unlink?: UnlinkClient;
-  /** ENS L2Registry config (§16). Absent ⇒ ENS ops throw (S's pipeline
-   *  try/catches; an ENS failure never fails a build). */
-  ens?: EnsConfig;
-  /** Durin/ENS lives on Base Sepolia even when PUBLIC_CHAIN is Arc — so ENS reads
-   *  + subname mints use this dedicated Base Sepolia client + signer, not the Arc
-   *  public rail. Falls back to publicClient/serverWallet when unset. */
-  ensClient?: PublicClient;
-  ensWallet?: ServerWallet;
+  /** ERC-8004 lives on Base Sepolia even when PUBLIC_CHAIN is Arc — so its reads
+   *  + writes use this dedicated Base Sepolia client + signer, not the Arc public
+   *  rail. Falls back to publicClient/serverWallet when unset. */
+  baseSepoliaClient?: PublicClient;
+  baseSepoliaWallet?: ServerWallet;
   /** ERC-8004 reference registries (§16). Absent ⇒ 8004 ops degrade (never fail
-   *  a register/review). Signs through the same Base-Sepolia ens client+wallet. */
+   *  a register/review). Signs through the Base-Sepolia client+wallet. */
   erc8004?: Erc8004Config;
   /** ENSv2-native adapter — mints `<slug>.superjam.eth` resolvable in STANDARD
    *  ENS tooling (Sepolia L1, distinct from Durin's Base-Sepolia L2). Pre-built
@@ -75,9 +71,8 @@ export const createOnchain = ({
   serverWallet,
   arcClient,
   unlink = nullUnlink,
-  ens,
-  ensClient,
-  ensWallet,
+  baseSepoliaClient,
+  baseSepoliaWallet,
   erc8004,
   ensV2,
 }: OnchainDeps) => {
@@ -89,27 +84,12 @@ export const createOnchain = ({
     throw new OnchainError("CHAIN_UNAVAILABLE", `no client for ${chain}`);
   };
 
-  // ENS lives on the public L2 (Base Sepolia). Absent config ⇒ ops throw
-  // ENS_WRITE_FAILED so callers degrade (an ENS failure never fails a build).
-  // ENS is on Base Sepolia (Durin), distinct from the Arc public rail — use the
-  // dedicated ENS client+signer when provided, else fall back.
-  const ensAdapter = ens
-    ? createEns(ensClient ?? publicClient, ensWallet ?? serverWallet, ens)
-    : null;
-  const requireEns = () => {
-    if (!ensAdapter) {
-      throw new OnchainError("ENS_WRITE_FAILED", "ENS registry not configured");
-    }
-    return ensAdapter;
-  };
-
-  // ERC-8004 shares the platform's IDENTITY CHAIN with ENS (the canonical
-  // reference registries are at the same CREATE2 address on Sepolia + Base
-  // Sepolia) — so it reuses the dedicated identity client+signer. Absent config ⇒
-  // ops throw so callers degrade (a register/feedback failure never fails the
-  // agent register / the review).
+  // ERC-8004 lives on Base Sepolia (the canonical reference registries) even when
+  // PUBLIC_CHAIN is Arc — so it uses the dedicated Base-Sepolia client+signer.
+  // Absent config ⇒ ops throw so callers degrade (a register/feedback failure
+  // never fails the agent register / the review).
   const erc8004Adapter = erc8004
-    ? createErc8004(ensClient ?? publicClient, ensWallet ?? serverWallet, erc8004)
+    ? createErc8004(baseSepoliaClient ?? publicClient, baseSepoliaWallet ?? serverWallet, erc8004)
     : null;
   const requireErc8004 = () => {
     if (!erc8004Adapter) {
@@ -149,20 +129,16 @@ export const createOnchain = ({
     sendUsdc: (chain: ChainKey, to: Address, value: Usdc): Promise<Hex> =>
       serverWallet.sendUsdc({ token: USDC[chain], to, value }),
 
-    // --- ENS (§16) — the seam S's build pipeline imports. Degrade-safe. ---
-    /** Ensure `username.<parent>` exists (idempotent). */
-    ensureUserNode: (username: string, owner: Address) =>
-      requireEns().ensureUserNode(username, owner),
-    /** Mint `slug.username.<parent>` + set app.* text records. */
-    mintApp: (params: Parameters<NonNullable<typeof ensAdapter>["mintApp"]>[0]) =>
-      requireEns().mintApp(params),
-    /** The chain-sourced catalog (backs the feed, §16). */
-    listFromEns: () => requireEns().listFromEns(),
-
-    // --- ENSv2-native (§16) — the RESOLVABLE name (standard ENS tooling). ---
-    /** Mint `<slug>.superjam.eth` natively in ENSv2 (Sepolia L1) -> owner. */
+    // --- ENS (§16) — the SINGLE naming path: ENSv2-native `<label>.superjam.eth`,
+    //     resolvable in standard ENS tooling (viem/ethers/app.ens.domains). Used
+    //     for apps, users, AND agents. Durin (the old L2 registry) was removed.
+    //     Degrade-safe: writes throw → callers try/catch → name just omitted. ---
+    /** Mint `<label>.superjam.eth` natively in ENSv2 (Sepolia L1) -> owner. */
     mintV2Subname: (params: Parameters<NonNullable<typeof ensV2>["mintSubname"]>[0]) =>
       requireEnsV2().mintSubname(params),
+    /** Read the on-chain address record for `<label>.superjam.eth` (catalog /
+     *  backfill idempotency check). */
+    ensV2Addr: (label: string) => requireEnsV2().addr(label),
 
     // --- ERC-8004 (§14/§16) — agent identity + reputation. Degrade-safe. ---
     /** Mint the agent's ERC-8004 identity NFT (→ the builder's wallet). */
@@ -188,13 +164,11 @@ export interface OnchainConfig {
   /** Pre-built signer (Dynamic TSS-MPC server wallet) — takes precedence over
    *  the raw key when present (built async at boot in apps/server, §1). */
   serverWallet?: ServerWallet;
-  /** Pre-built ENS signer on Base Sepolia — defaults to the Dynamic wallet. */
-  ensWallet?: ServerWallet;
+  /** Pre-built ERC-8004 signer on Base Sepolia — defaults to the Dynamic wallet. */
+  baseSepoliaWallet?: ServerWallet;
   baseSepoliaRpcUrl?: string;
   arcRpcUrl?: string;
   unlink?: UnlinkConfig;
-  /** ENS L2Registry (§16). Absent ⇒ ENS ops degrade (never fail a build). */
-  ens?: EnsConfig;
   /** ERC-8004 reference registries (§16). Absent ⇒ 8004 ops degrade. */
   erc8004?: Erc8004Config;
   /** ENSv2-native config (SuperjamRegistry on Sepolia L1, §16). Absent ⇒ the v2
@@ -238,15 +212,15 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   const arcClient = secondaryRpc
     ? createPublicClient({ chain: secondaryChain, transport: http(secondaryRpc) })
     : undefined;
-  // ENS/Durin AND the ERC-8004 registries live on Base Sepolia regardless of
+  // The ERC-8004 reference registries live on Base Sepolia regardless of
   // PUBLIC_CHAIN — build a dedicated Base Sepolia client + signer for them (same
-  // key, Base Sepolia chain) whenever either is configured.
-  const needsBaseSepolia = Boolean(cfg.ens || cfg.erc8004);
-  const ensClient = needsBaseSepolia
+  // key, Base Sepolia chain) when ERC-8004 is configured.
+  const needsBaseSepolia = Boolean(cfg.erc8004);
+  const baseSepoliaClient = needsBaseSepolia
     ? createPublicClient({ chain: CHAINS.baseSepolia, transport: http(cfg.baseSepoliaRpcUrl) })
     : undefined;
-  const ensWallet = needsBaseSepolia
-    ? (cfg.ensWallet ??
+  const baseSepoliaWallet = needsBaseSepolia
+    ? (cfg.baseSepoliaWallet ??
       createServerWalletFromKey({
         privateKey: cfg.serverWalletPrivateKey as Hex,
         rpcUrl: cfg.baseSepoliaRpcUrl,
@@ -254,9 +228,9 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
       }))
     : undefined;
   // ENSv2-native: SuperjamRegistry on Sepolia (L1) — a self-contained
-  // IRegistry+resolver the agent owns. Distinct chain + signer from Durin's Base
-  // Sepolia: a dedicated Sepolia ServerWallet from ensV2SignerKey (the platform/
-  // ENS admin key that owns the registry), NOT the Dynamic payment wallet.
+  // IRegistry+resolver the agent owns. The SINGLE naming path. A dedicated
+  // Sepolia ServerWallet from ensV2SignerKey (the platform/ENS admin key that
+  // owns the registry), NOT the Dynamic payment wallet.
   const ensV2Adapter =
     cfg.ensV2 && cfg.sepoliaRpcUrl && cfg.ensV2SignerKey
       ? (() => {
@@ -282,9 +256,8 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     serverWallet,
     arcClient,
     unlink: cfg.unlink ? createUnlinkClient(cfg.unlink) : nullUnlink,
-    ens: cfg.ens,
-    ensClient,
-    ensWallet,
+    baseSepoliaClient,
+    baseSepoliaWallet,
     erc8004: cfg.erc8004,
     ensV2: ensV2Adapter,
   });
@@ -305,13 +278,9 @@ export const nullOnchain: Onchain = {
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
   sendUsdc: () =>
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
-  ensureUserNode: () =>
-    Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
-  mintApp: () =>
-    Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
-  listFromEns: () =>
-    Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
   mintV2Subname: () =>
+    Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),
+  ensV2Addr: () =>
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),
   registerAgentIdentity: () =>
     Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
@@ -339,7 +308,6 @@ export * from "./unlink-transport.ts";
 // "./unlink-user.ts" (scripts/tests do). Re-export here only behind a server-
 // only subpath if the api ever needs it.
 export * from "./cctp.ts";
-export * from "./ens.ts";
 export * from "./erc8004.ts";
 export * from "./verify.ts";
 export * from "./errors.ts";
