@@ -6,9 +6,15 @@
 // Turbopack and crashed login; the singleton client cannot. <LoginProvider> owns
 // the email→code login UI the headless SDK no longer ships.
 import { DynamicProvider } from "@dynamic-labs-sdk/react-hooks";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { dynamicClient } from "../lib/dynamic-client";
 import { LoginProvider } from "./login";
+
+// The new SDK's react-hooks are built on @tanstack/react-query and expect the app
+// to supply the provider (DynamicProvider only takes the dynamic client). One
+// client per browser tab; this module is client-only (under ClientRoot's gate).
+const queryClient = new QueryClient();
 
 export function Providers({ children }: { children: ReactNode }) {
   // dynamicClient is null when NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID wasn't baked
@@ -41,8 +47,10 @@ export function Providers({ children }: { children: ReactNode }) {
   }
 
   return (
-    <DynamicProvider client={dynamicClient}>
-      <LoginProvider>{children}</LoginProvider>
-    </DynamicProvider>
+    <QueryClientProvider client={queryClient}>
+      <DynamicProvider client={dynamicClient}>
+        <LoginProvider>{children}</LoginProvider>
+      </DynamicProvider>
+    </QueryClientProvider>
   );
 }

@@ -13,6 +13,7 @@
     "@dynamic-labs-sdk/evm": "^1.8.2",
     "@dynamic-labs-sdk/react-hooks": "^1.8.2",
     "@orpc/client": "catalog:",
+    "@tanstack/react-query": "catalog:",
     "@superjam/api": "workspace:*",
     "@superjam/onchain": "workspace:*",
     "@superjam/sdk": "workspace:*",
