@@ -57,11 +57,14 @@ export function AppFrame({
   user,
   rpcUrl,
   authToken,
+  getAddress,
 }: {
   app: ViewerApp;
   user: HostUser;
   rpcUrl: string;
   authToken: string | null;
+  /** Viewer's wallet address resolver (Dynamic embedded wallet). */
+  getAddress?: () => Promise<string>;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "blocked">("loading");
@@ -74,7 +77,9 @@ export function AppFrame({
       url: rpcUrl,
       getToken: () => authToken,
     });
-    const bridge = createHostBridge(makeHostHandlers(client, window.location.origin));
+    const bridge = createHostBridge(
+      makeHostHandlers(client, window.location.origin, { getAddress })
+    );
     const detach = bridge.start();
 
     const ctx: AppContext = {
@@ -120,7 +125,7 @@ export function AppFrame({
       if (win) bridge.unregister(win);
       detach();
     };
-  }, [app, user, rpcUrl, authToken]);
+  }, [app, user, rpcUrl, authToken, getAddress]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>

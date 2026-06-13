@@ -10,9 +10,15 @@ import type { BridgeHandlers } from "./bridge/host-bridge";
 
 type AnyCall = (input: Record<string, unknown>) => Promise<unknown>;
 
+export interface HostHandlerOpts {
+  /** Resolve the viewer's wallet address (Dynamic embedded wallet). */
+  getAddress?: () => Promise<string>;
+}
+
 export const makeHostHandlers = (
   client: AppRouterClient,
-  webOrigin: string
+  webOrigin: string,
+  opts: HostHandlerOpts = {}
 ): BridgeHandlers => ({
   // Route "storage.get" → client.bridge.storage.get({ appId, ...params }).
   call: async (method: BridgeMethod, appId: string, params) => {
@@ -45,9 +51,11 @@ export const makeHostHandlers = (
     if (typeof console !== "undefined") console.info("[toast]", message);
   },
 
-  // Wallet is lane C (payments). Until wired, getAddress rejects clearly.
+  // Wallet address from the Dynamic embedded wallet (via useHostAuth). Until a
+  // viewer is signed in, it rejects clearly.
   getAddress: async () => {
-    throw new Error("Wallet not available yet");
+    if (!opts.getAddress) throw new Error("Sign in to use your wallet");
+    return opts.getAddress();
   },
 
   // Mint a short-lived identity token for this app + the session user (§1).
