@@ -2,8 +2,9 @@
 // viem clients + the server wallet are injected via `createOnchain(...)`,
 // mirroring `createCounterService({ db })`. No DB imports, no @username→address
 // resolution — resolution / quotas / "which user" live in the api services;
-// resolved addresses are passed in. A failed §23 rehearsal degrades behind this
-// seam (tips→public, payX402 disabled) with no change to the call shape.
+// resolved addresses are passed in. Creds (signer, Unlink, ENS) are assumed
+// configured in any real environment — the only credential-less path is the
+// secret-less CI/image build (SKIP_ENV_VALIDATION), handled by `nullOnchain`.
 import {
   type Address,
   type Hex,
@@ -126,8 +127,9 @@ export const createOnchain = ({
 export type Onchain = ReturnType<typeof createOnchain>;
 
 export interface OnchainConfig {
-  /** The privileged signer key. Absent ⇒ null (boot stays green; payments
-   *  return INTERNAL until configured). Swap for a Dynamic account to go TSS. */
+  /** The privileged signer key — assumed present in any real environment. The
+   *  only absent case is the secret-less CI/image build (→ nullOnchain). Prefer
+   *  a pre-built Dynamic TSS account (below); this raw key drives the same signer. */
   serverWalletPrivateKey?: string;
   /** Pre-built signer (Dynamic TSS-MPC server wallet) — takes precedence over
    *  the raw key when present (built async at boot in apps/server, §1). */
@@ -142,8 +144,9 @@ export interface OnchainConfig {
 }
 
 /** Compose a live Onchain from env-style config — the composition-root wiring
- *  (apps/server). Returns null when no signer key is set so the caller falls
- *  back to nullOnchain. Unlink stays degraded until a transport is wired (§23). */
+ *  (apps/server). A signer (Dynamic TSS account or raw key) is assumed present;
+ *  returns null ONLY in the secret-less CI/image build so typecheck/build stay
+ *  green without creds (the caller substitutes nullOnchain). */
 export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   if (!cfg.serverWallet && !cfg.serverWalletPrivateKey) return null;
   // Public/provable rail = PUBLIC_CHAIN (Arc). Gas = USDC on Arc, so the server
@@ -195,10 +198,10 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   });
 };
 
-/** Degraded onchain — every chain op rejects with CHAIN_UNAVAILABLE so the api
- *  layer maps it to a clean error and boot/tests stay green without chain
- *  config (mirrors nullUnlink / nullAppTokenIssuer). The server injects the
- *  real instance; tests inject a mock. */
+/** Build/test-only seam — NOT a runtime fallback. Every chain op rejects with
+ *  CHAIN_UNAVAILABLE so the secret-less CI/image build (SKIP_ENV_VALIDATION) and
+ *  unit tests stay green without creds (mirrors nullUnlink / nullAppTokenIssuer).
+ *  Any real deploy injects the live instance; tests inject a mock. */
 export const nullOnchain: Onchain = {
   serverAddress: "0x0000000000000000000000000000000000000000",
   unlink: nullUnlink,
