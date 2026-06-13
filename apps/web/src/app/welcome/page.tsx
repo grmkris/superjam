@@ -12,6 +12,7 @@ import { ROOT, userEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { useHostAuth } from "../../lib/use-host-auth";
+import { usePlatformClient } from "../../components/use-platform-client";
 
 type Step = "email" | "claim";
 
@@ -32,6 +33,7 @@ export default function WelcomePage() {
   const router = useRouter();
   const { setShowAuthFlow, sdkHasLoaded } = useDynamicContext();
   const { isLoggedIn, hostUser } = useHostAuth();
+  const client = usePlatformClient();
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -40,6 +42,10 @@ export default function WelcomePage() {
   const droveLogin = useRef(false);
   const [name, setName] = useState("");
   const [claiming, setClaiming] = useState(false);
+  // server-checked availability for the typed handle (format-gated, debounced).
+  const [avail, setAvail] = useState<
+    "idle" | "checking" | "available" | "taken"
+  >("idle");
 
   // Route on auth changes.
   useEffect(() => {
@@ -61,16 +67,57 @@ export default function WelcomePage() {
     setShowAuthFlow(true);
   };
 
-  const state = nameState(name);
+  // Live availability — debounced, server-authoritative (format gate first).
+  useEffect(() => {
+    const n = name.trim().toLowerCase();
+    if (nameState(n) !== "available") {
+      setAvail("idle");
+      return;
+    }
+    setAvail("checking");
+    let cancelled = false;
+    const t = setTimeout(() => {
+      client.profile
+        .usernameAvailable({ username: n })
+        .then((r) => {
+          if (!cancelled) setAvail(r.ok ? "available" : "taken");
+        })
+        .catch(() => {
+          if (!cancelled) setAvail("idle");
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [name, client]);
+
+  // Effective chip/claim state: format first, then the server verdict — don't
+  // flash "✓ free" until the server confirms uniqueness.
+  const fmt = nameState(name);
+  const state: NameState =
+    fmt !== "available"
+      ? fmt
+      : avail === "available"
+        ? "available"
+        : avail === "taken"
+          ? "taken"
+          : "typing";
   const fullEns = userEns(name.trim().toLowerCase() || "your-name");
 
   const claim = async () => {
     if (state !== "available") return;
     setClaiming(true);
-    // TODO(seam %67/C): persist a custom handle + trigger the ENS mint
-    // (profile.claimName → ensureUserNode). The handle is auto-derived on first
-    // login today, so the name is already usable; we proceed into Discover.
-    router.push("/");
+    try {
+      await client.profile.claimUsername({
+        username: name.trim().toLowerCase(),
+      });
+      router.push("/");
+    } catch {
+      // taken / invalid — surface on the chip and let them pick another.
+      setAvail("taken");
+      setClaiming(false);
+    }
   };
 
   return (

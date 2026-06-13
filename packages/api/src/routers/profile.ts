@@ -1,9 +1,14 @@
 // profile router (§12). `me` (M1) + `topup` (M6 — worldVerified, both rails,
 // 1/day). Never leak dynamicUserId / worldNullifierHash to the client.
 import { schema } from "@superjam/db";
-import { TOPUP_USDC, TOPUP_PER_HUMAN_PER_DAY } from "@superjam/shared";
+import {
+  TOPUP_USDC,
+  TOPUP_PER_HUMAN_PER_DAY,
+  RESERVED_LABELS,
+} from "@superjam/shared";
 import { PRIVATE_CHAIN, PUBLIC_CHAIN, parseUsdc } from "@superjam/onchain";
 import { ORPCError } from "@orpc/server";
+import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { tryOnchain } from "../lib/onchain-errors.ts";
 import { protectedProcedure, worldVerifiedProcedure } from "../orpc.ts";
@@ -12,6 +17,13 @@ const { user: userTable } = schema;
 type User = typeof schema.user.$inferSelect;
 
 const TOPUP_COOLDOWN_MS = (24 / TOPUP_PER_HUMAN_PER_DAY) * 60 * 60 * 1000;
+
+// Handle rules (mirror the client check in apps/web welcome): 3–24 chars,
+// a–z/0–9/-, no leading/trailing dash, not reserved. Server is the source of truth.
+const RESERVED = new Set<string>(RESERVED_LABELS as readonly string[]);
+const USERNAME_RE = /^[a-z0-9](?:[a-z0-9-]{1,22}[a-z0-9])?$/;
+const formatIssue = (name: string): "invalid" | "reserved" | null =>
+  !USERNAME_RE.test(name) ? "invalid" : RESERVED.has(name) ? "reserved" : null;
 
 export const toMe = (user: User) => ({
   id: user.id,
@@ -27,6 +39,61 @@ export const toMe = (user: User) => ({
 
 export const profileRouter = {
   me: protectedProcedure.handler(({ context }) => toMe(context.user)),
+
+  // Live availability for the welcome/claim screen — format + uniqueness
+  // (excludes the caller's own current handle so re-confirming is "free").
+  usernameAvailable: protectedProcedure
+    .input(z.object({ username: z.string() }))
+    .handler(async ({ context, input }) => {
+      const name = input.username.trim().toLowerCase();
+      const issue = formatIssue(name);
+      if (issue) return { ok: false as const, reason: issue };
+      const existing = await context.db.query.user.findFirst({
+        where: eq(userTable.username, name),
+      });
+      if (existing && existing.id !== context.user.id) {
+        return { ok: false as const, reason: "taken" as const };
+      }
+      return { ok: true as const };
+    }),
+
+  // Pick/change your handle. Username is auto-derived from email on first login;
+  // this lets the user override it (welcome "claim", later editable from /me).
+  // Best-effort ENS subname mint — never blocks the claim (onchain is null until §16).
+  claimUsername: protectedProcedure
+    .input(z.object({ username: z.string() }))
+    .handler(async ({ context, input }) => {
+      const name = input.username.trim().toLowerCase();
+      if (formatIssue(name)) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Use a–z, 0–9, – (3–24 chars)",
+        });
+      }
+      const existing = await context.db.query.user.findFirst({
+        where: eq(userTable.username, name),
+      });
+      if (existing && existing.id !== context.user.id) {
+        throw new ORPCError("CONFLICT", { message: "That name's already taken" });
+      }
+      let ensName = context.user.ensName;
+      if (context.user.walletAddress) {
+        try {
+          const node = await context.onchain.ensureUserNode(
+            name,
+            context.user.walletAddress as `0x${string}`
+          );
+          ensName = node.name;
+        } catch (err) {
+          context.logger.debug({ err: String(err) }, "ENS mint skipped (onchain off)");
+        }
+      }
+      const [updated] = await context.db
+        .update(userTable)
+        .set({ username: name, ensName })
+        .where(eq(userTable.id, context.user.id))
+        .returning();
+      return toMe(updated ?? context.user);
+    }),
 
   // Demo top-up (§15.1 rung 4): the server wallet sends TOPUP_USDC Base Sepolia
   // USDC AND seeds the Arc private balance (Unlink faucet) — both rails, one

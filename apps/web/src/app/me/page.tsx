@@ -156,12 +156,15 @@ export default function ProfilePage() {
         )}
       </div>
 
-      <button
+      <StickerButton
+        color="cream"
+        size="md"
+        block
         onClick={() => handleLogOut().then(() => router.push("/welcome"))}
-        className="self-center mt-2 text-[13px] font-bold text-muted"
+        className="mt-2"
       >
         Log out
-      </button>
+      </StickerButton>
     </div>
   );
 }
