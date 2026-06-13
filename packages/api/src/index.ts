@@ -9,6 +9,7 @@ export {
   createJoseVerifier,
 } from "./auth/verifier.ts";
 export { commonErrors, type CommonErrorCode } from "./errors.ts";
+export { createRateLimiter, type RateLimiter } from "./lib/rate-limit.ts";
 export {
   base,
   publicProcedure,

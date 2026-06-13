@@ -3,6 +3,7 @@ import { call, ORPCError } from "@orpc/server";
 import { createPgliteDb } from "@superjam/db/pglite";
 import { createLogger } from "@superjam/logger";
 import { createContext } from "../context.ts";
+import { createRateLimiter } from "../lib/rate-limit.ts";
 import { appRouter } from "../router.ts";
 import { createTestAuth } from "./test-auth.ts";
 
@@ -11,11 +12,13 @@ const logger = createLogger({ level: "silent" });
 const harness = async () => {
   const { db } = await createPgliteDb();
   const auth = await createTestAuth();
+  const rateLimiter = createRateLimiter();
   const ctxFor = (token?: string) =>
     createContext({
       db,
       logger,
       auth: auth.verifier,
+      rateLimiter,
       headers: new Headers(token ? { authorization: `Bearer ${token}` } : {}),
     });
   return { db, auth, ctxFor };

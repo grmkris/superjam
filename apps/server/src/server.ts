@@ -6,6 +6,7 @@ import {
   appRouter,
   createContext,
   createDynamicVerifier,
+  createRateLimiter,
 } from "@superjam/api";
 import { createDb, runMigrations } from "@superjam/db";
 import { createLogger } from "@superjam/logger";
@@ -26,6 +27,7 @@ await runMigrations(db);
 logger.info("migrations applied");
 
 const auth = createDynamicVerifier(env.DYNAMIC_ENVIRONMENT_ID ?? "");
+const rateLimiter = createRateLimiter();
 const rpc = new RPCHandler(appRouter);
 
 const app = new Hono();
@@ -49,6 +51,7 @@ app.use("/rpc/*", async (c, next) => {
       db,
       logger,
       auth,
+      rateLimiter,
       headers: c.req.raw.headers,
     }),
   });

@@ -9,6 +9,7 @@ export const commonErrors = {
   NOT_FOUND: { status: 404 },
   CONFLICT: { status: 409 },
   QUOTA_EXCEEDED: { status: 429 },
+  RATE_LIMITED: { status: 429 },
   INTERNAL: { status: 500 },
 } as const;
 
