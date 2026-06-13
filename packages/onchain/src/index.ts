@@ -46,13 +46,13 @@ export interface OnchainDeps {
   arcClient?: PublicClient;
   /** The privacy rail. Defaults to the degraded client (public fallback). */
   unlink?: UnlinkClient;
-  /** ERC-8004 lives on Base Sepolia even when PUBLIC_CHAIN is Arc — so its reads
-   *  + writes use this dedicated Base Sepolia client + signer, not the Arc public
-   *  rail. Falls back to publicClient/serverWallet when unset. */
-  baseSepoliaClient?: PublicClient;
-  baseSepoliaWallet?: ServerWallet;
+  /** The identity chain (Sepolia) client + signer — ERC-8004 + ENSv2 both live
+   *  here, co-located, not on the Arc public rail. Falls back to
+   *  publicClient/serverWallet when unset. */
+  identityClient?: PublicClient;
+  identityWallet?: ServerWallet;
   /** ERC-8004 reference registries (§16). Absent ⇒ 8004 ops degrade (never fail
-   *  a register/review). Signs through the Base-Sepolia client+wallet. */
+   *  a register/review). Signs through the Sepolia identity client+wallet. */
   erc8004?: Erc8004Config;
   /** ENSv2-native adapter — mints `<slug>.superjam.eth` resolvable in STANDARD
    *  ENS tooling (Sepolia L1, distinct from Durin's Base-Sepolia L2). Pre-built
@@ -71,8 +71,8 @@ export const createOnchain = ({
   serverWallet,
   arcClient,
   unlink = nullUnlink,
-  baseSepoliaClient,
-  baseSepoliaWallet,
+  identityClient,
+  identityWallet,
   erc8004,
   ensV2,
 }: OnchainDeps) => {
@@ -84,12 +84,13 @@ export const createOnchain = ({
     throw new OnchainError("CHAIN_UNAVAILABLE", `no client for ${chain}`);
   };
 
-  // ERC-8004 lives on Base Sepolia (the canonical reference registries) even when
-  // PUBLIC_CHAIN is Arc — so it uses the dedicated Base-Sepolia client+signer.
+  // ERC-8004 lives on Sepolia — the identity chain, co-located with ENSv2 (the
+  // canonical reference registries are the same CREATE2 address on Sepolia + Base
+  // Sepolia). Uses the dedicated Sepolia identity client+signer, not the Arc rail.
   // Absent config ⇒ ops throw so callers degrade (a register/feedback failure
   // never fails the agent register / the review).
   const erc8004Adapter = erc8004
-    ? createErc8004(baseSepoliaClient ?? publicClient, baseSepoliaWallet ?? serverWallet, erc8004)
+    ? createErc8004(identityClient ?? publicClient, identityWallet ?? serverWallet, erc8004)
     : null;
   const requireErc8004 = () => {
     if (!erc8004Adapter) {
@@ -186,7 +187,15 @@ export interface OnchainConfig {
  *  returns null ONLY in the secret-less CI/image build so typecheck/build stay
  *  green without creds (the caller substitutes nullOnchain). */
 export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
-  if (!cfg.serverWallet && !cfg.serverWalletPrivateKey) return null;
+  // Treat an empty/non-hex key as ABSENT. Railway sets SERVER_WALLET_PRIVATE_KEY=""
+  // (the Dynamic TSS wallet is the real signer) — `privateKeyToAccount("")` throws,
+  // so a non-0x string must NEVER reach createServerWalletFromKey. Use `rawKey`
+  // (not the raw cfg field) for every key-based wallet fallback below.
+  const rawKey =
+    cfg.serverWalletPrivateKey && cfg.serverWalletPrivateKey.startsWith("0x")
+      ? (cfg.serverWalletPrivateKey as Hex)
+      : undefined;
+  if (!cfg.serverWallet && !rawKey) return null;
   // Public/provable rail = PUBLIC_CHAIN (Arc). Gas = USDC on Arc, so the server
   // wallet relays/sends paying USDC — no ETH/paymaster. RPC picked per chain.
   const publicRpc =
@@ -198,7 +207,7 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   const serverWallet =
     cfg.serverWallet ??
     createServerWalletFromKey({
-      privateKey: cfg.serverWalletPrivateKey as Hex,
+      privateKey: rawKey as Hex, // guaranteed defined here (guard above)
       rpcUrl: publicRpc,
       chainKey: PUBLIC_CHAIN,
     });
@@ -212,52 +221,41 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   const arcClient = secondaryRpc
     ? createPublicClient({ chain: secondaryChain, transport: http(secondaryRpc) })
     : undefined;
-  // The ERC-8004 reference registries live on Base Sepolia regardless of
-  // PUBLIC_CHAIN — build a dedicated Base Sepolia client + signer for them (same
-  // key, Base Sepolia chain) when ERC-8004 is configured.
-  const needsBaseSepolia = Boolean(cfg.erc8004);
-  const baseSepoliaClient = needsBaseSepolia
-    ? createPublicClient({ chain: CHAINS.baseSepolia, transport: http(cfg.baseSepoliaRpcUrl) })
-    : undefined;
-  const baseSepoliaWallet = needsBaseSepolia
-    ? (cfg.baseSepoliaWallet ??
-      createServerWalletFromKey({
-        privateKey: cfg.serverWalletPrivateKey as Hex,
-        rpcUrl: cfg.baseSepoliaRpcUrl,
-        chainKey: "baseSepolia",
-      }))
-    : undefined;
-  // ENSv2-native: SuperjamRegistry on Sepolia (L1) — a self-contained
-  // IRegistry+resolver the agent owns. The SINGLE naming path. A dedicated
-  // Sepolia ServerWallet from ensV2SignerKey (the platform/ENS admin key that
-  // owns the registry), NOT the Dynamic payment wallet.
-  const ensV2Adapter =
-    cfg.ensV2 && cfg.sepoliaRpcUrl && cfg.ensV2SignerKey
+  // The identity chain = Sepolia (L1): the ENSv2 SuperjamRegistry AND the ERC-8004
+  // canonical registries both live here (the 8004 registries are the same CREATE2
+  // address on Sepolia + Base Sepolia), so both adapters share ONE Sepolia client +
+  // signer — the platform identity admin key (ensV2SignerKey, which owns the
+  // SuperjamRegistry + is funded on Sepolia), NOT the Dynamic payment wallet.
+  const identityClient =
+    cfg.sepoliaRpcUrl && cfg.ensV2SignerKey && (cfg.ensV2 || cfg.erc8004)
+      ? createPublicClient({ chain: sepolia, transport: http(cfg.sepoliaRpcUrl) })
+      : undefined;
+  const identityWallet =
+    identityClient && cfg.ensV2SignerKey
       ? (() => {
-          const sepoliaClient = createPublicClient({
-            chain: sepolia,
-            transport: http(cfg.sepoliaRpcUrl),
-          });
           const account = privateKeyToAccount(cfg.ensV2SignerKey as Hex);
-          const sepoliaWallet = createServerWallet({
+          return createServerWallet({
             account,
             walletClient: createWalletClient({
               account,
               chain: sepolia,
               transport: http(cfg.sepoliaRpcUrl),
             }),
-            publicClient: sepoliaClient,
+            publicClient: identityClient,
           });
-          return createEnsV2(sepoliaClient, sepoliaWallet, cfg.ensV2);
         })()
+      : undefined;
+  const ensV2Adapter =
+    cfg.ensV2 && identityClient && identityWallet
+      ? createEnsV2(identityClient, identityWallet, cfg.ensV2)
       : undefined;
   return createOnchain({
     publicClient,
     serverWallet,
     arcClient,
     unlink: cfg.unlink ? createUnlinkClient(cfg.unlink) : nullUnlink,
-    baseSepoliaClient,
-    baseSepoliaWallet,
+    identityClient,
+    identityWallet,
     erc8004: cfg.erc8004,
     ensV2: ensV2Adapter,
   });
