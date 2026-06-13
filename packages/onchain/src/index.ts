@@ -37,17 +37,14 @@ import {
 } from "./verify.ts";
 
 export interface OnchainDeps {
-  /** Base Sepolia client — the public/provable rail (verification, balances). */
+  /** Arc testnet client — the single money chain (verification, balances, relay). */
   publicClient: PublicClient;
-  /** The sole privileged signer (relay, escrow, ENS/8004). */
+  /** The sole privileged payment signer (relay, escrow) on Arc. */
   serverWallet: ServerWallet;
-  /** Arc testnet client (privacy rail reads). Optional — absent ⇒ Arc reads
-   *  throw CHAIN_UNAVAILABLE and callers degrade to the public rail (§15). */
-  arcClient?: PublicClient;
   /** The privacy rail. Defaults to the degraded client (public fallback). */
   unlink?: UnlinkClient;
-  /** The identity chain (Sepolia) client + signer — ERC-8004 + ENSv2 both live
-   *  here, co-located, not on the Arc public rail. Falls back to
+  /** The identity chain (Sepolia L1) client + signer — ERC-8004 + ENSv2 both live
+   *  here, co-located, not on the Arc payment rail. Falls back to
    *  publicClient/serverWallet when unset. */
   identityClient?: PublicClient;
   identityWallet?: ServerWallet;
@@ -55,8 +52,8 @@ export interface OnchainDeps {
    *  a register/review). Signs through the Sepolia identity client+wallet. */
   erc8004?: Erc8004Config;
   /** ENSv2-native adapter — mints `<slug>.superjam.eth` resolvable in STANDARD
-   *  ENS tooling (Sepolia L1, distinct from Durin's Base-Sepolia L2). Pre-built
-   *  in createOnchainFromConfig. Absent ⇒ the v2 mint degrades (build unaffected). */
+   *  ENS tooling (Sepolia L1). Pre-built in createOnchainFromConfig. Absent ⇒ the
+   *  v2 mint degrades (build unaffected). */
   ensV2?: EnsV2;
 }
 
@@ -69,7 +66,6 @@ export interface RelayParams {
 export const createOnchain = ({
   publicClient,
   serverWallet,
-  arcClient,
   unlink = nullUnlink,
   identityClient,
   identityWallet,
@@ -77,16 +73,14 @@ export const createOnchain = ({
   ensV2,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
-    // publicClient is built for PUBLIC_CHAIN (Arc). A secondary `arcClient` slot
-    // holds any OTHER chain's client (e.g. the Base Sepolia CCTP source, #2).
+    // Arc is the only money chain — publicClient is built for PUBLIC_CHAIN.
     if (chain === PUBLIC_CHAIN) return publicClient;
-    if (arcClient) return arcClient;
     throw new OnchainError("CHAIN_UNAVAILABLE", `no client for ${chain}`);
   };
 
-  // ERC-8004 lives on Sepolia — the identity chain, co-located with ENSv2 (the
-  // canonical reference registries are the same CREATE2 address on Sepolia + Base
-  // Sepolia). Uses the dedicated Sepolia identity client+signer, not the Arc rail.
+  // ERC-8004 lives on Sepolia L1 — the identity chain, co-located with ENSv2 (the
+  // canonical reference registries are the same CREATE2 address on every chain).
+  // Uses the dedicated Sepolia identity client+signer, not the Arc payment rail.
   // Absent config ⇒ ops throw so callers degrade (a register/feedback failure
   // never fails the agent register / the review).
   const erc8004Adapter = erc8004
@@ -165,20 +159,19 @@ export interface OnchainConfig {
   /** Pre-built signer (Dynamic TSS-MPC server wallet) — takes precedence over
    *  the raw key when present (built async at boot in apps/server, §1). */
   serverWallet?: ServerWallet;
-  /** Pre-built ERC-8004 signer on Base Sepolia — defaults to the Dynamic wallet. */
-  baseSepoliaWallet?: ServerWallet;
-  baseSepoliaRpcUrl?: string;
   arcRpcUrl?: string;
   unlink?: UnlinkConfig;
-  /** ERC-8004 reference registries (§16). Absent ⇒ 8004 ops degrade. */
+  /** ERC-8004 reference registries (§16) — on the Sepolia L1 identity chain. Absent
+   *  ⇒ 8004 ops degrade. Signs via the shared Sepolia identity wallet (ensV2SignerKey). */
   erc8004?: Erc8004Config;
   /** ENSv2-native config (SuperjamRegistry on Sepolia L1, §16). Absent ⇒ the v2
-   *  mint degrades. Built into the live adapter with a dedicated Sepolia signer. */
+   *  mint degrades. Built into the live adapter with the shared Sepolia signer. */
   ensV2?: EnsV2Config;
-  /** Sepolia (L1) RPC — the ENSv2 chain. Required for the v2 mint. */
+  /** Sepolia (L1) RPC — the identity chain (ENSv2 + ERC-8004). Required for both. */
   sepoliaRpcUrl?: string;
-  /** Dedicated ENSv2 signer key — MUST own the SuperjamRegistry. Distinct from
-   *  the payment signer (the Dynamic wallet); this is the platform/ENS admin key. */
+  /** Dedicated Sepolia identity signer key — MUST own the SuperjamRegistry; also
+   *  signs ERC-8004 writes. Distinct from the Dynamic payment wallet; the platform
+   *  identity admin key (funded with Sepolia ETH). */
   ensV2SignerKey?: string;
 }
 
@@ -196,10 +189,9 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
       ? (cfg.serverWalletPrivateKey as Hex)
       : undefined;
   if (!cfg.serverWallet && !rawKey) return null;
-  // Public/provable rail = PUBLIC_CHAIN (Arc). Gas = USDC on Arc, so the server
-  // wallet relays/sends paying USDC — no ETH/paymaster. RPC picked per chain.
-  const publicRpc =
-    PUBLIC_CHAIN === "arcTestnet" ? cfg.arcRpcUrl : cfg.baseSepoliaRpcUrl;
+  // The single money chain = PUBLIC_CHAIN (Arc). Gas = USDC on Arc, so the server
+  // wallet relays/sends paying USDC — no ETH/paymaster.
+  const publicRpc = cfg.arcRpcUrl;
   const publicClient = createPublicClient({
     chain: CHAINS[PUBLIC_CHAIN],
     transport: http(publicRpc),
@@ -211,16 +203,6 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
       rpcUrl: publicRpc,
       chainKey: PUBLIC_CHAIN,
     });
-  // Secondary client = the OTHER chain (Base Sepolia when public is Arc) — used
-  // for cross-chain reads (the CCTP #2 source). Stored in the `arcClient` slot
-  // (= "non-public client" via clientFor).
-  const secondaryRpc =
-    PUBLIC_CHAIN === "arcTestnet" ? cfg.baseSepoliaRpcUrl : cfg.arcRpcUrl;
-  const secondaryChain =
-    PUBLIC_CHAIN === "arcTestnet" ? CHAINS.baseSepolia : CHAINS.arcTestnet;
-  const arcClient = secondaryRpc
-    ? createPublicClient({ chain: secondaryChain, transport: http(secondaryRpc) })
-    : undefined;
   // The identity chain = Sepolia (L1): the ENSv2 SuperjamRegistry AND the ERC-8004
   // canonical registries both live here (the 8004 registries are the same CREATE2
   // address on Sepolia + Base Sepolia), so both adapters share ONE Sepolia client +
@@ -252,7 +234,6 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   return createOnchain({
     publicClient,
     serverWallet,
-    arcClient,
     unlink: cfg.unlink ? createUnlinkClient(cfg.unlink) : nullUnlink,
     identityClient,
     identityWallet,
@@ -305,7 +286,7 @@ export * from "./unlink-transport.ts";
 // no client/server callers via the barrel today; import it directly from
 // "./unlink-user.ts" (scripts/tests do). Re-export here only behind a server-
 // only subpath if the api ever needs it.
-export * from "./cctp.ts";
 export * from "./erc8004.ts";
+export * from "./cctp.ts";
 export * from "./verify.ts";
 export * from "./errors.ts";

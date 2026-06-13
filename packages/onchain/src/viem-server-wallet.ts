@@ -137,7 +137,7 @@ export const createServerWallet = ({
 export const createServerWalletFromKey = ({
   privateKey,
   rpcUrl,
-  chainKey = "baseSepolia",
+  chainKey = "arcTestnet",
 }: {
   privateKey: Hex;
   rpcUrl?: string;

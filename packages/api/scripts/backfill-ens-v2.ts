@@ -25,7 +25,6 @@ const RUN = process.env.RUN === "1";
 const onchain: Onchain =
   createOnchainFromConfig({
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
-    baseSepoliaRpcUrl: process.env.BASE_SEPOLIA_RPC_URL,
     arcRpcUrl: process.env.ARC_RPC_URL,
     ensV2: process.env.ENS_V2_REGISTRY
       ? { registry: process.env.ENS_V2_REGISTRY as `0x${string}` }

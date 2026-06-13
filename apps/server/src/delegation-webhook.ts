@@ -6,6 +6,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { type Database, schema } from "@superjam/db";
 import type { Logger } from "@superjam/logger";
+import type { UserId } from "@superjam/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { type DelegationCreds, decryptDelegation } from "./delegated-signer.ts";
@@ -18,7 +19,7 @@ export const loadDelegationCreds = async (
   userId: string
 ): Promise<DelegationCreds | null> => {
   const row = await db.query.userDelegation.findFirst({
-    where: eq(userDelegation.userId, userId),
+    where: eq(userDelegation.userId, userId as UserId),
   });
   if (!row) return null;
   return {

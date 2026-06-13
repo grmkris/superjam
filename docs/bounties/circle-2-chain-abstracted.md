@@ -1,7 +1,13 @@
 # Circle #2 — Best Chain-Abstracted USDC App (Arc as a Liquidity Hub)
 
+> **Note (2026-06-13):** the live source chain is now **Ethereum Sepolia L1 (CCTP
+> domain 0)** — Base Sepolia was removed from the codebase, so SuperJam runs on Arc
+> + Sepolia only. CCTP is any-domain→any-domain, so the adapter is unchanged. The
+> "live proof" tables below ran historically on Base Sepolia (domain 6 → Arc 26);
+> those tx hashes are immutable evidence.
+
 **Our submission: source build-funding from any CCTP chain into the Arc builder
-economy in one action.** A client funds a build with USDC on Base Sepolia (or any
+economy in one action.** A client funds a build with USDC on Ethereum Sepolia (or any
 CCTP chain); CCTP V2 burns it there and mints native USDC on Arc — optionally with a
 `hookData` that atomically deposits into the StakeSlash escrow on arrival. Users treat
 multiple chains as one liquidity surface; Arc is the settlement hub.
@@ -29,13 +35,13 @@ sequenceDiagram
 - Tests: `packages/onchain/src/cctp.test.ts` — domains, bytes32 padding, the Iris
   poller (polls past pending → complete; times out → `RELAY_FAILED`).
 - Live proof: `packages/onchain/integration/cctp.itest.ts` (gated
-  `RUN_ONCHAIN_INTEGRATION=1`) bridges a real amount Base Sepolia → Arc.
+  `RUN_ONCHAIN_INTEGRATION=1`) bridges a real amount Ethereum Sepolia → Arc.
 
 ## Addresses (CCTP V2 testnet — same CREATE2 on every chain)
 - TokenMessengerV2 `0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA`
 - MessageTransmitterV2 `0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275`
 - TokenMinterV2 `0xb43db544E2c27092c107639Ad201b3dEfAbcF192`
-- Domains: **Base Sepolia 6 → Arc 26** (Ethereum Sepolia 0 also supported).
+- Domains: **Ethereum Sepolia 0 → Arc 26** (the historical proof below ran Base Sepolia 6 → Arc 26).
 - Iris (sandbox): `https://iris-api-sandbox.circle.com/v2/messages/{srcDomain}?transactionHash=…`
 
 ## Live cross-chain proof (real txs, 2026-06-13)

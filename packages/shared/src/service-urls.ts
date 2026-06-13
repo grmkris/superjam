@@ -37,5 +37,5 @@ export const SERVICE_URLS: Record<Environment, ServiceUrls> = {
 export const urlsForEnv = (env: Environment): ServiceUrls => SERVICE_URLS[env];
 
 // Testnet-only event posture (§15.1); mainnet = a post-event config flip.
-// Privacy rail is always Arc testnet (§15); ENS L1 is Sepolia.
-export const chainForEnv = () => "baseSepolia" as const;
+// The single money chain is Arc testnet (§15); identity (ENS + ERC-8004) is Sepolia L1.
+export const chainForEnv = () => "arcTestnet" as const;

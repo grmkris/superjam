@@ -1,0 +1,25 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "explorer": "https://sepolia.etherscan.io",
+  "deployedAt": "2026-06-13",
+  "notes": "Sepolia L1 is SuperJam's identity/naming chain (ERC-8004 agent identity + ENSv2-native names) AND the CCTP #2 cross-chain source (Ethereum Sepolia = CCTP domain 0 → Arc domain 26). Identity is signed by the dedicated ENS-admin key (ENS_V2_SIGNER_KEY), distinct from the Dynamic Arc payment wallet. All money flows are on Arc testnet (see arc-testnet.json). Base Sepolia was removed 2026-06-13 (Durin L2 superseded by ENSv2; CCTP re-pointed Base Sepolia → Ethereum Sepolia; historical #2 burn/mint evidence retained in docs/bounties).",
+  "tokens": {
+    "usdc": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+  },
+  "cctp": {
+    "tokenMessengerV2": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+    "messageTransmitterV2": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+    "domain": 0
+  },
+  "ensV2": {
+    "registry": "set via ENS_V2_REGISTRY (SuperjamRegistry, self-contained IRegistry+resolver, agent-owned)",
+    "parentName": "superjam.eth",
+    "notes": "Mints <slug>.superjam.eth resolvable in standard ENS tooling. See packages/onchain/src/ens-v2.ts. Verified live: guestbook.superjam.eth resolves."
+  },
+  "erc8004": {
+    "identityRegistry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    "reputationRegistry": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+    "notes": "CANONICAL ERC-8004 reference registries (erc-8004/erc-8004-contracts), NOT deployed by us — bound to via packages/onchain/src/erc8004.ts. Deterministic CREATE2 addresses, same on every chain (we ride Sepolia L1). Identity = ERC-721 agent NFTs (register(agentURI)→agentId); Reputation = giveFeedback(agentId,int128 rating,…). Set ERC8004_REGISTRY=identityRegistry to enable; reputation defaults to the paired address in the binding."
+  }
+}

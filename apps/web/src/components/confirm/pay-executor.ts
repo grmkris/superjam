@@ -64,7 +64,7 @@ export function useRelayExecutor(): PayExecutor {
 
       // 4) relay gaslessly → real tx hash
       const { txHash } = await client.payments.relay({
-        chain: "baseSepolia",
+        chain: PUBLIC_CHAIN,
         authorization: {
           from: typed.message.from,
           to: typed.message.to,

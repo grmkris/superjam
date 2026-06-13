@@ -307,7 +307,7 @@ describe("builds.create — trial quota", () => {
 
     const res = await call(
       router.create,
-      { spec: SPEC, payment: { txHash: "0xabc", chain: "base-sepolia" } },
+      { spec: SPEC, payment: { txHash: "0xabc", chain: "arc-testnet" } },
       { context: ctxFor(token) }
     );
     expect(verified).toBe("0xabc");
@@ -334,7 +334,7 @@ describe("builds.create — trial quota", () => {
     await expect(
       call(
         router.create,
-        { spec: SPEC, payment: { txHash: "0xbad", chain: "base-sepolia" } },
+        { spec: SPEC, payment: { txHash: "0xbad", chain: "arc-testnet" } },
         { context: ctxFor(token) }
       )
     ).rejects.toThrow(/transfer/);

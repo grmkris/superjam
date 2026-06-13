@@ -26,7 +26,6 @@ suite("live Arc onchain (real chain, real receipts)", () => {
     ? createOnchainFromConfig({
         serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
         arcRpcUrl: process.env.ARC_RPC_URL,
-        baseSepoliaRpcUrl: process.env.BASE_SEPOLIA_RPC_URL,
       })
     : null;
 

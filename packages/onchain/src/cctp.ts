@@ -1,5 +1,5 @@
 // CCTP V2 — chain-abstracted USDC (Circle bounty #2: "Arc as a liquidity hub").
-// Burn native USDC on a source chain (e.g. Base Sepolia) → Circle's Iris attests →
+// Burn native USDC on a source chain (Ethereum Sepolia L1) → Circle's Iris attests →
 // mint native USDC on Arc, optionally with `hookData` that atomically deposits into
 // the StakeSlash escrow on arrival. One user action sources USDC from any CCTP chain
 // into the Arc builder economy — a single liquidity surface.
@@ -26,9 +26,9 @@ export const CCTP_V2 = {
   tokenMinter: "0xb43db544E2c27092c107639Ad201b3dEfAbcF192" as Address,
 } as const;
 
-/** CCTP domain ids (NOT chain ids). */
+/** CCTP domain ids (NOT chain ids). Ethereum Sepolia = 0, Arc testnet = 26. */
 export const CCTP_DOMAIN: Record<ChainKey, number> = {
-  baseSepolia: 6,
+  sepolia: 0,
   arcTestnet: 26,
 };
 

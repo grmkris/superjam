@@ -63,23 +63,17 @@ const unlinkTransport = loadLiveUnlinkTransport(env);
 // Agent signer: a Dynamic TSS-MPC server wallet when configured (Best Agentic
 // Build — no raw key), else the funded plain-key fallback. The MPC client auth
 // is async, so it's built here at boot and injected as a pre-made ServerWallet.
-// The same wallet signs the public rail (PUBLIC_CHAIN) and ERC-8004 (Base
-// Sepolia). Any failure degrades to the raw-key path so boot never breaks.
-// (ENS is ENSv2-native on Sepolia with its own dedicated signer — see ensV2.)
+// This wallet signs the single money chain (PUBLIC_CHAIN = Arc). Any failure
+// degrades to the raw-key path so boot never breaks. (Identity — ENSv2 + ERC-8004
+// — is on Sepolia L1 with its own dedicated signer; see ensV2/ensV2SignerKey.)
 const dynEnv = dynamicWalletEnv();
 let dynServerWallet: Awaited<ReturnType<typeof createDynamicServerWallet>> | undefined;
-let dynBaseSepoliaWallet: typeof dynServerWallet;
 if (dynEnv) {
   try {
     dynServerWallet = await createDynamicServerWallet(
       dynEnv,
       PUBLIC_CHAIN,
-      PUBLIC_CHAIN === "arcTestnet" ? env.ARC_RPC_URL : env.BASE_SEPOLIA_RPC_URL,
-    );
-    dynBaseSepoliaWallet = await createDynamicServerWallet(
-      dynEnv,
-      "baseSepolia",
-      env.BASE_SEPOLIA_RPC_URL,
+      env.ARC_RPC_URL,
     );
     logger.info(
       { signer: dynServerWallet.address },
@@ -91,15 +85,12 @@ if (dynEnv) {
       "Dynamic server wallet init failed — falling back to raw key",
     );
     dynServerWallet = undefined;
-    dynBaseSepoliaWallet = undefined;
   }
 }
 const onchain =
   createOnchainFromConfig({
     serverWallet: dynServerWallet,
-    baseSepoliaWallet: dynBaseSepoliaWallet,
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
-    baseSepoliaRpcUrl: env.BASE_SEPOLIA_RPC_URL,
     arcRpcUrl: env.ARC_RPC_URL,
     unlink: {
       apiKey: env.UNLINK_API_KEY,

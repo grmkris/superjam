@@ -131,7 +131,7 @@ export const paymentsRouter = {
   relay: protectedProcedure
     .input(
       z.object({
-        chain: z.literal("baseSepolia").default("baseSepolia"),
+        chain: z.literal(PUBLIC_CHAIN).default(PUBLIC_CHAIN),
         authorization: AuthorizationInput,
         signature: Hex0x,
       })

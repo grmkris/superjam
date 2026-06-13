@@ -14,8 +14,8 @@ import {
 import { parseUsdc } from "./money.ts";
 
 describe("cctp constants + helpers", () => {
-  test("domains: Base Sepolia 6, Arc 26", () => {
-    expect(CCTP_DOMAIN.baseSepolia).toBe(6);
+  test("domains: Ethereum Sepolia 0, Arc 26", () => {
+    expect(CCTP_DOMAIN.sepolia).toBe(0);
     expect(CCTP_DOMAIN.arcTestnet).toBe(26);
   });
 
@@ -73,7 +73,7 @@ describe("bridge() routing — plain vs hook", () => {
       }),
     }),
   };
-  const mkEndpoint = (chain: "baseSepolia" | "arcTestnet", calls: string[]) =>
+  const mkEndpoint = (chain: "sepolia" | "arcTestnet", calls: string[]) =>
     ({
       chain,
       usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -91,7 +91,7 @@ describe("bridge() routing — plain vs hook", () => {
   test("hookData ⇒ depositForBurnWithHook on source + relay on the hook receiver", async () => {
     const calls: string[] = [];
     const cctp = createCctp({
-      source: mkEndpoint("baseSepolia", calls),
+      source: mkEndpoint("sepolia", calls),
       dest: mkEndpoint("arcTestnet", calls),
       iris: irisOk,
     });
@@ -115,7 +115,7 @@ describe("bridge() routing — plain vs hook", () => {
   test("no hookData ⇒ depositForBurn + receiveMessage (unchanged path)", async () => {
     const calls: string[] = [];
     const cctp = createCctp({
-      source: mkEndpoint("baseSepolia", calls),
+      source: mkEndpoint("sepolia", calls),
       dest: mkEndpoint("arcTestnet", calls),
       iris: irisOk,
     });

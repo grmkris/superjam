@@ -2,9 +2,9 @@
 // calls to give a builder agent a real on-chain identity + reputation, against the
 // CANONICAL reference registries (erc-8004/erc-8004-contracts). Chain-agnostic: the
 // client + signer are injected by the factory, so this rides the platform's
-// IDENTITY CHAIN (Sepolia, post Base-Sepolia→Sepolia move — the registries are at
-// the SAME deterministic CREATE2 addresses on both, so the addresses below are
-// unchanged). The identity NFT + the agent's ENS name live on that one chain.
+// IDENTITY CHAIN (Sepolia L1 — the registries are at the SAME deterministic CREATE2
+// address on every chain, so the addresses below are chain-neutral). The identity
+// NFT + the agent's ENS name live on that one chain (co-located with ENSv2).
 //   IdentityRegistry   0x8004A818BFB912233c491871b3d84c89A494BD9e  (ERC-721 agent NFTs)
 //   ReputationRegistry 0x8004B663056A597Dffe9eCcC1965A193B7388713  (feedback signals)
 // We DON'T deploy anything — we bind to the standard. Writes go through C's
@@ -19,8 +19,8 @@ import { type Address, type Hex, type PublicClient, parseEventLogs } from "viem"
 import { OnchainError } from "./errors.ts";
 import type { ServerWallet } from "./server-wallet.ts";
 
-/** Canonical reference-registry addresses — same CREATE2 address on Sepolia and
- *  Base Sepolia, so chain-neutral. The chain is set by the injected client. */
+/** Canonical reference-registry addresses — same CREATE2 address on every chain,
+ *  so chain-neutral (we ride Sepolia L1). The chain is set by the injected client. */
 export const ERC8004_IDENTITY_REGISTRY: Address =
   "0x8004A818BFB912233c491871b3d84c89A494BD9e";
 export const ERC8004_REPUTATION_REGISTRY: Address =

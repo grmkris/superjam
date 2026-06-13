@@ -70,9 +70,11 @@ export const serverEnvSchema = z.object({
   // Dynamic payment wallet). Absent ⇒ the v2 mint degrades (build unaffected).
   ENS_V2_REGISTRY: optionalStr,
   ENS_V2_SIGNER_KEY: optionalStr,
+  // ERC-8004 agent identity — same Sepolia L1 chain as ENSv2, signed by the shared
+  // ENS-admin signer (ENS_V2_SIGNER_KEY). Absent ⇒ 8004 ops degrade.
   ERC8004_REGISTRY: optionalStr,
   TREASURY_ADDRESS: optionalStr,
-  BASE_SEPOLIA_RPC_URL: optionalStr,
+  // Sepolia L1 RPC — the single identity chain (ENSv2 + ERC-8004).
   SEPOLIA_RPC_URL: optionalStr,
   ARC_RPC_URL: optionalStr,
 
