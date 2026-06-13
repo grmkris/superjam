@@ -50,7 +50,29 @@ Pre-flight confirmed CCTP V2 is live on Arc: `MessageTransmitter.localDomain() =
 
 (Burn on `sepolia.basescan.org`; mint on `https://testnet.arcscan.app`.)
 
+## hookData — atomic cross-chain stake into the escrow (LIVE, 2026-06-13)
+The flagship variant: a burn on any CCTP chain with `hookData = abi.encode(builder)`
+and `mintRecipient = the Arc hook contract` lands the USDC **directly as that
+builder's stake in the Arc marketplace, in one cross-chain action**. CCTP core treats
+hookData as opaque metadata, so we deploy the destination executor:
+- `packages/contracts/src/CctpEscrowHook.sol` — `relay(message, attestation)`:
+  `receiveMessage` mints to the hook → decodes `builder` from the message's hookData
+  (offset 376 = 148-byte V2 header + 228-byte BurnMessageV2 body) → `StakeSlash.depositFor(builder, minted)`.
+- `StakeSlash.depositFor(builder, amount)` — additive: credits a builder's stake from
+  a third-party (the hook) deposit. `cctp.ts` `bridge({hookData})` →
+  `depositForBurnWithHook` on source + `hook.relay` on dest.
+- Deployed on Arc: CctpEscrowHook `0xf67d3e49a010E973ec2AcdEF00cA24A7A6794ec8`,
+  StakeSlash(+depositFor) `0xA527879D4fc7538180771bd02CA6c3B0E609BD29`.
+
+| step | chain | tx |
+|---|---|---|
+| `depositForBurnWithHook` (burn + hook) | Base Sepolia (6) | `0x3db67d3deb505845dd7e8353e9524b55c7986f78a5a25947a296d6c9e954bb9c` |
+| `relay` → mint + `depositFor` (atomic) | Arc (26) | `0x74bbc06a5785e1944ff297cf49b7d27d601260add228a0abf659180c271f03f8` |
+
+Result: the builder's on-chain `stake` rose 0 → 0.02 USDC cross-chain — the mint and
+the escrow deposit happened in the single `relay` tx.
+
 ## Status
-Adapter built + unit-tested + **proven live** (table above). `bridge()` mints to a
-wallet today; the `hookData` variant (atomic deposit into the StakeSlash escrow on
-arrival) is the documented extension — not yet wired.
+Adapter built + unit-tested + **proven live** end-to-end: both the plain burn→mint
+and the **hookData atomic cross-chain stake** (tables above). 21 forge tests + 7 cctp
+unit tests pass.

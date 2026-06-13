@@ -142,6 +142,16 @@ contract StakeSlash {
         emit Deposited(msg.sender, amount);
     }
 
+    /// Deposit USDC stake ON BEHALF of `builder` (funds pulled from msg.sender,
+    /// after `approve`). Lets a CCTP hook (CctpEscrowHook) mint cross-chain USDC
+    /// and atomically credit a builder's stake in one arrival — "fund a build
+    /// from any chain into the Arc marketplace in one tx" (bounty #2 hookData).
+    function depositFor(address builder, uint256 amount) external {
+        _pullIn(msg.sender, amount);
+        stake[builder] += amount;
+        emit Deposited(builder, amount);
+    }
+
     /// Builder withdraws unlocked stake.
     function withdraw(uint256 amount) external {
         require(stake[msg.sender] >= amount, "insufficient free stake");

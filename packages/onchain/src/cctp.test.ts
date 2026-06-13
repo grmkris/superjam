@@ -2,13 +2,16 @@
 // attestation poller's success/timeout behaviour (mock fetch + sleep). The live
 // burn→mint flow is exercised by the gated integration test, not here.
 import { describe, expect, mock, test } from "bun:test";
+import { encodeAbiParameters } from "viem";
 import {
   CCTP_DOMAIN,
   CCTP_V2,
   FINALITY_STANDARD,
+  createCctp,
   fetchAttestation,
   toBytes32,
 } from "./cctp.ts";
+import { parseUsdc } from "./money.ts";
 
 describe("cctp constants + helpers", () => {
   test("domains: Base Sepolia 6, Arc 26", () => {
@@ -58,5 +61,71 @@ describe("fetchAttestation (Iris poller)", () => {
     await expect(
       fetchAttestation(6, burnTx, { fetchImpl, sleepMs: noSleep, maxAttempts: 3 })
     ).rejects.toMatchObject({ code: "RELAY_FAILED" });
+  });
+});
+
+describe("bridge() routing — plain vs hook", () => {
+  const irisOk = {
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({
+        messages: [{ status: "complete", message: "0xmsg", attestation: "0xatt" }],
+      }),
+    }),
+  };
+  const mkEndpoint = (chain: "baseSepolia" | "arcTestnet", calls: string[]) =>
+    ({
+      chain,
+      usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      account: { address: "0x0000000000000000000000000000000000000001" },
+      walletClient: {
+        chain: {},
+        writeContract: mock(async (a: { functionName: string; address: string }) => {
+          calls.push(`${a.functionName}@${a.address}`);
+          return `0x${"1".repeat(64)}`;
+        }),
+      },
+      publicClient: { waitForTransactionReceipt: mock(async () => ({})) },
+    }) as never;
+
+  test("hookData ⇒ depositForBurnWithHook on source + relay on the hook receiver", async () => {
+    const calls: string[] = [];
+    const cctp = createCctp({
+      source: mkEndpoint("baseSepolia", calls),
+      dest: mkEndpoint("arcTestnet", calls),
+      iris: irisOk,
+    });
+    await cctp.bridge({
+      amount: parseUsdc("0.05"),
+      mintRecipient: "0x00000000000000000000000000000000000000aa" as never,
+      hookData: encodeAbiParameters(
+        [{ type: "address" }],
+        ["0x00000000000000000000000000000000000000bb"]
+      ),
+    });
+    expect(calls.some((c) => c.startsWith("approve@"))).toBe(true);
+    expect(calls.some((c) => c.startsWith("depositForBurnWithHook@"))).toBe(true);
+    // dest leg calls relay on the hook (mintRecipient), NOT receiveMessage.
+    expect(
+      calls.some((c) => c.startsWith("relay@0x00000000000000000000000000000000000000aa"))
+    ).toBe(true);
+    expect(calls.some((c) => c.startsWith("receiveMessage@"))).toBe(false);
+  });
+
+  test("no hookData ⇒ depositForBurn + receiveMessage (unchanged path)", async () => {
+    const calls: string[] = [];
+    const cctp = createCctp({
+      source: mkEndpoint("baseSepolia", calls),
+      dest: mkEndpoint("arcTestnet", calls),
+      iris: irisOk,
+    });
+    await cctp.bridge({
+      amount: parseUsdc("0.05"),
+      mintRecipient: "0x00000000000000000000000000000000000000aa" as never,
+    });
+    expect(calls.some((c) => c.startsWith("depositForBurn@"))).toBe(true);
+    expect(calls.some((c) => c.startsWith("depositForBurnWithHook@"))).toBe(false);
+    expect(calls.some((c) => c.startsWith("receiveMessage@"))).toBe(true);
+    expect(calls.some((c) => c.startsWith("relay@"))).toBe(false);
   });
 });

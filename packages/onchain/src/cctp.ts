@@ -57,6 +57,22 @@ const TOKEN_MESSENGER_ABI = [
     ],
     outputs: [],
   },
+  {
+    type: "function",
+    name: "depositForBurnWithHook",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "amount", type: "uint256" },
+      { name: "destinationDomain", type: "uint32" },
+      { name: "mintRecipient", type: "bytes32" },
+      { name: "burnToken", type: "address" },
+      { name: "destinationCaller", type: "bytes32" },
+      { name: "maxFee", type: "uint256" },
+      { name: "minFinalityThreshold", type: "uint32" },
+      { name: "hookData", type: "bytes" },
+    ],
+    outputs: [],
+  },
 ] as const;
 
 const MESSAGE_TRANSMITTER_ABI = [
@@ -86,6 +102,25 @@ const ERC20_APPROVE_ABI = [
   },
 ] as const;
 
+// CctpEscrowHook (Arc) — the destination hook receiver: receiveMessage's the
+// mint to itself, then decodes hookData (a builder address) and deposits the
+// minted USDC into StakeSlash as that builder's stake. See packages/contracts.
+const ESCROW_HOOK_ABI = [
+  {
+    type: "function",
+    name: "relay",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "message", type: "bytes" },
+      { name: "attestation", type: "bytes" },
+    ],
+    outputs: [
+      { name: "builder", type: "address" },
+      { name: "minted", type: "uint256" },
+    ],
+  },
+] as const;
+
 /** A 20-byte address as the bytes32 CCTP expects (left-padded). */
 export const toBytes32 = (addr: Address): Hex => pad(addr, { size: 32 });
 
@@ -99,10 +134,17 @@ export interface CctpEndpoint {
 
 export interface BridgeParams {
   amount: Usdc;
-  /** Recipient of the freshly-minted USDC on the destination (wallet or escrow). */
+  /** Recipient of the freshly-minted USDC on the destination (wallet or escrow).
+   *  When `hookData` is set this MUST be the destination hook contract
+   *  (CctpEscrowHook) — it receives the mint, then executes the hook. */
   mintRecipient: Address;
   /** Standard (finalized) by default — no fee on testnet. */
   finalityThreshold?: number;
+  /** Opaque CCTP V2 hook payload, executed by the destination receiver after the
+   *  mint (bounty #2 atomic deposit-into-escrow). For CctpEscrowHook this is
+   *  `encodeAbiParameters([{type:"address"}], [builder])`. Triggers
+   *  `depositForBurnWithHook` instead of `depositForBurn`. */
+  hookData?: Hex;
 }
 
 /** Fetch attestation from Iris for a source-domain + burn tx. Resolves once
@@ -162,23 +204,44 @@ export const createCctp = ({
       args: [CCTP_V2.tokenMessenger, params.amount],
     });
     await source.publicClient.waitForTransactionReceipt({ hash: approveTxHash });
-    // 2) depositForBurn → emits MessageSent.
-    const burnTxHash = await source.walletClient.writeContract({
-      account: source.account,
-      chain: source.walletClient.chain,
-      address: CCTP_V2.tokenMessenger,
-      abi: TOKEN_MESSENGER_ABI,
-      functionName: "depositForBurn",
-      args: [
-        params.amount,
-        CCTP_DOMAIN[dest.chain],
-        toBytes32(params.mintRecipient),
-        source.usdc,
-        toBytes32("0x0000000000000000000000000000000000000000"), // any caller
-        0n, // maxFee (0 for standard/finalized)
-        finality,
-      ],
-    });
+    // 2) depositForBurn (+ optional hookData) → emits MessageSent. With a hook,
+    //    mintRecipient is the destination receiver (CctpEscrowHook) that mints
+    //    then executes the hook (bounty #2 atomic deposit-into-escrow).
+    const ZERO_CALLER = toBytes32("0x0000000000000000000000000000000000000000");
+    const burnTxHash = params.hookData
+      ? await source.walletClient.writeContract({
+          account: source.account,
+          chain: source.walletClient.chain,
+          address: CCTP_V2.tokenMessenger,
+          abi: TOKEN_MESSENGER_ABI,
+          functionName: "depositForBurnWithHook",
+          args: [
+            params.amount,
+            CCTP_DOMAIN[dest.chain],
+            toBytes32(params.mintRecipient),
+            source.usdc,
+            ZERO_CALLER,
+            0n,
+            finality,
+            params.hookData,
+          ],
+        })
+      : await source.walletClient.writeContract({
+          account: source.account,
+          chain: source.walletClient.chain,
+          address: CCTP_V2.tokenMessenger,
+          abi: TOKEN_MESSENGER_ABI,
+          functionName: "depositForBurn",
+          args: [
+            params.amount,
+            CCTP_DOMAIN[dest.chain],
+            toBytes32(params.mintRecipient),
+            source.usdc,
+            ZERO_CALLER, // any caller
+            0n, // maxFee (0 for standard/finalized)
+            finality,
+          ],
+        });
     await source.publicClient.waitForTransactionReceipt({ hash: burnTxHash });
     // 3) Iris attestation (slow).
     const { message, attestation } = await fetchAttestation(
@@ -186,15 +249,27 @@ export const createCctp = ({
       burnTxHash,
       iris
     );
-    // 4) receiveMessage on dest → mints native USDC.
-    const mintTxHash = await dest.walletClient.writeContract({
-      account: dest.account,
-      chain: dest.walletClient.chain,
-      address: CCTP_V2.messageTransmitter,
-      abi: MESSAGE_TRANSMITTER_ABI,
-      functionName: "receiveMessage",
-      args: [message, attestation],
-    });
+    // 4) Settle on dest. Plain transfer → receiveMessage on the MessageTransmitter
+    //    (mints to mintRecipient). Hook flow → call the receiver's `relay`, which
+    //    internally receiveMessage's (minting to itself) THEN executes the hook
+    //    (decodes hookData → deposits into the escrow). mintRecipient = the hook.
+    const mintTxHash = params.hookData
+      ? await dest.walletClient.writeContract({
+          account: dest.account,
+          chain: dest.walletClient.chain,
+          address: params.mintRecipient, // the CctpEscrowHook receiver
+          abi: ESCROW_HOOK_ABI,
+          functionName: "relay",
+          args: [message, attestation],
+        })
+      : await dest.walletClient.writeContract({
+          account: dest.account,
+          chain: dest.walletClient.chain,
+          address: CCTP_V2.messageTransmitter,
+          abi: MESSAGE_TRANSMITTER_ABI,
+          functionName: "receiveMessage",
+          args: [message, attestation],
+        });
     await dest.publicClient.waitForTransactionReceipt({ hash: mintTxHash });
     return { burnTxHash, mintTxHash };
   },
