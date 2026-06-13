@@ -50,6 +50,55 @@ export async function checkJwks(baseUrl: string): Promise<JwksCheck> {
   }
 }
 
+export interface AppCheck {
+  ok: boolean;
+  name?: string;
+  slug?: string;
+  capabilities?: string[];
+  framable?: boolean;
+  error?: string;
+}
+
+/** Verify a DEPLOYED external app is demo-ready: it serves a valid SuperJam
+ *  manifest AND allows the host to frame it. The #1 silent demo failure is an
+ *  app that refuses to be framed (X-Frame-Options / a frame-ancestors that
+ *  excludes superjam) → a blank iframe with only a console error. */
+export async function checkApp(appUrl: string): Promise<AppCheck> {
+  try {
+    const mres = await fetch(
+      new URL("/.well-known/superjam.json", appUrl).toString()
+    );
+    if (!mres.ok) return { ok: false, error: `manifest HTTP ${mres.status}` };
+    const m = (await mres.json()) as {
+      name?: string;
+      slug?: string;
+      capabilities?: string[];
+    };
+    if (!m.slug) return { ok: false, error: "manifest missing slug" };
+
+    // framing: a blocking X-Frame-Options, or a frame-ancestors that names
+    // origins but not superjam, means the host can't frame it.
+    const pres = await fetch(appUrl);
+    const xfo = (pres.headers.get("x-frame-options") ?? "").toLowerCase();
+    const csp = (pres.headers.get("content-security-policy") ?? "").toLowerCase();
+    const fa = csp.includes("frame-ancestors");
+    const framable =
+      !(xfo.includes("deny") || xfo.includes("sameorigin")) &&
+      (!fa || csp.includes("superjam"));
+
+    return {
+      ok: Boolean(m.slug) && framable,
+      name: m.name,
+      slug: m.slug,
+      capabilities: m.capabilities,
+      framable,
+      error: framable ? undefined : "app refuses framing (X-Frame-Options / CSP)",
+    };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 /** Verify an identity token exactly as an external app's backend would. */
 export async function verifyToken(
   baseUrl: string,
@@ -68,7 +117,28 @@ export async function verifyToken(
 }
 
 if (import.meta.main) {
-  const [baseUrl, token, appId, issuerArg] = process.argv.slice(2);
+  const argv = process.argv.slice(2);
+  // `--app <url>`: verify a deployed external app (manifest + framing).
+  const appFlag = argv.indexOf("--app");
+  if (appFlag !== -1) {
+    const appUrl = argv[appFlag + 1];
+    if (!appUrl) {
+      console.error("usage: --app <appUrl>");
+      process.exit(2);
+    }
+    const a = await checkApp(appUrl);
+    console.log(
+      `APP @ ${appUrl}: ${a.ok ? "OK ✓" : "FAIL ✗"}` +
+        (a.slug ? ` slug=${a.slug}` : "") +
+        (a.name ? ` name="${a.name}"` : "") +
+        (a.capabilities ? ` caps=[${a.capabilities.join(",")}]` : "") +
+        ` framable=${a.framable}` +
+        (a.error ? ` (${a.error})` : "")
+    );
+    process.exit(a.ok ? 0 : 1);
+  }
+
+  const [baseUrl, token, appId, issuerArg] = argv;
   if (!baseUrl) {
     console.error(
       "usage: bun packages/api/scripts/verify-seam-live.ts <baseUrl> [token] [appId] [issuer]"

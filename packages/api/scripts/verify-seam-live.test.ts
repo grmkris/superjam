@@ -4,7 +4,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { exportPKCS8, exportSPKI, generateKeyPair } from "jose";
 import { createAppTokenIssuer } from "../src/auth/app-token.ts";
-import { checkJwks, verifyToken } from "./verify-seam-live.ts";
+import { checkApp, checkJwks, verifyToken } from "./verify-seam-live.ts";
 
 const ISSUER = "https://superjam.fun";
 
@@ -71,5 +71,45 @@ describe("verify-seam-live", () => {
     const check = await checkJwks(`http://localhost:${srv.port}`);
     expect(check.ok).toBe(false);
     expect(check.error).toContain("empty");
+  });
+
+  // Mock external app: serves the manifest + (optionally) a framing header.
+  const serveApp = (xfo?: string) =>
+    Bun.serve({
+      port: 0,
+      fetch(req) {
+        const path = new URL(req.url).pathname;
+        if (path === "/.well-known/superjam.json") {
+          return Response.json({
+            version: "1",
+            name: "Guestbook",
+            slug: "guestbook",
+            capabilities: ["payments"],
+          });
+        }
+        const headers: Record<string, string> = {
+          "content-security-policy": "frame-ancestors https://superjam.fun;",
+        };
+        if (xfo) headers["x-frame-options"] = xfo;
+        return new Response("<html></html>", { headers });
+      },
+    });
+
+  test("a deployed app: valid manifest + framable", async () => {
+    const srv = serveApp();
+    servers.push(srv);
+    const a = await checkApp(`http://localhost:${srv.port}`);
+    expect(a.ok).toBe(true);
+    expect(a.slug).toBe("guestbook");
+    expect(a.framable).toBe(true);
+  });
+
+  test("flags an app that refuses framing (X-Frame-Options)", async () => {
+    const srv = serveApp("DENY");
+    servers.push(srv);
+    const a = await checkApp(`http://localhost:${srv.port}`);
+    expect(a.ok).toBe(false);
+    expect(a.framable).toBe(false);
+    expect(a.error).toContain("framing");
   });
 });
