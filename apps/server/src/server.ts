@@ -116,6 +116,15 @@ const onchain =
     erc8004: env.ERC8004_REGISTRY
       ? { identityRegistry: env.ERC8004_REGISTRY as `0x${string}` }
       : undefined,
+    // ENSv2-native (§16): mints `<slug>.superjam.eth` resolvable in standard ENS
+    // tooling (Sepolia L1 SuperjamRegistry, agent-owned). Distinct chain + signer
+    // from Durin. Absent ⇒ the v2 mint degrades (never fails a build).
+    ensV2:
+      env.ENS_V2_REGISTRY && env.SEPOLIA_RPC_URL && env.ENS_V2_SIGNER_KEY
+        ? { registry: env.ENS_V2_REGISTRY as `0x${string}` }
+        : undefined,
+    sepoliaRpcUrl: env.SEPOLIA_RPC_URL,
+    ensV2SignerKey: env.ENS_V2_SIGNER_KEY,
   }) ?? nullOnchain;
 // World ID 4.0 backend verifier (§14) — the human gate behind publish/reviews/
 // register-builder. Keyless (rpContext/verify reject) unless app_id + rp_id +

@@ -68,6 +68,11 @@ export const createMockOnchain = (
       node: `0x${"0".repeat(64)}` as Hex,
       txHash: fakeHash(),
     }),
+    mintV2Subname: async ({ slug }) => ({
+      ensName: `${slug}.superjam.eth`,
+      node: `0x${"0".repeat(64)}` as Hex,
+      txHash: fakeHash(),
+    }),
     listFromEns: async () => [],
     registerAgentIdentity: async (p) => ({
       erc8004Id: `8004:${p.agentId}`,

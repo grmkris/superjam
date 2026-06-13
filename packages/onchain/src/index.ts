@@ -10,13 +10,18 @@ import {
   type Hex,
   type PublicClient,
   createPublicClient,
+  createWalletClient,
   http,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { sepolia } from "viem/chains";
 import { CHAINS, type ChainKey, PUBLIC_CHAIN, USDC } from "./chains.ts";
 import { type EnsConfig, createEns } from "./ens.ts";
+import { type EnsV2, type EnsV2Config, createEnsV2 } from "./ens-v2.ts";
 import { type Erc8004Config, createErc8004 } from "./erc8004.ts";
 import { OnchainError } from "./errors.ts";
 import { type Usdc } from "./money.ts";
+import { createServerWallet } from "./viem-server-wallet.ts";
 import {
   type UnlinkClient,
   type UnlinkConfig,
@@ -53,6 +58,10 @@ export interface OnchainDeps {
   /** ERC-8004 reference registries (§16). Absent ⇒ 8004 ops degrade (never fail
    *  a register/review). Signs through the same Base-Sepolia ens client+wallet. */
   erc8004?: Erc8004Config;
+  /** ENSv2-native adapter — mints `<slug>.superjam.eth` resolvable in STANDARD
+   *  ENS tooling (Sepolia L1, distinct from Durin's Base-Sepolia L2). Pre-built
+   *  in createOnchainFromConfig. Absent ⇒ the v2 mint degrades (build unaffected). */
+  ensV2?: EnsV2;
 }
 
 export interface RelayParams {
@@ -70,6 +79,7 @@ export const createOnchain = ({
   ensClient,
   ensWallet,
   erc8004,
+  ensV2,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
     // publicClient is built for PUBLIC_CHAIN (Arc). A secondary `arcClient` slot
@@ -108,6 +118,13 @@ export const createOnchain = ({
     return erc8004Adapter;
   };
 
+  const requireEnsV2 = () => {
+    if (!ensV2) {
+      throw new OnchainError("ENS_WRITE_FAILED", "ENSv2 registry not configured");
+    }
+    return ensV2;
+  };
+
   return {
     /** The privileged signer's address — treasury-of-record for escrow/relay. */
     serverAddress: serverWallet.address,
@@ -142,6 +159,11 @@ export const createOnchain = ({
     /** The chain-sourced catalog (backs the feed, §16). */
     listFromEns: () => requireEns().listFromEns(),
 
+    // --- ENSv2-native (§16) — the RESOLVABLE name (standard ENS tooling). ---
+    /** Mint `<slug>.superjam.eth` natively in ENSv2 (Sepolia L1) -> owner. */
+    mintV2Subname: (params: Parameters<NonNullable<typeof ensV2>["mintSubname"]>[0]) =>
+      requireEnsV2().mintSubname(params),
+
     // --- ERC-8004 (§14/§16) — agent identity + reputation. Degrade-safe. ---
     /** Mint the agent's ERC-8004 identity NFT (→ the builder's wallet). */
     registerAgentIdentity: (
@@ -175,6 +197,14 @@ export interface OnchainConfig {
   ens?: EnsConfig;
   /** ERC-8004 reference registries (§16). Absent ⇒ 8004 ops degrade. */
   erc8004?: Erc8004Config;
+  /** ENSv2-native config (SuperjamRegistry on Sepolia L1, §16). Absent ⇒ the v2
+   *  mint degrades. Built into the live adapter with a dedicated Sepolia signer. */
+  ensV2?: EnsV2Config;
+  /** Sepolia (L1) RPC — the ENSv2 chain. Required for the v2 mint. */
+  sepoliaRpcUrl?: string;
+  /** Dedicated ENSv2 signer key — MUST own the SuperjamRegistry. Distinct from
+   *  the payment signer (the Dynamic wallet); this is the platform/ENS admin key. */
+  ensV2SignerKey?: string;
 }
 
 /** Compose a live Onchain from env-style config — the composition-root wiring
@@ -223,6 +253,30 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
         chainKey: "baseSepolia",
       }))
     : undefined;
+  // ENSv2-native: SuperjamRegistry on Sepolia (L1) — a self-contained
+  // IRegistry+resolver the agent owns. Distinct chain + signer from Durin's Base
+  // Sepolia: a dedicated Sepolia ServerWallet from ensV2SignerKey (the platform/
+  // ENS admin key that owns the registry), NOT the Dynamic payment wallet.
+  const ensV2Adapter =
+    cfg.ensV2 && cfg.sepoliaRpcUrl && cfg.ensV2SignerKey
+      ? (() => {
+          const sepoliaClient = createPublicClient({
+            chain: sepolia,
+            transport: http(cfg.sepoliaRpcUrl),
+          });
+          const account = privateKeyToAccount(cfg.ensV2SignerKey as Hex);
+          const sepoliaWallet = createServerWallet({
+            account,
+            walletClient: createWalletClient({
+              account,
+              chain: sepolia,
+              transport: http(cfg.sepoliaRpcUrl),
+            }),
+            publicClient: sepoliaClient,
+          });
+          return createEnsV2(sepoliaClient, sepoliaWallet, cfg.ensV2);
+        })()
+      : undefined;
   return createOnchain({
     publicClient,
     serverWallet,
@@ -232,6 +286,7 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     ensClient,
     ensWallet,
     erc8004: cfg.erc8004,
+    ensV2: ensV2Adapter,
   });
 };
 
@@ -256,6 +311,8 @@ export const nullOnchain: Onchain = {
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
   listFromEns: () =>
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
+  mintV2Subname: () =>
+    Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),
   registerAgentIdentity: () =>
     Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
   writeReputation: () =>
@@ -267,6 +324,7 @@ export const nullOnchain: Onchain = {
 // --- public surface (the cross-lane seams) ---
 export * from "./money.ts";
 export * from "./chains.ts";
+export * from "./ens-v2.ts";
 export * from "./transfer-auth.ts";
 export * from "./payment-intent.ts";
 export * from "./server-wallet.ts";

@@ -125,22 +125,54 @@ export const finalizeExternalApp = async (
         columns: { username: true, walletAddress: true },
       });
       if (owner?.walletAddress) {
-        const { ensName, txHash } = await onchain.mintApp({
-          slug: row.slug,
-          username: owner.username,
-          owner: owner.walletAddress as Address,
-          records: {
-            url: input.entryUrl,
-            category: row.category ?? undefined,
-            remixOf: row.remixOfAppId ?? undefined,
-          },
-        });
-        const [named] = await db
-          .update(app)
-          .set({ ensName, ensTxHash: txHash })
-          .where(eq(app.id, row.id))
-          .returning();
-        return named ?? row;
+        // Durin L2 (Base Sepolia) — the in-app / Basescan name. Best-effort;
+        // kept as the L2 ENS story.
+        let ensName: string | undefined;
+        let ensTxHash: string | undefined;
+        try {
+          const durin = await onchain.mintApp({
+            slug: row.slug,
+            username: owner.username,
+            owner: owner.walletAddress as Address,
+            records: {
+              url: input.entryUrl,
+              category: row.category ?? undefined,
+              remixOf: row.remixOfAppId ?? undefined,
+            },
+          });
+          ensName = durin.ensName;
+          ensTxHash = durin.txHash;
+        } catch (err) {
+          logger?.warn(
+            { err: String(err), appId: row.id },
+            "Durin L2 ENS mint failed (best-effort)"
+          );
+        }
+        // ENSv2-native (Sepolia L1) — the RESOLVABLE name in standard ENS tooling
+        // (viem/ethers/app.ens.domains). Surfaced as the jam's ENS, so it
+        // overrides the Durin name when it lands. Best-effort.
+        try {
+          const v2 = await onchain.mintV2Subname({
+            slug: row.slug,
+            owner: owner.walletAddress as Address,
+            records: { url: input.entryUrl },
+          });
+          ensName = v2.ensName;
+          ensTxHash = v2.txHash;
+        } catch (err) {
+          logger?.warn(
+            { err: String(err), appId: row.id },
+            "ENSv2 mint failed (best-effort, falls back to Durin name if any)"
+          );
+        }
+        if (ensName) {
+          const [named] = await db
+            .update(app)
+            .set({ ensName, ensTxHash })
+            .where(eq(app.id, row.id))
+            .returning();
+          return named ?? row;
+        }
       }
     } catch (err) {
       logger?.warn(
