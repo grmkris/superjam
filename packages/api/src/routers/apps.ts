@@ -28,17 +28,9 @@ import {
   publicProcedure,
   worldVerifiedProcedure,
 } from "../orpc.ts";
+import { decodeCursor, encodeCursor } from "../lib/cursor.ts";
 
 const { app, user, appCounter, appReview, build } = schema;
-
-// Offset cursors (mirrors review-service): opaque base64 page offset.
-const encodeCursor = (offset: number): string =>
-  Buffer.from(String(offset), "utf8").toString("base64url");
-const decodeCursor = (cursor?: string): number => {
-  if (!cursor) return 0;
-  const n = Number.parseInt(Buffer.from(cursor, "base64url").toString("utf8"), 10);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-};
 
 const isReserved = (slug: string): boolean =>
   (RESERVED_LABELS as readonly string[]).includes(slug);
