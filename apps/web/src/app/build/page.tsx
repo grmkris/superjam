@@ -236,9 +236,12 @@ function Header({ username }: { username: string }) {
     <div className="flex items-center gap-2.5">
       <EmojiToken emoji="⚡" color="yellow" size={32} tilt={-6} />
       <div className="font-extrabold text-lg">superjam</div>
-      <span className="ml-auto bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-[13px] font-semibold">
-        @{username}
-      </span>
+      <a
+        href="/me"
+        className="ml-auto bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-[13px] font-semibold no-underline text-ink"
+      >
+        @{username} ▾
+      </a>
     </div>
   );
 }

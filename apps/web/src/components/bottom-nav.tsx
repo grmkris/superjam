@@ -5,6 +5,9 @@
 // carries the unread badge — the app's one retention surface.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useHostAuth } from "../lib/use-host-auth";
+import { usePlatformClient } from "./use-platform-client";
 import { cx } from "./ui/cx";
 
 interface Tab {
@@ -21,8 +24,9 @@ const TABS: Tab[] = [
   { href: "/inbox", emoji: "✉️", label: "Inbox", match: (p) => p.startsWith("/inbox") },
 ];
 
-export function BottomNav({ unread = 0 }: { unread?: number }) {
+export function BottomNav() {
   const pathname = usePathname() ?? "/";
+  const unread = useUnreadCount(pathname);
   return (
     <nav className="flex border-t-2 border-ink bg-card px-2 pt-2.5 pb-7 shrink-0">
       {TABS.map((tab) => {
@@ -59,4 +63,35 @@ export function BottomNav({ unread = 0 }: { unread?: number }) {
       })}
     </nav>
   );
+}
+
+// Unread badge count — the retention surface. Refetches on route change (so
+// leaving /inbox after mark-all-read clears it) and on window focus.
+function useUnreadCount(pathname: string): number {
+  const client = usePlatformClient();
+  const { isLoggedIn } = useHostAuth();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setUnread(0);
+      return;
+    }
+    let cancelled = false;
+    const refresh = () =>
+      client.inbox
+        .list()
+        .then((r) => {
+          if (!cancelled) setUnread(r.unread);
+        })
+        .catch(() => {});
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refresh);
+    };
+  }, [client, isLoggedIn, pathname]);
+
+  return unread;
 }
