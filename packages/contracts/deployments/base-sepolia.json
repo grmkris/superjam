@@ -1,0 +1,23 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "rpc": "https://sepolia.base.org",
+  "explorer": "https://sepolia.basescan.org",
+  "deployedAt": "2026-06-13",
+  "tokens": {
+    "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  },
+  "ens": {
+    "l2Registry": "0x885539470960E479b6CE07BfA37963d07a3e20F8",
+    "parentName": "superjam.eth",
+    "parentNode": "0x9de486d9476d6da9b7ce1572705a1001a55179e2b92419de05f03ba6fe812171",
+    "durinFactory": "0xDddddDdDDD8Aa1f237b4fa0669cb46892346d22d",
+    "durinL1Resolver": "0x8A968aB9eb8C084FBC44c531058Fc9ef945c3D61",
+    "notes": "Durin L2Registry (ENS track). base node = namehash(superjam.eth), owned by the server wallet (admin → can createSubnode/addRegistrar). VERIFIED LIVE: minted alice.superjam.eth (totalSupply 2), SubnodeCreated event confirmed. listFromEns reads this registry directly (no L1 needed). OPTIONAL L1 production-resolution: register superjam.eth on Sepolia ENS → setResolver(durinL1Resolver) → setL2Registry(l2Registry, 84532)."
+  },
+  "cctp": {
+    "tokenMessengerV2": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+    "messageTransmitterV2": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+    "domain": 6
+  }
+}

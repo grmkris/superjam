@@ -43,6 +43,11 @@ export interface OnchainDeps {
   /** ENS L2Registry config (§16). Absent ⇒ ENS ops throw (S's pipeline
    *  try/catches; an ENS failure never fails a build). */
   ens?: EnsConfig;
+  /** Durin/ENS lives on Base Sepolia even when PUBLIC_CHAIN is Arc — so ENS reads
+   *  + subname mints use this dedicated Base Sepolia client + signer, not the Arc
+   *  public rail. Falls back to publicClient/serverWallet when unset. */
+  ensClient?: PublicClient;
+  ensWallet?: ServerWallet;
 }
 
 export interface RelayParams {
@@ -57,6 +62,8 @@ export const createOnchain = ({
   arcClient,
   unlink = nullUnlink,
   ens,
+  ensClient,
+  ensWallet,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
     // publicClient is built for PUBLIC_CHAIN (Arc). A secondary `arcClient` slot
@@ -68,8 +75,10 @@ export const createOnchain = ({
 
   // ENS lives on the public L2 (Base Sepolia). Absent config ⇒ ops throw
   // ENS_WRITE_FAILED so callers degrade (an ENS failure never fails a build).
+  // ENS is on Base Sepolia (Durin), distinct from the Arc public rail — use the
+  // dedicated ENS client+signer when provided, else fall back.
   const ensAdapter = ens
-    ? createEns(publicClient, serverWallet, ens)
+    ? createEns(ensClient ?? publicClient, ensWallet ?? serverWallet, ens)
     : null;
   const requireEns = () => {
     if (!ensAdapter) {
@@ -155,12 +164,26 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   const arcClient = secondaryRpc
     ? createPublicClient({ chain: secondaryChain, transport: http(secondaryRpc) })
     : undefined;
+  // ENS/Durin lives on Base Sepolia regardless of PUBLIC_CHAIN — build a dedicated
+  // Base Sepolia client + signer for it (same key, Base Sepolia chain).
+  const ensClient = cfg.ens
+    ? createPublicClient({ chain: CHAINS.baseSepolia, transport: http(cfg.baseSepoliaRpcUrl) })
+    : undefined;
+  const ensWallet = cfg.ens
+    ? createServerWalletFromKey({
+        privateKey: cfg.serverWalletPrivateKey as Hex,
+        rpcUrl: cfg.baseSepoliaRpcUrl,
+        chainKey: "baseSepolia",
+      })
+    : undefined;
   return createOnchain({
     publicClient,
     serverWallet,
     arcClient,
     unlink: cfg.unlink ? createUnlinkClient(cfg.unlink) : nullUnlink,
     ens: cfg.ens,
+    ensClient,
+    ensWallet,
   });
 };
 

@@ -14,13 +14,17 @@ import {
   type Hex,
   type PublicClient,
   concat,
+  hexToBytes,
   keccak256,
   labelhash,
 } from "viem";
 import { OnchainError } from "./errors.ts";
 import type { ServerWallet } from "./server-wallet.ts";
 
-// Minimal Durin L2Registry ABI (verify exact shapes at §23).
+// Durin L2Registry ABI — VERIFIED LIVE on Base Sepolia 2026-06-13 (deployed our
+// own registry via factory 0xDddd…d22d at 0x8855…20F8, minted alice.superjam.eth).
+// createSubnode/setText/text/owner signatures confirmed; the create event is
+// SubnodeCreated(node, DNS-encoded name, owner) — NOT the earlier "NewSubname" guess.
 export const L2_REGISTRY_ABI = [
   {
     type: "function",
@@ -64,13 +68,29 @@ export const L2_REGISTRY_ABI = [
   },
   {
     type: "event",
-    name: "NewSubname",
+    name: "SubnodeCreated",
     inputs: [
       { name: "node", type: "bytes32", indexed: true },
-      { name: "label", type: "string", indexed: false },
+      { name: "name", type: "bytes", indexed: false }, // DNS-encoded full name
+      { name: "owner", type: "address", indexed: false },
     ],
   },
 ] as const;
+
+/** Decode a DNS-encoded ENS name (len-prefixed labels, 0-terminated) to dotted
+ *  form, e.g. 0x05616c696365...00 → "alice.superjam.eth". */
+export const decodeDnsName = (hex: `0x${string}`): string => {
+  const bytes = hexToBytes(hex);
+  const labels: string[] = [];
+  let i = 0;
+  while (i < bytes.length) {
+    const len = bytes[i]!;
+    if (len === 0) break;
+    labels.push(new TextDecoder().decode(bytes.slice(i + 1, i + 1 + len)));
+    i += 1 + len;
+  }
+  return labels.join(".");
+};
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
@@ -232,8 +252,9 @@ export const createEns = (
       };
     },
 
-    /** The chain-sourced catalog (§16): walk NewSubname logs, resolve text
-     *  records, cache 60s. Backs the feed — delete the DB, this survives. */
+    /** The chain-sourced catalog (§16): walk SubnodeCreated logs (the full
+     *  DNS-encoded name is in the event), resolve text records, cache 60s. Backs
+     *  the feed — delete the DB, this survives. */
     async listFromEns(): Promise<EnsCatalogRow[]> {
       const key = config.registryAddress.toLowerCase();
       const cached = catalogCache.get(key);
@@ -243,7 +264,7 @@ export const createEns = (
 
       const logs = await client.getLogs({
         address: config.registryAddress,
-        event: L2_REGISTRY_ABI[4],
+        event: L2_REGISTRY_ABI[4], // SubnodeCreated(node, name, owner)
         fromBlock: config.deployBlock ?? 0n,
         toBlock: "latest",
       });
@@ -251,8 +272,10 @@ export const createEns = (
       const rows: EnsCatalogRow[] = [];
       for (const log of logs) {
         const node = log.args.node as Hex | undefined;
-        const label = log.args.label as string | undefined;
-        if (!node || !label) continue;
+        const nameBytes = log.args.name as Hex | undefined;
+        if (!node || !nameBytes) continue;
+        const name = decodeDnsName(nameBytes); // e.g. "tipjar.alice.superjam.eth"
+        const label = name.split(".")[0] ?? name;
         const [url, description, avatar, category, remixOf] = [
           await readText(node, "url"),
           await readText(node, "description"),
@@ -261,10 +284,7 @@ export const createEns = (
           await readText(node, "app.remixOf"),
         ];
         rows.push({
-          // Best-effort display name from the label; the `url` record is the
-          // authoritative web link (two-level reconstruction needs the event's
-          // parentNode — verify the Durin event shape at §23).
-          name: `${label}.${config.parentName}`,
+          name, // the authoritative full ENS name, straight from the event
           label,
           node,
           url: url || undefined,

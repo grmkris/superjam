@@ -1,9 +1,10 @@
 // ENS adapter at the seam (§16, mock viem clients). mintApp ensures the user
 // node then mints the jam node + sets app.* records; ensureUserNode is
-// idempotent; listFromEns walks NewSubname logs into catalog rows.
+// idempotent; listFromEns walks SubnodeCreated logs into catalog rows.
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { Address, Hex, PublicClient } from "viem";
-import { createEns, subnode } from "./ens.ts";
+import { type Address, type Hex, type PublicClient, toHex } from "viem";
+import { packetToBytes } from "viem/ens";
+import { createEns, decodeDnsName, subnode } from "./ens.ts";
 import type { ServerWallet } from "./server-wallet.ts";
 
 const REGISTRY = "0x00000000000000000000000000000000000re61" as Address;
@@ -21,7 +22,7 @@ const config = {
 interface MockState {
   owners: Map<string, Address>; // node → owner (absent ⇒ ZERO)
   texts: Map<string, string>; // `${node}:${key}` → value
-  logs: { args: { node: Hex; label: string } }[];
+  logs: { args: { node: Hex; name: Hex } }[]; // SubnodeCreated(node, DNS-name, owner)
 }
 
 const writes: { functionName: string; args: readonly unknown[] }[] = [];
@@ -107,7 +108,14 @@ describe("ens adapter", () => {
     expect(writes.filter((w) => w.functionName === "createSubnode")).toHaveLength(1);
   });
 
-  test("listFromEns walks NewSubname logs → catalog rows with records", async () => {
+  test("decodeDnsName decodes the real on-chain SubnodeCreated name bytes", () => {
+    // The exact bytes emitted by the live alice.superjam.eth mint (Base Sepolia).
+    expect(decodeDnsName("0x05616c6963650873757065726a616d0365746800")).toBe(
+      "alice.superjam.eth"
+    );
+  });
+
+  test("listFromEns walks SubnodeCreated logs → catalog rows with records", async () => {
     const node = subnode(subnode(PARENT, "alice"), "tip-jar");
     const s: MockState = {
       owners: new Map(),
@@ -115,7 +123,7 @@ describe("ens adapter", () => {
         [`${node}:url`, "https://superjam.fun/app/tip-jar"],
         [`${node}:app.category`, "tool"],
       ]),
-      logs: [{ args: { node, label: "tip-jar" } }],
+      logs: [{ args: { node, name: toHex(packetToBytes("tip-jar.alice.superjam.eth")) } }],
     };
     const ens = createEns(mockClient(s), mockWallet, {
       ...config,
@@ -123,6 +131,7 @@ describe("ens adapter", () => {
     });
     const rows = await ens.listFromEns();
     expect(rows).toHaveLength(1);
+    expect(rows[0]!.name).toBe("tip-jar.alice.superjam.eth"); // full name from the event
     expect(rows[0]!.label).toBe("tip-jar");
     expect(rows[0]!.url).toBe("https://superjam.fun/app/tip-jar");
     expect(rows[0]!.category).toBe("tool");
