@@ -5,7 +5,7 @@ import { createAgentIdentity } from "./agent-identity-impl.ts";
 import { createAgentReputation } from "./agent-reputation-impl.ts";
 
 describe("createAgentIdentity.provision (live, over onchain)", () => {
-  test("returns both the ENS name and the ERC-8004 id", async () => {
+  test("returns the ENSv2 name and the ERC-8004 id", async () => {
     const identity = createAgentIdentity(createMockOnchain());
     const res = await identity.provision({
       agentId: "ba_1",
@@ -14,7 +14,7 @@ describe("createAgentIdentity.provision (live, over onchain)", () => {
       ownerWallet: "0x" + "1".repeat(40),
       walletAddress: "0x" + "a".repeat(40),
     });
-    expect(res.ensName).toBe("forge.maria.superjam.eth");
+    expect(res.ensName).toBe("forge.superjam.eth"); // ENSv2 flat subname
     expect(res.erc8004Id).toBe("8004:ba_1");
   });
 
