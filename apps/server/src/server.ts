@@ -1,0 +1,63 @@
+// SuperJam server (§6/§12): Hono + oRPC over /rpc/*, health, bundle serving
+// (added M3). Migrations run on boot (§18). The deployed image ships no Claude
+// CLI — agent builds dispatch to the dev-box builder (§11).
+import { serve } from "@hono/node-server";
+import {
+  appRouter,
+  createContext,
+  createDynamicVerifier,
+} from "@superjam/api";
+import { createDb, runMigrations } from "@superjam/db";
+import { createLogger } from "@superjam/logger";
+import { SERVICE_URLS } from "@superjam/shared";
+import { RPCHandler } from "@orpc/server/fetch";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { env } from "./env.ts";
+
+const logger = createLogger({
+  name: "server",
+  level: env.LOG_LEVEL,
+  pretty: env.APP_ENV === "local",
+});
+
+const { db } = createDb(env.DATABASE_URL);
+await runMigrations(db);
+logger.info("migrations applied");
+
+const auth = createDynamicVerifier(env.DYNAMIC_ENVIRONMENT_ID ?? "");
+const rpc = new RPCHandler(appRouter);
+
+const app = new Hono();
+
+app.use(
+  "/rpc/*",
+  cors({
+    origin: [SERVICE_URLS.local.web, SERVICE_URLS.dev.web, SERVICE_URLS.prod.web],
+    allowHeaders: ["Authorization", "Content-Type"],
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
+  })
+);
+
+app.get("/health", (c) => c.text("OK"));
+
+app.use("/rpc/*", async (c, next) => {
+  const { matched, response } = await rpc.handle(c.req.raw, {
+    prefix: "/rpc",
+    context: createContext({
+      db,
+      logger,
+      auth,
+      headers: c.req.raw.headers,
+    }),
+  });
+  if (matched && response) {
+    return response;
+  }
+  await next();
+});
+
+const port = process.env.PORT ? Number(process.env.PORT) : 4701;
+serve({ fetch: app.fetch, port, hostname: "::" });
+logger.info({ port }, "server listening");
