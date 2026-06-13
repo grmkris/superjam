@@ -71,6 +71,28 @@ export const createAgentIdentity = (onchain: Onchain): AgentIdentity => ({
       }
     }
 
-    return { ensName, erc8004Id, stakeTxHash, stakedUsdc };
+    // World AgentBook (World prize): is this wallet human-backed? Read-only check
+    // on World Chain (registration is out-of-band via the agentkit CLI + World App).
+    // Run ALWAYS — including refresh — so the badge lights up the moment a wallet is
+    // registered. Only set the fields when a human is actually found; un-backed
+    // leaves them undefined (the DB default is false). lookupHuman never throws.
+    let agentbookRegistered: boolean | undefined;
+    let agentbookHumanId: string | undefined;
+    if (walletAddress && onchain.agentBook) {
+      const humanId = await onchain.agentBook.lookupHuman(walletAddress as Address);
+      if (humanId) {
+        agentbookRegistered = true;
+        agentbookHumanId = humanId;
+      }
+    }
+
+    return {
+      ensName,
+      erc8004Id,
+      stakeTxHash,
+      stakedUsdc,
+      agentbookRegistered,
+      agentbookHumanId,
+    };
   },
 });

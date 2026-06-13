@@ -14,7 +14,7 @@ import {
   http,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
+import { sepolia, worldchain } from "viem/chains";
 import { CHAINS, type ChainKey, PUBLIC_CHAIN, USDC } from "./chains.ts";
 import {
   type BridgeParams,
@@ -26,6 +26,7 @@ import {
 import { type EnsV2, type EnsV2Config, createEnsV2 } from "./ens-v2.ts";
 import { type Erc8004Config, createErc8004 } from "./erc8004.ts";
 import { type StakeSlash, createStakeSlash } from "./staking/stake-slash.ts";
+import { type AgentBook, createAgentBook, nullAgentBook } from "./agentbook/agent-book.ts";
 import { OnchainError } from "./errors.ts";
 import { type Usdc, usdc } from "./money.ts";
 import { createServerWallet } from "./viem-server-wallet.ts";
@@ -70,6 +71,9 @@ export interface OnchainDeps {
   /** StakeSlash yield-bearing escrow on Arc (builder stakes earn yield). Absent ⇒
    *  `onchain.stakeSlash` is null and staking degrades (never fails a register). */
   stakeSlash?: StakeSlash;
+  /** World AgentBook reader (human-backed detection, World Chain). Read-only +
+   *  public; defaults to the null stub (always-callable, resolves null). */
+  agentBook?: AgentBook;
 }
 
 /** Platform-funding bridge: burn USDC on Sepolia → mint native USDC on Arc. */
@@ -99,6 +103,7 @@ export const createOnchain = ({
   ensV2,
   cctp,
   stakeSlash,
+  agentBook = nullAgentBook,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
     // Arc is the only money chain — publicClient is built for PUBLIC_CHAIN.
@@ -208,6 +213,11 @@ export const createOnchain = ({
     //     `null` when unconfigured ⇒ callers `if (onchain.stakeSlash)` and degrade
     //     (a staking failure never blocks agent registration). ---
     stakeSlash: stakeSlash ?? null,
+
+    // --- World AgentBook (§14, World prize) — read-only human-backed detection.
+    //     Always present (null stub when unconfigured), so callers can call
+    //     `onchain.agentBook.lookupHuman(addr)` without a guard. ---
+    agentBook,
   };
 };
 
@@ -238,6 +248,10 @@ export interface OnchainConfig {
   /** StakeSlash yield-escrow address on Arc (Circle #1). Absent ⇒ staking degrades.
    *  Signs via the Arc server wallet (the Dynamic MPC wallet sponsors seed stakes). */
   stakeSlashAddress?: string;
+  /** World Chain (480) RPC for the AgentBook read. Absent ⇒ viem's public default. */
+  worldchainRpcUrl?: string;
+  /** AgentBook contract override. Absent ⇒ the canonical World Chain deployment. */
+  agentBookAddress?: string;
 }
 
 /** Compose a live Onchain from env-style config — the composition-root wiring
@@ -340,6 +354,15 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
         publicClient,
       })
     : undefined;
+  // AgentBook (human-backed detection) — a dedicated World Chain (480) read client.
+  // Read-only + public (no key), so always built; RPC falls back to viem's default.
+  const agentBookAdapter = createAgentBook({
+    publicClient: createPublicClient({
+      chain: worldchain,
+      transport: http(cfg.worldchainRpcUrl),
+    }) as PublicClient,
+    address: cfg.agentBookAddress as Address | undefined,
+  });
   return createOnchain({
     publicClient,
     serverWallet,
@@ -350,6 +373,7 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     ensV2: ensV2Adapter,
     cctp: cctpBridge,
     stakeSlash: stakeSlashAdapter,
+    agentBook: agentBookAdapter,
   });
 };
 
@@ -375,6 +399,7 @@ export const nullOnchain: Onchain = {
   ensV2Addr: () =>
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),
   stakeSlash: null,
+  agentBook: nullAgentBook,
   registerAgentIdentity: () =>
     Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
   writeReputation: () =>
@@ -401,6 +426,7 @@ export * from "./unlink-transport.ts";
 // "./unlink-user.ts" (scripts/tests do). Re-export here only behind a server-
 // only subpath if the api ever needs it.
 export * from "./erc8004.ts";
+export * from "./agentbook/agent-book.ts";
 export * from "./cctp.ts";
 export * from "./verify.ts";
 export * from "./errors.ts";

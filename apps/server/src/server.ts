@@ -117,6 +117,10 @@ const onchain =
     // StakeSlash yield-escrow on Arc (Circle #1) — agent stakes earn yield. Absent
     // ⇒ onchain.stakeSlash is null and staking degrades (never blocks a register).
     stakeSlashAddress: env.STAKE_SLASH_ADDRESS,
+    // World AgentBook (World prize) — read-only human-backed detection on World Chain.
+    // Both default (canonical contract + public RPC), so this works with no env set.
+    worldchainRpcUrl: env.WORLDCHAIN_RPC_URL,
+    agentBookAddress: env.AGENTBOOK_ADDRESS,
   }) ?? nullOnchain;
 // Per-user private-payments rail (§23): the server signs AS the user via Dynamic
 // delegated access (no per-tx popup). Live only when the delegation private key +

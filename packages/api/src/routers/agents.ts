@@ -212,6 +212,16 @@ export const refreshAgentIdentity = async (
       patch.stakeTxHash = identity.stakeTxHash;
       patch.stakedUsdc = identity.stakedUsdc ?? null;
     }
+    // AgentBook is a fresh read every refresh — persist it authoritatively (flips
+    // the badge true once the wallet is registered) when it actually changed.
+    if (
+      identity.agentbookRegistered !== undefined &&
+      (identity.agentbookRegistered !== agent.agentbookRegistered ||
+        (identity.agentbookHumanId ?? null) !== agent.agentbookHumanId)
+    ) {
+      patch.agentbookRegistered = identity.agentbookRegistered;
+      patch.agentbookHumanId = identity.agentbookHumanId ?? null;
+    }
     if (Object.keys(patch).length === 0) return agent;
     const [updated] = await db
       .update(builderAgent)

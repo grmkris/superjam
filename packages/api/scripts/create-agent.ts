@@ -105,6 +105,8 @@ const onchain =
       ? { identityRegistry: process.env.ERC8004_REGISTRY as `0x${string}` }
       : undefined,
     stakeSlashAddress: process.env.STAKE_SLASH_ADDRESS,
+    worldchainRpcUrl: process.env.WORLDCHAIN_RPC_URL,
+    agentBookAddress: process.env.AGENTBOOK_ADDRESS,
   }) ?? nullOnchain;
 console.log(`onchain: ${onchain === nullOnchain ? "NULL (identity skipped)" : "live (ENS+8004+stake)"}`);
 

@@ -76,6 +76,10 @@ export const serverEnvSchema = z.object({
   // StakeSlash yield-escrow on Arc (Circle #1). Absent ⇒ agent staking degrades.
   STAKE_SLASH_ADDRESS: optionalStr,
   TREASURY_ADDRESS: optionalStr,
+  // World Chain (480) RPC for the AgentBook human-backed read. Absent ⇒ public default.
+  WORLDCHAIN_RPC_URL: optionalStr,
+  // AgentBook contract override. Absent ⇒ the canonical World Chain deployment.
+  AGENTBOOK_ADDRESS: optionalStr,
   // Sepolia L1 RPC — the single identity chain (ENSv2 + ERC-8004).
   SEPOLIA_RPC_URL: optionalStr,
   ARC_RPC_URL: optionalStr,

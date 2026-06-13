@@ -46,6 +46,7 @@ export const createMockOnchain = (
     sends,
     bridges,
     stakeSlash: null,
+    agentBook: { lookupHuman: async () => null },
     setVerify(fn) {
       verify = fn;
     },
