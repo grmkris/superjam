@@ -78,7 +78,10 @@ export function AppFrame({
       getToken: () => authToken,
     });
     const bridge = createHostBridge(
-      makeHostHandlers(client, window.location.origin, { getAddress })
+      makeHostHandlers(client, window.location.origin, {
+        getAddress,
+        jam: { name: app.name, iconEmoji: app.iconEmoji },
+      })
     );
     const detach = bridge.start();
 

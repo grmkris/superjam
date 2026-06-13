@@ -42,10 +42,17 @@ export interface BridgeHandlers {
   /** Mint the platform identity token for this app + the session user (§1).
    *  Server-side (auth.mintAppToken) — the signing key never reaches the host. */
   getToken(appId: string): Promise<{ token: string; exp: number }>;
+  /** Confirm-gated payment (§6): raises the host confirm sheet, then relays.
+   *  Rejects with code USER_REJECTED / QUOTA_EXCEEDED (over-cap) / BAD_REQUEST. */
+  payUSDC(
+    appId: string,
+    params: Record<string, unknown>
+  ): Promise<{ hash: string }>;
 }
 
-// Methods routed to the oRPC bridge router (server-stamped identity). Wired in
-// M3; money/ai/pot/files arrive in M5/M6/M8.
+// Methods routed straight to the oRPC bridge router (server-stamped identity,
+// no human confirm needed): reads + non-money writes. The flat method string
+// MUST match the nested bridge router key (e.g. pot.get → bridgeRouter.pot.get).
 const SERVER_METHODS = new Set<BridgeMethod>([
   "storage.get",
   "storage.getMany",
@@ -62,19 +69,22 @@ const SERVER_METHODS = new Set<BridgeMethod>([
   "counter.top",
   "messages.send",
   "messages.list",
-]);
-
-const NOT_YET = new Set<BridgeMethod>([
-  "wallet.sendTransaction",
-  "payments.payUSDC",
-  "payments.usdcBalance",
-  "payments.payX402",
-  "payments.mine",
   "ai.chat",
+  "payments.mine",
   "pot.create",
-  "pot.stake",
   "pot.get",
   "pot.resolve",
+]);
+
+// Not yet routable. payments.usdcBalance: bridge key is `balance` (coordinate a
+// rename with lane C before routing). pot.stake / payX402 / wallet.sendTransaction:
+// money-out paths still being wired through the confirm sheet. files.upload +
+// data.subscribe/unsubscribe: no bridge handler yet.
+const NOT_YET = new Set<BridgeMethod>([
+  "wallet.sendTransaction",
+  "payments.usdcBalance",
+  "payments.payX402",
+  "pot.stake",
   "files.upload",
   "data.subscribe",
   "data.unsubscribe",
@@ -85,6 +95,8 @@ const toTjCode = (code: unknown): TJErrorCode => {
   switch (code) {
     case "QUOTA_EXCEEDED":
       return "QUOTA_EXCEEDED";
+    case "USER_REJECTED":
+      return "USER_REJECTED";
     case "RATE_LIMITED":
       return "RATE_LIMITED";
     case "BAD_REQUEST":
@@ -155,6 +167,9 @@ export const dispatch = async (
     }
     if (method === "auth.getToken") {
       return tjOk(id, await handlers.getToken(reg.appId));
+    }
+    if (method === "payments.payUSDC") {
+      return tjOk(id, await handlers.payUSDC(reg.appId, p));
     }
     if (SERVER_METHODS.has(method)) {
       return tjOk(id, await handlers.call(method, reg.appId, p));

@@ -40,6 +40,7 @@ const handlers = (over: Partial<BridgeHandlers> = {}): BridgeHandlers => ({
   toast: () => {},
   getAddress: async () => "0xabc",
   getToken: async () => ({ token: "tok", exp: 0 }),
+  payUSDC: async () => ({ hash: "0xpay" }),
   ...over,
 });
 
@@ -117,12 +118,66 @@ describe("dispatch", () => {
 
   test("granted-but-unimplemented method → INTERNAL (not yet)", async () => {
     const r = await dispatch(
-      req("payments.payUSDC", { amount: "1" }),
+      req("payments.payX402", { url: "https://x" }),
       reg(["payments"]),
       handlers(),
       always
     );
     expect(!r.ok && r.error.code).toBe("INTERNAL");
+  });
+
+  test("payments.payUSDC is host-local (confirm-gated), not a server call", async () => {
+    let serverCalled = false;
+    let paidAppId = "";
+    const h = handlers({
+      call: async () => {
+        serverCalled = true;
+        return {};
+      },
+      payUSDC: async (appId) => {
+        paidAppId = appId;
+        return { hash: "0xtip" };
+      },
+    });
+    const r = await dispatch(
+      req("payments.payUSDC", { amount: "1" }),
+      reg(["payments"]),
+      h,
+      always
+    );
+    expect(r.ok && (r.result as { hash: string }).hash).toBe("0xtip");
+    expect(paidAppId).toBe("app_x");
+    expect(serverCalled).toBe(false); // NEVER routed straight to the server
+  });
+
+  test("ai.chat now routes to the server bridge (was not-yet)", async () => {
+    let seenMethod = "";
+    const h = handlers({
+      call: async (method) => {
+        seenMethod = method;
+        return { text: "hi" };
+      },
+    });
+    const r = await dispatch(req("ai.chat", { messages: [] }), reg(["ai"]), h, always);
+    expect(r.ok && (r.result as { text: string }).text).toBe("hi");
+    expect(seenMethod).toBe("ai.chat");
+  });
+
+  test("USER_REJECTED maps to the envelope", async () => {
+    const h = handlers({
+      payUSDC: async () => {
+        throw Object.assign(new Error("Payment cancelled"), {
+          code: "USER_REJECTED",
+        });
+      },
+    });
+    const r = await dispatch(
+      req("payments.payUSDC", { amount: "1" }),
+      reg(["payments"]),
+      h,
+      always
+    );
+    expect(!r.ok && r.error.code).toBe("USER_REJECTED");
   });
 
   test("rate limit → RATE_LIMITED", async () => {

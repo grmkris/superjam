@@ -6,13 +6,24 @@
 // host-bridge NOT_YET set rejects them.
 import type { AppRouterClient } from "@superjam/api/client";
 import type { AppId, BridgeMethod } from "@superjam/shared";
+import {
+  type ConfirmKind,
+  OverCapError,
+  requestConfirm,
+} from "../components/confirm/confirm-controller";
 import type { BridgeHandlers } from "./bridge/host-bridge";
 
 type AnyCall = (input: Record<string, unknown>) => Promise<unknown>;
 
+/** Tag a plain Error with a §8 code the host-bridge maps onto the TJ envelope. */
+const coded = (code: string, message: string): Error =>
+  Object.assign(new Error(message), { code });
+
 export interface HostHandlerOpts {
   /** Resolve the viewer's wallet address (Dynamic embedded wallet). */
   getAddress?: () => Promise<string>;
+  /** Jam attribution shown on the confirm sheet header. */
+  jam?: { name: string; iconEmoji: string };
 }
 
 export const makeHostHandlers = (
@@ -61,4 +72,38 @@ export const makeHostHandlers = (
   // Mint a short-lived identity token for this app + the session user (§1).
   // appId comes from the trusted registration; brand it for the typed input.
   getToken: (appId) => client.auth.mintAppToken({ appId: appId as AppId }),
+
+  // CONFIRM-GATED money (§6): payUSDC NEVER routes straight to the server — it
+  // raises P's host-rendered confirm sheet (requestConfirm), which signs with
+  // the Dynamic wallet + relays via C's payments. The jam can't move money
+  // without the human tapping approve. Over-cap is rejected before the sheet.
+  payUSDC: async (appId, params) => {
+    const amountUsdc = Number(params.amount);
+    if (!Number.isFinite(amountUsdc) || amountUsdc <= 0) {
+      throw coded("BAD_REQUEST", "Invalid amount");
+    }
+    const to = typeof params.to === "string" ? params.to : "appTreasury";
+    // @username = paying another human; otherwise a tip to the app treasury.
+    const kind: ConfirmKind = to.startsWith("@") ? "payFriend" : "tip";
+    let result;
+    try {
+      result = await requestConfirm({
+        kind,
+        to,
+        amountUsdc,
+        appId,
+        memo: typeof params.memo === "string" ? params.memo : undefined,
+        jam: opts.jam,
+      });
+    } catch (err) {
+      if (err instanceof OverCapError) {
+        throw coded("QUOTA_EXCEEDED", err.message);
+      }
+      throw err;
+    }
+    if (!result.approved) {
+      throw coded("USER_REJECTED", "Payment cancelled");
+    }
+    return { hash: result.txHash ?? "" };
+  },
 });
