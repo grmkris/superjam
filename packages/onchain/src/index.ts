@@ -11,7 +11,7 @@ import {
   createPublicClient,
   http,
 } from "viem";
-import { CHAINS, type ChainKey, PRIVATE_CHAIN, USDC } from "./chains.ts";
+import { CHAINS, type ChainKey, PUBLIC_CHAIN, USDC } from "./chains.ts";
 import { type EnsConfig, createEns } from "./ens.ts";
 import { OnchainError } from "./errors.ts";
 import { type Usdc } from "./money.ts";
@@ -59,13 +59,11 @@ export const createOnchain = ({
   ens,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
-    if (chain === PRIVATE_CHAIN) {
-      if (!arcClient) {
-        throw new OnchainError("CHAIN_UNAVAILABLE", "Arc client not configured");
-      }
-      return arcClient;
-    }
-    return publicClient;
+    // publicClient is built for PUBLIC_CHAIN (Arc). A secondary `arcClient` slot
+    // holds any OTHER chain's client (e.g. the Base Sepolia CCTP source, #2).
+    if (chain === PUBLIC_CHAIN) return publicClient;
+    if (arcClient) return arcClient;
+    throw new OnchainError("CHAIN_UNAVAILABLE", `no client for ${chain}`);
   };
 
   // ENS lives on the public L2 (Base Sepolia). Absent config ⇒ ops throw
@@ -134,17 +132,28 @@ export interface OnchainConfig {
  *  back to nullOnchain. Unlink stays degraded until a transport is wired (§23). */
 export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   if (!cfg.serverWalletPrivateKey) return null;
+  // Public/provable rail = PUBLIC_CHAIN (Arc). Gas = USDC on Arc, so the server
+  // wallet relays/sends paying USDC — no ETH/paymaster. RPC picked per chain.
+  const publicRpc =
+    PUBLIC_CHAIN === "arcTestnet" ? cfg.arcRpcUrl : cfg.baseSepoliaRpcUrl;
   const publicClient = createPublicClient({
-    chain: CHAINS.baseSepolia,
-    transport: http(cfg.baseSepoliaRpcUrl),
+    chain: CHAINS[PUBLIC_CHAIN],
+    transport: http(publicRpc),
   });
   const serverWallet = createServerWalletFromKey({
     privateKey: cfg.serverWalletPrivateKey as Hex,
-    rpcUrl: cfg.baseSepoliaRpcUrl,
-    chainKey: "baseSepolia",
+    rpcUrl: publicRpc,
+    chainKey: PUBLIC_CHAIN,
   });
-  const arcClient = cfg.arcRpcUrl
-    ? createPublicClient({ chain: CHAINS.arcTestnet, transport: http(cfg.arcRpcUrl) })
+  // Secondary client = the OTHER chain (Base Sepolia when public is Arc) — used
+  // for cross-chain reads (the CCTP #2 source). Stored in the `arcClient` slot
+  // (= "non-public client" via clientFor).
+  const secondaryRpc =
+    PUBLIC_CHAIN === "arcTestnet" ? cfg.baseSepoliaRpcUrl : cfg.arcRpcUrl;
+  const secondaryChain =
+    PUBLIC_CHAIN === "arcTestnet" ? CHAINS.baseSepolia : CHAINS.arcTestnet;
+  const arcClient = secondaryRpc
+    ? createPublicClient({ chain: secondaryChain, transport: http(secondaryRpc) })
     : undefined;
   return createOnchain({
     publicClient,

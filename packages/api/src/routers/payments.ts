@@ -81,6 +81,16 @@ export const paymentsRouter = {
         };
       }
 
+      // pot stake → the escrow custodian (the agent server wallet). The host's
+      // stakePot confirm (kind "stake") routes USDC here, then proves it via
+      // bridge.pot.stake (verifyUsdcTransfer expectedTo = escrow). (Opus P seam.)
+      if (raw === "potEscrow") {
+        return {
+          address: getAddress(context.onchain.serverAddress),
+          displayName: "the pot",
+        };
+      }
+
       // tip to the app treasury (falls back to the owner's wallet)
       if (raw === "appTreasury") {
         if (!input.appId) {

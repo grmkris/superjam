@@ -62,7 +62,12 @@ export const USDC: Record<ChainKey, UsdcToken> = {
   },
 };
 
-/** The public, provable rail (publish fee, pot stakes, paid builds, §15). */
-export const PUBLIC_CHAIN: ChainKey = "baseSepolia";
-/** The private-by-default rail (tips, pay-actions via Unlink, §15). */
+/** The public, provable rail — now **Arc** (all-Arc decision 2026-06-13): publish
+ *  fee, pot stakes, paid builds, top-up. Transparent USDC transfers (Transfer log
+ *  → verifyUsdcTransfer); gas paid in USDC so no relay/paymaster needed. Flip back
+ *  to "baseSepolia" here to fall back (the whole seam is chain-agnostic). */
+export const PUBLIC_CHAIN: ChainKey = "arcTestnet";
+/** The private rail (tips, pay-actions via Unlink) — Unlink runs on arc-testnet. */
 export const PRIVATE_CHAIN: ChainKey = "arcTestnet";
+/** Base Sepolia stays available as the CCTP #2 cross-chain source. */
+export const CCTP_SOURCE_CHAIN: ChainKey = "baseSepolia";
