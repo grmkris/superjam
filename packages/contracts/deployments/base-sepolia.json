@@ -19,5 +19,10 @@
     "tokenMessengerV2": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
     "messageTransmitterV2": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
     "domain": 6
+  },
+  "erc8004": {
+    "identityRegistry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    "reputationRegistry": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+    "notes": "CANONICAL ERC-8004 reference registries (erc-8004/erc-8004-contracts), NOT deployed by us — bound to via packages/onchain/src/erc8004.ts. Deterministic CREATE2 addresses, same on Sepolia (11155111). Identity = ERC-721 agent NFTs (register(agentURI)→agentId); Reputation = giveFeedback(agentId,int128 rating,…). Verified live on Base Sepolia (eth_getCode non-empty). Set ERC8004_REGISTRY=identityRegistry to enable; reputation defaults to the paired address in the binding."
   }
 }
