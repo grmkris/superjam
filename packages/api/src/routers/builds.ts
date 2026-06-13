@@ -43,7 +43,13 @@ import {
   type BuildDeployer,
   createRemoteDeployer,
 } from "../lib/builder-dispatch.ts";
-import { isImageKey, presignAll } from "../lib/attachments.ts";
+import {
+  ATTACHMENT_URL_TTL_SEC,
+  extOf,
+  isImageKey,
+  nameOf,
+  presignAll,
+} from "../lib/attachments.ts";
 import { isUniqueViolation } from "../lib/db-errors.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
 import { protectedProcedure } from "../orpc.ts";
@@ -292,12 +298,19 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           ? await loadBaseSpec(context.db, input.remixOfAppId)
           : undefined;
 
-        // Pass image attachments to Gemini as vision (presigned URLs — the AI SDK
-        // fetches them). Non-image docs are ignored here; they reach the builder.
-        const imageUrls = presignAll(
-          context.objectStore,
-          (input.attachmentKeys ?? []).filter(isImageKey)
-        );
+        // Images → Gemini vision (presigned URLs the AI SDK fetches). Non-image docs
+        // (CSV/PDF/…) → presigned descriptors the refiner hands to its url_context
+        // tool so the spec is planned around the file contents.
+        const keys = input.attachmentKeys ?? [];
+        const imageUrls = presignAll(context.objectStore, keys.filter(isImageKey));
+        const docKeys = keys.filter((k) => !isImageKey(k));
+        const attachments = context.objectStore.configured
+          ? docKeys.map((k) => ({
+              name: nameOf(k),
+              type: extOf(k),
+              url: context.objectStore.presignGet(k, ATTACHMENT_URL_TTL_SEC),
+            }))
+          : [];
 
         try {
           return await runRefine({
@@ -306,6 +319,7 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             baseSpec,
             catalog,
             images: imageUrls.length ? imageUrls : undefined,
+            attachments: attachments.length ? attachments : undefined,
           });
         } catch (err) {
           // A refiner failure isn't the user's fault — give the unit back.

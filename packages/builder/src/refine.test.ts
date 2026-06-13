@@ -63,6 +63,18 @@ describe("buildPrompt", () => {
     expect(withCatalog.system).toContain("tip-jar | Tip Jar");
     expect(withCatalog.system).toContain("poll | Poll");
   });
+
+  test("lists attachment urls + names so url_context can fetch them", () => {
+    const { prompt } = buildPrompt({
+      prompt: "an infographic",
+      attachments: [
+        { name: "ev.csv", type: "csv", url: "https://blob.test/a/ev.csv" },
+      ],
+    });
+    expect(prompt).toContain("ATTACHED FILES");
+    expect(prompt).toContain("url_context");
+    expect(prompt).toContain("ev.csv (csv): https://blob.test/a/ev.csv");
+  });
 });
 
 describe("filterSimilar", () => {

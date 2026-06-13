@@ -29,7 +29,13 @@ export const isImageMime = (mime: string): boolean => mime.startsWith("image/");
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
 /** Image-ness inferred from the stored key's extension (storeAttachment appends it). */
 export const isImageKey = (key: string): boolean =>
-  IMAGE_EXTS.has(key.split(".").pop()?.toLowerCase() ?? "");
+  IMAGE_EXTS.has(extOf(key));
+
+/** The key's lowercased extension (storeAttachment appends `.<ext>`). */
+export const extOf = (key: string): string => key.split(".").pop()?.toLowerCase() ?? "";
+
+/** The original filename portion of a stored key (`attachments/<u>/<uuid>/<name>.<ext>`). */
+export const nameOf = (key: string): string => key.split("/").pop() ?? key;
 
 /** Presign GET URLs for a set of keys (skips silently if the store is unconfigured). */
 export const presignAll = (
