@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "verify": "bun run scripts/verify.ts"
   },
   "dependencies": {

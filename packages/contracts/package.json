@@ -11,7 +11,7 @@
     "gen": "bun run scripts/gen-abi.ts",
     "build:contracts": "forge build && bun run scripts/gen-abi.ts",
     "test:forge": "forge test -vvv",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "deploy:arc": "forge script script/Deploy.s.sol:Deploy --rpc-url $ARC_RPC_URL --private-key $SERVER_WALLET_PRIVATE_KEY --broadcast"
   },
   "devDependencies": {

@@ -9,7 +9,7 @@
     "./testing": "./src/testing/factories.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@superjam/builder": "workspace:*",
