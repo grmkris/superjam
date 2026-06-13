@@ -117,11 +117,15 @@ const onchain =
       ? { identityRegistry: env.ERC8004_REGISTRY as `0x${string}` }
       : undefined,
   }) ?? nullOnchain;
-// World ID backend verifier (§14) — the human gate behind publish/reviews/
-// register-builder. Keyless (verify rejects) unless WORLD_APP_ID is set.
+// World ID 4.0 backend verifier (§14) — the human gate behind publish/reviews/
+// register-builder. Keyless (rpContext/verify reject) unless app_id + rp_id +
+// signing key are all set. WORLD_ENVIRONMENT=staging runs against the simulator.
 const world = createWorldVerifier({
   appId: env.WORLD_APP_ID,
+  rpId: env.WORLD_RP_ID,
+  signingKeyHex: env.WORLD_RP_SIGNING_KEY,
   action: env.WORLD_ACTION,
+  environment: env.WORLD_ENVIRONMENT,
 });
 const treasuryAddress = env.TREASURY_ADDRESS as `0x${string}` | undefined;
 // AI pot-resolution oracle (§9) — only when a Gemini key is present; else

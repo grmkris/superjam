@@ -21,7 +21,9 @@ export {
 } from "./auth/app-token.ts";
 export {
   type WorldVerifier,
-  type WorldProof,
+  type WorldProofV4,
+  type WorldResponseItem,
+  type WorldRpContext,
   type WorldVerifyResult,
   createWorldVerifier,
   nullWorldVerifier,

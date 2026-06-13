@@ -48,9 +48,14 @@ export const serverEnvSchema = z.object({
   APP_JWT_PUBLIC_KEY: z.string().min(1), // ES256 SPKI PEM (published in the JWKS)
   APP_JWT_KID: z.string().min(1).default("sj-app"), // stable key id for rotation
 
-  // World
+  // World ID 4.0 (managed RP). app_id → IDKit widget; rp_id → proof-context/verify
+  // endpoints + rp_context.rp_id. The backend SELF-SIGNS rp_context with the RP key
+  // (idkit-server signRequest); WORLD_ENVIRONMENT=staging uses the simulator.
   WORLD_APP_ID: optionalStr,
+  WORLD_RP_ID: optionalStr,
+  WORLD_RP_SIGNING_KEY: optionalStr,
   WORLD_ACTION: z.string().default("publish-app"),
+  WORLD_ENVIRONMENT: z.enum(["staging", "production"]).default("production"),
 
   // ENS / onchain
   ENS_L2_REGISTRY: optionalStr,

@@ -15,12 +15,26 @@ import { protectedProcedure } from "../orpc.ts";
 const { user } = schema;
 type User = typeof schema.user.$inferSelect;
 
-// The IDKit ISuccessResult shape. Validated then forwarded AS-IS (auth/world.ts).
+// The IDKit v4 result shape (IDKitResultV4). Validated then forwarded AS-IS to
+// World's verify endpoint (auth/world.ts); the RP-scoped nullifier rides in
+// responses[]. Optional fields are kept so the whole result reaches verify.
+const WorldResponseItem = z.object({
+  identifier: z.string().min(1),
+  signal_hash: z.string().optional(),
+  proof: z.array(z.string()),
+  nullifier: z.string().min(1),
+  issuer_schema_id: z.number(),
+  expires_at_min: z.number(),
+});
 const WorldProofInput = z.object({
-  merkle_root: z.string().min(1),
-  nullifier_hash: z.string().min(1),
-  proof: z.string().min(1),
-  verification_level: z.string().min(1),
+  protocol_version: z.string().min(1),
+  nonce: z.string().min(1),
+  action: z.string().min(1),
+  environment: z.string().min(1),
+  responses: z.array(WorldResponseItem).min(1),
+  user_presence_completed: z.boolean().optional(),
+  identity_attested: z.boolean().optional(),
+  integrity_bundle: z.unknown().optional(),
 });
 
 // World verify needs a runtime `WorldVerifier`. Rather than widen the shared
@@ -42,24 +56,18 @@ const withWorld = os
 const worldProcedure = protectedProcedure.use(withWorld);
 
 export const worldRouter = {
-  // Server-provided context for the IDKit v4 widget (app_id + action). The
-  // proof is produced client-side against this action and validated by verify().
-  // SPEC-GAP: if v4 later requires a server-FETCHED signed rp_context blob,
-  // fetch it here through the same seam — the widget contract stays {appId,action}.
-  rpContext: worldProcedure.handler(({ context }) => ({
-    appId: context.world.appId(),
-    action: context.world.action(),
-  })),
+  // Server-SIGNED context for the IDKit v4 widget: app_id + action + the
+  // rp_context blob (rp_id, nonce, created_at, expires_at, signature) the widget
+  // can't open without. A fresh nonce/signature is minted per call (managed RP
+  // self-signs via signRequest, auth/world.ts).
+  rpContext: worldProcedure.handler(({ context }) => context.world.rpContext()),
 
-  // Backend proof validation (hard track requirement). Forwards the proof to
-  // World as-is; on success binds the nullifier to this account.
+  // Backend proof validation (hard track requirement). Forwards the v4 result to
+  // World as-is; on success binds the RP-scoped nullifier to this account.
   verify: worldProcedure
-    .input(z.object({ proof: WorldProofInput, signal: z.string().optional() }))
+    .input(z.object({ result: WorldProofInput }))
     .handler(async ({ context, input }) => {
-      const result = await context.world.verifyProof({
-        proof: input.proof,
-        signal: input.signal,
-      });
+      const result = await context.world.verifyProof({ result: input.result });
       if (!result.ok) {
         throw new ORPCError("BAD_REQUEST", {
           message: `World verification failed: ${result.detail}`,

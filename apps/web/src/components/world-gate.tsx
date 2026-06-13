@@ -1,21 +1,28 @@
 "use client";
 
 // WorldGate (DESIGN_BRIEF §3c-vi, §3b reviews) — the human gate, wired for real
-// against the classic IDKit Incognito-Actions flow that K's backend verifies:
-// world.rpContext → {appId, action} boots the widget; on success the flat proof
-// {merkle_root, nullifier_hash, proof, verification_level} goes to world.verify,
-// which forwards it AS-IS to the World developer portal (auth/world.ts). Fires
-// once; onVerified continues the caller's action.
-//
-// Note on the dep: @worldcoin/idkit is pinned to the classic ^2.x line — v4.x is
-// a different (World ID protocol) SDK whose request needs an RP-ECDSA-signed
-// rp_context the backend doesn't issue, and whose string[] proofs the portal
-// cloud-verify doesn't accept. 2.4.2 peers react >18 so React 19 is fine.
-import { IDKitWidget, type ISuccessResult } from "@worldcoin/idkit";
+// against World ID 4.0 (idkit v4, managed RP). world.rpContext() returns the
+// backend-SIGNED rp_context {rp_id, nonce, created_at, expires_at, signature}
+// (the widget can't open without it) plus app_id/action/environment. On success
+// the whole v4 result goes to world.verify, which forwards it AS-IS to World's
+// /api/v4/verify/{rp_id} and binds the RP-scoped nullifier. Fires once;
+// onVerified continues the caller's action. See [[world-id-v4-contract]].
+import {
+  IDKitRequestWidget,
+  proofOfHuman,
+  type IDKitResult,
+} from "@worldcoin/idkit";
 import { useEffect, useState } from "react";
 import { usePlatformClient } from "./use-platform-client";
 import { useHostAuth } from "../lib/use-host-auth";
 import { EmojiToken, StickerButton } from "./ui/sticker";
+
+type RpContext = Awaited<
+  ReturnType<ReturnType<typeof usePlatformClient>["world"]["rpContext"]>
+>;
+type VerifyArgs = Parameters<
+  ReturnType<typeof usePlatformClient>["world"]["verify"]
+>[0];
 
 export function WorldGate({
   onVerified,
@@ -28,7 +35,8 @@ export function WorldGate({
 }) {
   const client = usePlatformClient();
   const { isLoggedIn } = useHostAuth();
-  const [ctx, setCtx] = useState<{ appId: string; action: string } | null>(null);
+  const [ctx, setCtx] = useState<RpContext | null>(null);
+  const [open, setOpen] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,18 +56,14 @@ export function WorldGate({
     };
   }, [client, isLoggedIn]);
 
-  const handle = async (result: ISuccessResult) => {
+  const handle = async (result: IDKitResult) => {
     setVerifying(true);
     setError(null);
     try {
-      await client.world.verify({
-        proof: {
-          merkle_root: result.merkle_root,
-          nullifier_hash: result.nullifier_hash,
-          proof: result.proof,
-          verification_level: result.verification_level,
-        },
-      });
+      // v4-only (allow_legacy_proofs:false) → result is an IDKitResultV4 whose
+      // shape matches the verify input; forward the whole thing for the backend
+      // to validate against World + read the RP-scoped nullifier from responses.
+      await client.world.verify({ result } as VerifyArgs);
       onVerified();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification didn't go through.");
@@ -80,26 +84,34 @@ export function WorldGate({
           ▦
         </div>
       ) : (
-        <IDKitWidget
-          app_id={ctx.appId as `app_${string}`}
-          action={ctx.action}
-          onSuccess={handle}
-        >
-          {({ open }: { open: () => void }) => (
-            <div className="flex flex-col items-center gap-3">
-              <button
-                onClick={open}
-                className="w-52 h-52 bg-card border-[3px] border-ink rounded-toy-lg grid place-items-center text-6xl shadow-sticker-lg sticker-press"
-                aria-label="Open World ID"
-              >
-                ▦
-              </button>
-              <StickerButton color="green" size="lg" onClick={open} disabled={verifying}>
-                {verifying ? "Verifying…" : "Scan with World App ✓"}
-              </StickerButton>
-            </div>
-          )}
-        </IDKitWidget>
+        <div className="flex flex-col items-center gap-3">
+          <button
+            onClick={() => setOpen(true)}
+            className="w-52 h-52 bg-card border-[3px] border-ink rounded-toy-lg grid place-items-center text-6xl shadow-sticker-lg sticker-press"
+            aria-label="Open World ID"
+          >
+            ▦
+          </button>
+          <StickerButton
+            color="green"
+            size="lg"
+            onClick={() => setOpen(true)}
+            disabled={verifying}
+          >
+            {verifying ? "Verifying…" : "Scan with World App ✓"}
+          </StickerButton>
+          <IDKitRequestWidget
+            app_id={ctx.appId as `app_${string}`}
+            action={ctx.action}
+            rp_context={ctx.rpContext}
+            allow_legacy_proofs={ctx.allowLegacyProofs}
+            environment={ctx.environment}
+            preset={proofOfHuman()}
+            open={open}
+            onOpenChange={setOpen}
+            onSuccess={handle}
+          />
+        </div>
       )}
 
       <div className="text-sm font-semibold text-muted">~30 seconds, one time</div>

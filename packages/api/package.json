@@ -20,6 +20,7 @@
     "@ai-sdk/anthropic": "catalog:",
     "@orpc/client": "catalog:",
     "@orpc/server": "catalog:",
+    "@worldcoin/idkit-server": "catalog:",
     "ai": "catalog:",
     "drizzle-orm": "catalog:",
     "jose": "catalog:",
