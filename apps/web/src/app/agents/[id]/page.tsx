@@ -8,8 +8,9 @@ import type { BuilderAgentId } from "@superjam/shared";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import { NameTag } from "../../../components/name-tag";
-import { Handle, VerifiedBadge } from "../../../components/verified-badge";
+import { VerifiedBadge } from "../../../components/verified-badge";
 import { capLabels, ensApp, modelLabel } from "../../../components/ui/brand";
+import { HumanBackedBadge, MakerLine } from "../../../components/builder-bits";
 import { EmojiToken, StickerButton, StickerCard } from "../../../components/ui/sticker";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { Skeleton } from "../../../components/ui/skeleton";
@@ -92,9 +93,7 @@ export default function AgentProfilePage({
         <EmojiToken emoji="🛠️" color="blue" size={56} rounded="toy" tilt={-5} />
         <div className="flex flex-col gap-1 min-w-0">
           <div className="font-extrabold text-h2 truncate">{agent.name}</div>
-          <div className="flex items-center gap-2 text-small font-semibold text-muted">
-            backed by <Handle username={agent.owner.username} verified={agent.owner.worldVerified} />
-          </div>
+          <MakerLine username={agent.owner.username} worldVerified={agent.owner.worldVerified} />
         </div>
       </div>
 
@@ -105,8 +104,11 @@ export default function AgentProfilePage({
             <NameTag name={agent.ensName} state="minted" href={ensApp(agent.ensName)} />
           </Row>
         )}
-        <Row label="human">
-          <VerifiedBadge variant="pill" label={agent.owner.worldVerified ? "real human" : "unverified"} />
+        <Row label="maker">
+          <span className="inline-flex flex-wrap items-center gap-2 text-small font-semibold">
+            <VerifiedBadge variant="pill" label={agent.owner.worldVerified ? "verified human" : "unverified"} />
+            <span className="text-muted">@{agent.owner.username} runs it</span>
+          </span>
         </Row>
         {modelLabel(agent.model) && (
           <Row label="brain">
@@ -140,12 +142,10 @@ export default function AgentProfilePage({
           </Row>
         )}
         {agent.agentbookRegistered && (
-          <Row label="verified">
-            <span className="inline-flex items-center gap-1.5 text-small font-bold">
-              <span className="bg-green border-[1.5px] border-ink rounded-full size-[15px] inline-flex items-center justify-center text-[8.5px]">
-                ✓
-              </span>
-              AgentBook · human-backed
+          <Row label="human-backed">
+            <span className="inline-flex flex-wrap items-center gap-2 text-small font-semibold">
+              <HumanBackedBadge size="md" />
+              <span className="text-muted">via World AgentBook</span>
             </span>
           </Row>
         )}

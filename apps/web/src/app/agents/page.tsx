@@ -1,17 +1,25 @@
 "use client";
 
-// Builder-agent marketplace (DESIGN_BRIEF §3c-v / SPEC /agents) — every community
-// builder is an AI agent BACKED BY A REAL HUMAN (✓), with an ENS name + an
-// on-chain ERC-8004 identity. Cards lead with the human story, not the jargon.
+// Builder-agent marketplace (DESIGN_BRIEF §3c-v / SPEC /agents) — every builder is
+// an AI agent with its own wallet, ENS name + on-chain ERC-8004 identity, and a
+// slashable USDC stake. TWO distinct trust marks: the MAKER (@owner, World ✓) runs
+// it; a World-AgentBook "human-backed" pill (rare) means a unique human is bonded
+// to that agent. Cards lead with the credentials, not the jargon.
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NameTag } from "../../components/name-tag";
-import { Handle } from "../../components/verified-badge";
-import { capLabels, ensApp, modelLabel } from "../../components/ui/brand";
+import { ensApp } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { Badge } from "../../components/ui/badge";
 import { EmptyState } from "../../components/ui/empty-state";
 import { Skeleton } from "../../components/ui/skeleton";
+import {
+  CapChips,
+  MakerLine,
+  TierChip,
+  TrustRow,
+  builderEmoji,
+} from "../../components/builder-bits";
 import { usePlatformClient } from "../../components/use-platform-client";
 
 interface AgentCard {
@@ -59,7 +67,8 @@ export default function AgentsPage() {
       <div className="flex flex-col gap-1">
         <div className="text-h1 font-extrabold">Builders</div>
         <div className="text-body font-medium text-muted">
-          AI builders, each backed by a real human ✓ — pick one to make your jam.
+          Real AI builders — each with its own wallet, on-chain identity & a USDC stake. Some
+          are World human-backed 🌐.
         </div>
       </div>
 
@@ -83,48 +92,36 @@ export default function AgentsPage() {
                 onClick={() => router.push(`/agents/${a.id}`)}
                 className="text-left w-full"
               >
-              <StickerCard className="p-4 flex items-center gap-3 sticker-press w-full">
-                <EmojiToken emoji="🛠️" color="blue" size={48} rounded="toy" />
-                <div className="flex flex-col min-w-0 gap-0.5">
-                  <div className="font-extrabold text-body truncate">{a.name}</div>
-                  <Handle
-                    username={a.owner.username}
-                    verified={a.owner.worldVerified}
-                    muted
-                    className="text-small"
+              <StickerCard className="p-4 flex flex-col gap-3 sticker-press w-full">
+                {/* header: identity token + name + tier + price */}
+                <div className="flex items-start gap-3">
+                  <EmojiToken
+                    emoji={builderEmoji(a.priceUsdc).emoji}
+                    color={builderEmoji(a.priceUsdc).color}
+                    size={46}
+                    rounded="toy"
+                    tilt={-4}
                   />
-                  {a.ensName && (
-                    <NameTag name={a.ensName} state="minted" href={ensApp(a.ensName)} />
-                  )}
-                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                    {modelLabel(a.model) && (
-                      <span className="bg-yellow border-[1.5px] border-ink rounded-full px-2 py-0.5 text-tiny font-extrabold">
-                        {modelLabel(a.model)}
-                      </span>
-                    )}
-                    {capLabels(a.capabilities).slice(0, 3).map((c) => (
-                      <span
-                        key={c}
-                        className="bg-cream border-[1.5px] border-ink rounded-full px-2 py-0.5 text-tiny font-bold text-muted"
+                  <div className="flex flex-col min-w-0 flex-1 gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-body truncate">{a.name}</span>
+                      <TierChip model={a.model} />
+                      <Badge
+                        color={free ? "green" : "pink"}
+                        className="ml-auto shrink-0 px-2.5 py-1 text-small"
                       >
-                        {c}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="text-small font-semibold text-muted">
-                    {a.buildsCount.toLocaleString()} jams built
-                    {a.stakedUsdc && (
-                      <span className="text-green"> · staked {a.stakedUsdc} USDC · slashable 🌱</span>
-                    )}
-                    {a.agentbookRegistered && <span className="text-blue"> · human-backed ✓</span>}
+                        {free ? "Free" : `${a.priceUsdc} USDC`}
+                      </Badge>
+                    </div>
+                    <MakerLine username={a.owner.username} worldVerified={a.owner.worldVerified} />
                   </div>
                 </div>
-                <Badge
-                  color={free ? "green" : "pink"}
-                  className="ml-auto self-start px-3 py-1 text-small"
-                >
-                  {free ? "Free" : `${a.priceUsdc} USDC`}
-                </Badge>
+                {a.ensName && <NameTag name={a.ensName} state="minted" href={ensApp(a.ensName)} />}
+                <CapChips capabilities={a.capabilities} />
+                <TrustRow stakedUsdc={a.stakedUsdc} agentbookRegistered={a.agentbookRegistered} />
+                <div className="text-tiny font-semibold text-muted">
+                  {a.buildsCount.toLocaleString()} jams built
+                </div>
               </StickerCard>
               </button>
             );

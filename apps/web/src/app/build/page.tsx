@@ -11,13 +11,19 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useConfirm } from "../../components/confirm/confirm-provider";
-import { capLabels, jamEns, modelLabel } from "../../components/ui/brand";
+import { jamEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { Input, Textarea } from "../../components/ui/field";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { ToyboxSheet } from "../../components/ui/sheet";
-import { VerifiedBadge } from "../../components/verified-badge";
+import {
+  CapChips,
+  MakerLine,
+  TierChip,
+  TrustRow,
+  builderEmoji,
+} from "../../components/builder-bits";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { WorldGate } from "../../components/world-gate";
 import { useHostAuth } from "../../lib/use-host-auth";
@@ -742,13 +748,13 @@ function BuilderBeat({
       <div className="flex flex-col gap-0.5">
         <div className="text-h2 font-extrabold">Who makes it?</div>
         <div className="text-small font-medium text-muted">
-          each builder's an AI backed by a real human — and stakes USDC on its work
+          each is a real AI builder — its own wallet, on-chain identity & a USDC stake on the line
         </div>
       </div>
       {builders === null ? (
         <div className="flex flex-col gap-3">
-          <div className="h-[104px] bg-card border-2 border-ink rounded-toy animate-pulse" />
-          <div className="h-[104px] bg-card border-2 border-ink rounded-toy animate-pulse" />
+          <div className="h-[150px] bg-card border-2 border-ink rounded-toy-lg animate-pulse" />
+          <div className="h-[150px] bg-card border-2 border-ink rounded-toy-lg animate-pulse" />
         </div>
       ) : builders.length === 0 ? (
         <StickerCard className="p-5 flex flex-col items-center gap-2 text-center">
@@ -757,56 +763,47 @@ function BuilderBeat({
           <div className="text-small font-semibold text-muted">give it a moment and try again</div>
         </StickerCard>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3.5">
           {builders.map((b) => {
             const free = Number(b.priceUsdc) === 0;
+            const tv = builderEmoji(b.priceUsdc);
             return (
-              <StickerCard key={b.id} className="p-4 flex items-center gap-3">
-                <EmojiToken emoji="🛠️" color="blue" size={48} rounded="toy" />
-                <div className="flex flex-col min-w-0 gap-0.5">
-                  <div className="font-extrabold text-body truncate">{b.name}</div>
-                  <span className="inline-flex items-center gap-1.5 text-small font-semibold text-muted">
-                    by @{b.owner.username}
-                    {b.owner.worldVerified && <VerifiedBadge />}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                    {modelLabel(b.model) && (
-                      <span className="bg-yellow border-[1.5px] border-ink rounded-full px-2 py-0.5 text-tiny font-extrabold">
-                        {modelLabel(b.model)}
-                      </span>
-                    )}
-                    {capLabels(b.capabilities).slice(0, 3).map((c) => (
-                      <span
-                        key={c}
-                        className="bg-cream border-[1.5px] border-ink rounded-full px-2 py-0.5 text-tiny font-bold text-muted"
-                      >
-                        {c}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="text-small font-semibold text-muted">
-                    {b.buildsCount.toLocaleString()} jams built
-                    {b.stakedUsdc && (
-                      <span className="text-green"> · staked {b.stakedUsdc} · slashable</span>
-                    )}
+              <StickerCard key={b.id} className="p-4 flex flex-col gap-3">
+                {/* header: identity token + name + tier */}
+                <div className="flex items-start gap-3">
+                  <EmojiToken emoji={tv.emoji} color={tv.color} size={46} rounded="toy" tilt={-4} />
+                  <div className="flex flex-col min-w-0 flex-1 gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-body truncate">{b.name}</span>
+                      <TierChip model={b.model} />
+                    </div>
+                    <MakerLine username={b.owner.username} worldVerified={b.owner.worldVerified} />
                   </div>
                 </div>
-                <div className="ml-auto flex items-center gap-1.5">
+                {/* what it can build */}
+                <CapChips capabilities={b.capabilities} />
+                {/* the per-agent trust signals (stake + human-backed, only where true) */}
+                <TrustRow stakedUsdc={b.stakedUsdc} agentbookRegistered={b.agentbookRegistered} />
+                {/* actions */}
+                <div className="flex items-center gap-2 pt-2.5 border-t-2 border-dashed border-ink/15">
                   <button
                     onClick={() => onInfo(b.id)}
-                    aria-label="builder profile"
-                    className="focus-ring text-blue font-extrabold text-h3 px-1"
+                    className="focus-ring inline-flex items-center gap-1.5 text-small font-extrabold text-blue sticker-press"
                   >
-                    ⓘ
+                    <span className="inline-flex size-5 items-center justify-center rounded-full border-2 border-ink bg-card text-tiny">
+                      ⓘ
+                    </span>
+                    Profile
                   </button>
                   <button
                     onClick={() => onPick(b)}
                     className={cx(
-                      "focus-ring border-2 border-ink rounded-full px-4 py-2 text-small font-extrabold shadow-sticker-sm sticker-press",
+                      "focus-ring ml-auto inline-flex items-center gap-1.5 whitespace-nowrap border-2 border-ink rounded-toy px-4 py-2 text-small font-extrabold shadow-sticker-sm sticker-press",
                       free ? "bg-green text-ink" : "bg-pink text-white"
                     )}
                   >
-                    {free ? "Free" : `${b.priceUsdc} USDC`}
+                    {free ? "Pick · Free" : `Pick · ${b.priceUsdc} USDC`}
+                    <span aria-hidden>→</span>
                   </button>
                 </div>
               </StickerCard>
