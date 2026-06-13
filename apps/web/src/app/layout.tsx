@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AppChrome } from "../components/app-chrome";
+import { ConfirmProvider } from "../components/confirm/confirm-provider";
 import { Providers } from "../components/providers";
 import "./globals.css";
 
@@ -33,7 +34,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <Providers>
-          <AppChrome>{children}</AppChrome>
+          <ConfirmProvider>
+            <AppChrome>{children}</AppChrome>
+          </ConfirmProvider>
         </Providers>
       </body>
     </html>
