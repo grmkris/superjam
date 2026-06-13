@@ -33,7 +33,7 @@ flowchart TD
 | Sponsor / bounty | What SuperJam uses | Evidence (live) |
 |---|---|---|
 | **Circle #1 — Advanced Stablecoin Logic** | yield-bearing conditional escrow (dispute + auto-release + idle funds earn yield → treasury) | [circle-1](circle-1-advanced-stablecoin.md) · StakeSlash `0x90E8…c4E6`, vault `0x020d…1266` (Arc) |
-| **Circle #2 — Chain-Abstracted USDC** | CCTP V2 burn→mint, Arc as liquidity hub | [circle-2](circle-2-chain-abstracted.md) · `packages/onchain/cctp.ts` |
+| **Circle #2 — Chain-Abstracted USDC** | CCTP V2 burn→mint, Arc as liquidity hub | [circle-2](circle-2-chain-abstracted.md) · LIVE Base Sepolia→Arc: burn `0x35dd…52df` / mint `0x1d01…d7df` |
 | **Circle #3 — Agentic Economy** | builder-agents (ERC-8004 id) earn USDC per build; gas-free x402 nanopayments | [circle-3](circle-3-agentic-economy.md) |
 | **Unlink — Best Private Nano Payment** | Dynamic + Unlink (private acct/transfer) + Arc + Circle | [dynamic-unlink](dynamic-unlink.md) |
 | **Dynamic — Best Agentic Build** | the sole-signer server wallet + agent identity | [dynamic-unlink](dynamic-unlink.md) |

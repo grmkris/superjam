@@ -24,10 +24,12 @@ sequenceDiagram
 
 ## Code
 - `packages/onchain/src/cctp.ts` — `createCctp({source,dest,iris}).bridge({amount,
-  mintRecipient})`: approve → `depositForBurn` → `fetchAttestation` (Iris poller,
-  injectable fetch) → `receiveMessage`. Domains/addresses + `toBytes32` helper.
+  mintRecipient})`: approve (await receipt) → `depositForBurn` → `fetchAttestation`
+  (Iris poller, injectable fetch) → `receiveMessage`. Domains/addresses + `toBytes32`.
 - Tests: `packages/onchain/src/cctp.test.ts` — domains, bytes32 padding, the Iris
   poller (polls past pending → complete; times out → `RELAY_FAILED`).
+- Live proof: `packages/onchain/integration/cctp.itest.ts` (gated
+  `RUN_ONCHAIN_INTEGRATION=1`) bridges a real amount Base Sepolia → Arc.
 
 ## Addresses (CCTP V2 testnet — same CREATE2 on every chain)
 - TokenMessengerV2 `0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA`
@@ -36,8 +38,19 @@ sequenceDiagram
 - Domains: **Base Sepolia 6 → Arc 26** (Ethereum Sepolia 0 also supported).
 - Iris (sandbox): `https://iris-api-sandbox.circle.com/v2/messages/{srcDomain}?transactionHash=…`
 
+## Live cross-chain proof (real txs, 2026-06-13)
+A real CCTP V2 transfer run end-to-end via `cctp.ts`: 0.05 USDC burned on Base Sepolia
+→ Iris attested (after Base Sepolia finalization, ~13 min) → minted native USDC on Arc.
+Pre-flight confirmed CCTP V2 is live on Arc: `MessageTransmitter.localDomain() == 26`.
+
+| step | chain | tx |
+|---|---|---|
+| `depositForBurn` (burn) | Base Sepolia (domain 6) | `0x35dd94874688ed7b04304224748def16abeb3ffe3601e1204aacc6e0191552df` |
+| `receiveMessage` (mint) | Arc (domain 26) | `0x1d019c71aa6fdf6851efa275df0fb1262759f527e5b8ca880fccbdeecdf6d7df` |
+
+(Burn on `sepolia.basescan.org`; mint on `https://testnet.arcscan.app`.)
+
 ## Status
-Adapter built + unit-tested; a live cross-chain run (burn on Base Sepolia → mint on
-Arc) is the gated demo (~minutes for Iris). Source liquidity = the wallet's 20 Base
-Sepolia USDC. The `hookData` variant (atomic deposit into StakeSlash on arrival) is
-the documented extension.
+Adapter built + unit-tested + **proven live** (table above). `bridge()` mints to a
+wallet today; the `hookData` variant (atomic deposit into the StakeSlash escrow on
+arrival) is the documented extension — not yet wired.
