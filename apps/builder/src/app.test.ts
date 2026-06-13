@@ -186,25 +186,26 @@ describe("builder service", () => {
 
   test("generated app is a self-contained, buildable Next app", () => {
     const g = generateApp(spec); // zero-backend
-    // tsconfig: self-contained (no monorepo extends) + the SDK alias
+    // tsconfig: self-contained (no monorepo extends)
     expect(g.files["tsconfig.json"]).toBeDefined();
     expect(g.files["tsconfig.json"]).not.toContain("extends");
-    const ts = JSON.parse(g.files["tsconfig.json"]!) as {
-      compilerOptions: { paths: Record<string, string[]> };
-    };
-    expect(ts.compilerOptions.paths["@superjam/sdk"]).toEqual([
-      "./lib/superjam-sdk.js",
-    ]);
-    // TS + types in the app itself (literal versions, no catalog:/workspace:)
+    // package.json: real pinned versions only — NO catalog:/workspace:; the SDK
+    // comes from the PUBLISHED npm package, aliased to the @superjam/sdk path.
     const pkg = JSON.parse(g.files["package.json"]!) as {
+      dependencies: Record<string, string>;
       devDependencies: Record<string, string>;
     };
+    expect(pkg.dependencies["@superjam/sdk"]).toBe("npm:superjam-sdk@^0.0.1");
     expect(pkg.devDependencies.typescript).toMatch(/^\^?\d/);
-    expect(Object.values(pkg.devDependencies)).not.toContain("catalog:");
-    // vendored SDK present + exports the public surface
-    expect(g.files["lib/superjam-sdk.js"]).toContain("as default");
-    expect(g.files["lib/superjam-sdk.js"]).toContain("SuperJam");
-    // deploys never blocked by a type/lint nit in generated code
+    const allVersions = [
+      ...Object.values(pkg.dependencies),
+      ...Object.values(pkg.devDependencies),
+    ];
+    expect(allVersions).not.toContain("catalog:");
+    expect(allVersions).not.toContain("workspace:*");
+    // no vendored SDK file is emitted anymore
+    expect(g.files["lib/superjam-sdk.js"]).toBeUndefined();
+    // deploys never blocked by a type nit in generated code
     expect(g.files["next.config.ts"]).toContain("ignoreBuildErrors: true");
   });
 });

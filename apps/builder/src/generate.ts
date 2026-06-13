@@ -5,19 +5,14 @@
 // Next+SDK template supersede. The orchestration is generator-agnostic (a
 // `Generator` port), so swapping this for the agent path is a one-line change in
 // server.ts.
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { AppManifest, AppSpec } from "@superjam/shared";
 import { specNeedsData } from "@superjam/builder/deploy";
 import type { GeneratedApp, Generator } from "@superjam/builder/deploy";
 
-// The self-contained @superjam/sdk bundle (scripts/bundle-sdk.ts), emitted into
-// every app at lib/superjam-sdk.js + aliased in tsconfig, so a standalone Vercel
-// app resolves `@superjam/sdk` without the monorepo. Read once at module load.
-const VENDORED_SDK = readFileSync(
-  join(import.meta.dir, "..", "vendor", "superjam-sdk.js"),
-  "utf8"
-);
+// Generated apps depend on the PUBLISHED SDK (npm `superjam-sdk`), aliased to
+// the `@superjam/sdk` import path so recipe/agent code is unchanged. Standalone
+// `npm install` on Vercel resolves it — no monorepo, no vendored bundle.
+const SDK_DEP = "npm:superjam-sdk@^0.0.1";
 
 const manifestOf = (spec: AppSpec): AppManifest => ({
   name: spec.name,
@@ -40,6 +35,7 @@ const packageJson = (spec: AppSpec, needsData: boolean): string =>
         react: "^19.2.0",
         "react-dom": "^19.2.0",
         jose: "^6.0.0",
+        "@superjam/sdk": SDK_DEP,
         ...(needsData
           ? {
               "@neondatabase/serverless": "^1.0.0",
@@ -61,8 +57,8 @@ const packageJson = (spec: AppSpec, needsData: boolean): string =>
   );
 
 // Self-contained tsconfig (do NOT extend the monorepo base — the app deploys
-// alone). `@superjam/sdk` aliases to the vendored bundle; allowJs lets the app
-// import it. Next's plugin + bundler-resolution match a stock Next 16 TS app.
+// alone). `@superjam/sdk` resolves from the published npm dep; Next's plugin +
+// bundler-resolution match a stock Next 16 TS app.
 const tsconfig = (): string =>
   JSON.stringify(
     {
@@ -82,7 +78,7 @@ const tsconfig = (): string =>
         incremental: true,
         plugins: [{ name: "next" }],
         baseUrl: ".",
-        paths: { "@superjam/sdk": ["./lib/superjam-sdk.js"], "@/*": ["./*"] },
+        paths: { "@/*": ["./*"] },
       },
       include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
       exclude: ["node_modules"],
@@ -193,7 +189,6 @@ export const generateApp = (spec: AppSpec): GeneratedApp => {
     "app/layout.tsx": layout(spec),
     "app/page.tsx": page(spec),
     "lib/auth.ts": authLib(),
-    "lib/superjam-sdk.js": VENDORED_SDK,
   };
   if (needsData) {
     files["lib/db.ts"] = dbLib();
