@@ -5,7 +5,8 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./context": "./src/context.ts",
-    "./test-auth": "./src/auth/test-auth.ts"
+    "./test-auth": "./src/auth/test-auth.ts",
+    "./testing": "./src/testing/factories.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

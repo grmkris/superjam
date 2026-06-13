@@ -13,6 +13,7 @@
     "@superjam/shared": "workspace:*",
     "@hono/node-server": "catalog:",
     "@orpc/server": "catalog:",
+    "drizzle-orm": "catalog:",
     "hono": "catalog:",
     "pg": "^8.13.0",
     "zod": "catalog:"

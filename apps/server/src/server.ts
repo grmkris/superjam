@@ -14,7 +14,9 @@ import { SERVICE_URLS } from "@superjam/shared";
 import { RPCHandler } from "@orpc/server/fetch";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createS3Store } from "./bucket.ts";
 import { env } from "./env.ts";
+import { registerServeRoutes } from "./serve.ts";
 
 const logger = createLogger({
   name: "server",
@@ -43,6 +45,9 @@ app.use(
 );
 
 app.get("/health", (c) => c.text("OK"));
+
+// Bundle serving (§17): /a/:slug/* from S3 with the _plays bump.
+registerServeRoutes(app, { db, store: createS3Store(env), logger });
 
 app.use("/rpc/*", async (c, next) => {
   const { matched, response } = await rpc.handle(c.req.raw, {

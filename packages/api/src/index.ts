@@ -10,6 +10,10 @@ export {
 } from "./auth/verifier.ts";
 export { commonErrors, type CommonErrorCode } from "./errors.ts";
 export { createRateLimiter, type RateLimiter } from "./lib/rate-limit.ts";
+export { createCounterService } from "./services/counter-service.ts";
+export { createStorageService } from "./services/storage-service.ts";
+export { createDataService } from "./services/data-service.ts";
+export { createMessageService } from "./services/message-service.ts";
 export {
   base,
   publicProcedure,
