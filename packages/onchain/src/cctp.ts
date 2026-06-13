@@ -150,8 +150,10 @@ export const createCctp = ({
   /** Burn on source → attest → mint on dest. Returns both tx hashes. */
   async bridge(params: BridgeParams): Promise<{ burnTxHash: Hex; mintTxHash: Hex }> {
     const finality = params.finalityThreshold ?? FINALITY_STANDARD;
-    // 1) approve USDC to the TokenMessenger on the source chain.
-    await source.walletClient.writeContract({
+    // 1) approve USDC to the TokenMessenger on the source chain. MUST wait for
+    //    the receipt — depositForBurn estimates/executes against current state,
+    //    so an un-mined approve ⇒ "transfer amount exceeds allowance" revert.
+    const approveTxHash = await source.walletClient.writeContract({
       account: source.account,
       chain: source.walletClient.chain,
       address: source.usdc,
@@ -159,6 +161,7 @@ export const createCctp = ({
       functionName: "approve",
       args: [CCTP_V2.tokenMessenger, params.amount],
     });
+    await source.publicClient.waitForTransactionReceipt({ hash: approveTxHash });
     // 2) depositForBurn → emits MessageSent.
     const burnTxHash = await source.walletClient.writeContract({
       account: source.account,
