@@ -45,9 +45,9 @@ export const X402_MAX_USDC = "2";
 // --- AI (in-app sdk.ai + refine) ---
 export const AI_CALLS_PER_USER_APP_DAY = 25;
 export const AI_MAX_OUTPUT_TOKENS = 1000;
-// In-app AI runs on Google Gemini (never Anthropic — that's builder-only). Matches
-// the builder's DEFAULT_REFINE_MODEL so both vision paths use one provider/key.
-export const AI_APP_MODEL = "gemini-2.5-flash";
+// In-app AI runs on Google Gemini (never Anthropic — that's builder-only). flash-lite
+// is the fastest GA 2.5 model (still multimodal) — the judge is latency-visible.
+export const AI_APP_MODEL = "gemini-2.5-flash-lite";
 export const AI_IMAGES_MAX = 4; // images per sdk.ai.chat call
 export const AI_MESSAGES_MAX = 32; // messages per sdk.ai.chat call
 export const REFINE_CALLS_PER_USER_DAY = 20;

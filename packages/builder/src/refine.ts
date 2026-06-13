@@ -18,9 +18,10 @@ import {
 import { google } from "@ai-sdk/google";
 import { generateObject, type LanguageModel } from "ai";
 
-// Gemini, fast (~2-4s). Overridable for tests / model bumps. 2.0-flash was retired
-// by Google (generateContent → 404); 2.5-flash is the current GA flash (verified live).
-export const DEFAULT_REFINE_MODEL = "gemini-2.5-flash";
+// Gemini, fast. Overridable for tests / model bumps. 2.0-flash was retired by Google
+// (generateContent → 404); flash-lite is the fastest GA 2.5 model — the wizard's
+// idle "thinking…" is latency-visible, so we trade a little reasoning for speed.
+export const DEFAULT_REFINE_MODEL = "gemini-2.5-flash-lite";
 
 /** A listed app, rendered into the prompt for the similar-check. */
 export interface RefineCatalogApp {
