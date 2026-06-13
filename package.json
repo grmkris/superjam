@@ -30,10 +30,12 @@
       "@types/react": "^19.2.0",
       "@types/react-dom": "^19.2.0",
       "tailwindcss": "^4.0.0",
-      "@base-ui-components/react": "^1.4.0",
+      "@tailwindcss/postcss": "^4.0.0",
+      "@base-ui-components/react": "1.0.0-rc.0",
       "@tanstack/react-query": "^5.100.0",
       "@worldcoin/idkit": "^4.0.0",
-      "@electric-sql/pglite": "^0.2.0"
+      "@electric-sql/pglite": "^0.2.0",
+      "@neondatabase/serverless": "^0.10.4"
     }
   },
   "scripts": {

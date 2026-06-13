@@ -1,0 +1,130 @@
+/* SuperJam "Toybox" jam theme — light/playful, ink outlines, sticker shadows,
+   Baloo 2. The CSS var names (--bg --card --text --muted --accent --danger
+   --radius) and the .tj-* class names are the SDK contract: keep them; only
+   values change. --text doubles as the ink color for outlines/shadows
+   (#221A33). Candy accent siblings (use as inline hex when you need variety):
+   #FF4D6D pink (primary) · #FFC940 yellow · #2FD180 green · #4D7CFF blue. */
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap');
+
+:root {
+  --bg: #FFF4E3;     /* cream paper */
+  --card: #FFFFFF;   /* card face */
+  --text: #221A33;   /* ink — text AND outlines/shadows */
+  --muted: #6B6478;
+  --accent: #FF4D6D; /* candy pink (primary) */
+  --danger: #E5484D;
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+html, body { -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 16px;
+}
+#root { width: 100%; display: grid; place-items: center; }
+
+/* ── Surfaces ───────────────────────────────────────────────────────────── */
+.tj-card {
+  background: var(--card);
+  border: 2px solid var(--text);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 4px 0 var(--text);
+}
+.tj-title { margin: 0 0 4px; font-size: 24px; font-weight: 800; line-height: 1.1; }
+.tj-sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.tj-muted { color: var(--muted); }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+/* tj-btn = the default candy button. tj-btn-primary is an explicit alias (same
+   look). tj-btn-ghost = outline-only secondary. Combine: class="tj-btn tj-btn-ghost". */
+.tj-btn {
+  background: var(--accent);
+  color: #fff;
+  border: 2px solid var(--text);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 800;
+  cursor: pointer;
+  font-size: 15px;
+  font-family: inherit;
+  box-shadow: 0 3px 0 var(--text);
+  transition: transform .04s ease, box-shadow .04s ease;
+}
+.tj-btn:active { transform: translateY(3px); box-shadow: 0 0 0 var(--text); }
+.tj-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: 0 3px 0 var(--text); transform: none; }
+.tj-btn-primary { background: var(--accent); color: #fff; }
+.tj-btn-ghost { background: var(--card); color: var(--text); }
+.tj-btn-ghost:active { transform: translateY(3px); }
+
+/* ── Inputs ─────────────────────────────────────────────────────────────── */
+.tj-input {
+  width: 100%;
+  background: #fff;
+  border: 2px solid var(--text);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 600;
+}
+.tj-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ── Layout helpers ─────────────────────────────────────────────────────── */
+.tj-row { display: flex; gap: 8px; align-items: center; }
+.tj-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tj-center { display: grid; place-items: center; text-align: center; gap: 8px; }
+.tj-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.tj-list > li { display: flex; gap: 8px; align-items: center; }
+
+/* ── Bits ───────────────────────────────────────────────────────────────── */
+.tj-stat { font-size: 40px; font-weight: 800; line-height: 1; }
+.tj-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg);
+  border: 2px solid var(--text);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tj-empty {
+  display: grid; place-items: center; gap: 6px;
+  padding: 28px 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── Spinner ────────────────────────────────────────────────────────────── */
+.tj-spin {
+  width: 22px; height: 22px;
+  border: 3px solid var(--bg);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: tj-rot .7s linear infinite;
+}
+@keyframes tj-rot { to { transform: rotate(360deg); } }
+
+/* ── Full-bleed game stage (escapes the centered body layout). Put <Canvas>
+   or a <canvas> inside; overlay UI with .tj-hud. ────────────────────────── */
+.tj-stage { position: fixed; inset: 0; overflow: hidden; }
+.tj-hud { position: absolute; inset: 0; pointer-events: none; }
+.tj-hud > * { pointer-events: auto; }
+
+/* ── Juice (event-driven one-shots; key the element to replay) ──────────── */
+@keyframes tj-pop { 50% { transform: scale(1.25); } }
+.tj-pop { animation: tj-pop 0.18s ease; }
+@keyframes tj-shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.tj-shake { animation: tj-shake 0.15s linear 2; }

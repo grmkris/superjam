@@ -1,0 +1,31 @@
+{
+  "name": "@superjam/app-template",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "verify": "bun run scripts/verify.ts"
+  },
+  "dependencies": {
+    "@superjam/sdk": "workspace:*",
+    "@superjam/shared": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "@react-three/fiber": "^9.1.0",
+    "@react-three/drei": "^10.0.0",
+    "three": "^0.182.0",
+    "recharts": "^3.8.1",
+    "motion": "^12.40.0",
+    "canvas-confetti": "^1.9.3",
+    "react-qr-code": "^2.2.0",
+    "papaparse": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/three": "^0.182.0",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/papaparse": "^5.3.14"
+  }
+}

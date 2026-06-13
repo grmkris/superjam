@@ -38,11 +38,18 @@ export const app = pgTable("app", {
     .references(() => user.id),
   status: appStatusEnum("status").notNull().default("building"),
   capabilities: jsonb("capabilities").$type<Capability[]>().notNull().default([]),
+  // Pivot §2: apps are external, developer/builder-hosted. The iframe loads
+  // entryUrl; entryOrigin (scheme+host+port) keys the per-page frame-src CSP +
+  // the optional bridge origin-pin. Non-null required at registration.
+  entryUrl: text("entry_url"),
+  entryOrigin: text("entry_origin"),
+  /** @deprecated pivot §2 — static bundles dropped; left nullable, stop writing. */
   bundleKey: text("bundle_key"),
   version: integer("version").notNull().default(1),
   treasuryAddress: text("treasury_address"),
   ensName: text("ens_name"),
   ensTxHash: text("ens_tx_hash"),
+  /** @deprecated pivot §2 — IPFS pinning dropped; left nullable, stop writing. */
   ipfsCid: text("ipfs_cid"),
   currentBuildId: typeId("build", "current_build_id"),
   builtByAgentId: typeId("builderAgent", "built_by_agent_id").references(

@@ -1,0 +1,32 @@
+{
+  "name": "Sticker Studio",
+  "slug": "sticker-studio",
+  "description": "A collectible sticker wall with build-time generated art in the Toybox style.",
+  "iconEmoji": "🏷️",
+  "category": "creative",
+  "capabilities": [],
+  "features": [
+    "A generated full-screen background and a hero header image baked into the bundle",
+    "Users post a sticker caption to a shared wall",
+    "Art uses one consistent Toybox style line; degrades to gradients if generation is unavailable",
+    "No external URLs — all art lives under ./assets"
+  ],
+  "data": {
+    "collections": [
+      { "name": "stickers", "doc": { "caption": "string" }, "writtenWhen": "the user posts a sticker" }
+    ],
+    "counters": [],
+    "storage": []
+  },
+  "ui": {
+    "layout": "card over a generated background, hero image at the top",
+    "sections": ["hero header", "caption input", "sticker wall"]
+  },
+  "skills": ["art"],
+  "acceptance": [
+    "generate_image writes assets/bg.jpg and assets/hero.jpg before code references them",
+    "Code references generated art only via relative ./assets/ paths",
+    "Every prompt reuses one Toybox style line and says 'no text'",
+    "If generation is unavailable the app still renders with gradients/emoji"
+  ]
+}

@@ -1,0 +1,93 @@
+/* SuperJam — Toybox theme (DESIGN_BRIEF §2/§7). Hard tokens: paper #E9E9EE,
+   cream #FFF4E3, ink #221A33, 2px ink outlines, 0 3px 0 sticker shadows,
+   Baloo 2, candy primaries. These are constraints, not suggestions. */
+@import "tailwindcss";
+
+@theme {
+  /* surfaces + ink */
+  --color-paper: #e9e9ee;
+  --color-cream: #fff4e3;
+  --color-card: #ffffff;
+  --color-ink: #221a33;
+  --color-muted: #6b6478;
+  --color-faint: #76778a;
+
+  /* candy primaries */
+  --color-pink: #ff4d6d;
+  --color-yellow: #ffc940;
+  --color-green: #2fd180;
+  --color-blue: #4d7cff;
+
+  /* darker variants — text-on-color + accents */
+  --color-amber-ink: #e8a300;
+  --color-green-ink: #1f9d5f;
+  --color-green-deep: #1a5c38;
+
+  /* type */
+  --font-display: "Baloo 2", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* toy-like radii */
+  --radius-toy: 16px;
+  --radius-toy-lg: 22px;
+
+  /* hard offset "sticker" shadows — no blur */
+  --shadow-sticker-sm: 0 2px 0 var(--color-ink);
+  --shadow-sticker: 0 3px 0 var(--color-ink);
+  --shadow-sticker-md: 0 4px 0 var(--color-ink);
+  --shadow-sticker-lg: 0 5px 0 var(--color-ink);
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* lock the app to a phone-shaped column on big screens */
+    overscroll-behavior-y: none;
+  }
+  /* never let user-generated text break the layout */
+  * {
+    overflow-wrap: anywhere;
+  }
+}
+
+@layer components {
+  /* The signature: a chunky ink-outlined sticker that presses down on tap. */
+  .sticker {
+    border: 2px solid var(--color-ink);
+    border-radius: var(--radius-toy);
+    box-shadow: var(--shadow-sticker);
+  }
+  .sticker-press {
+    transition: transform 0.04s ease, box-shadow 0.04s ease;
+  }
+  .sticker-press:active {
+    transform: translateY(2px);
+    box-shadow: var(--shadow-sticker-sm);
+  }
+}
+
+/* The app lives in a phone-width column, centered on desktop with paper around. */
+.app-shell {
+  width: 100%;
+  max-width: 460px;
+  margin-inline: auto;
+  min-height: 100dvh;
+  position: relative;
+  background: var(--color-cream);
+}
+
+@media (min-width: 480px) {
+  .app-shell {
+    border-inline: 2px solid var(--color-ink);
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "Doodle Judge",
+  "slug": "doodle-judge",
+  "description": "Draw the daily prompt on a canvas; an AI judge scores it and ranks the gallery.",
+  "iconEmoji": "🖍️",
+  "category": "creative",
+  "capabilities": ["ai"],
+  "features": [
+    "Finger-paint canvas for a shared daily drawing prompt",
+    "Submit uploads the drawing and asks ai.chat to score it 0-10 with a one-line reason",
+    "Scores feed an all-time artists leaderboard via a counter",
+    "Gallery of submissions sorted by score, each showing its grade and the AI's reason"
+  ],
+  "data": {
+    "collections": [
+      { "name": "entries", "doc": { "url": "string", "score": "number", "reason": "string" }, "writtenWhen": "the user submits a drawing and it is judged" }
+    ],
+    "counters": [
+      { "name": "scores", "keyedBy": "username", "meaning": "sum of a player's drawing scores" }
+    ],
+    "storage": []
+  },
+  "ai": { "uses": ["grade a submitted drawing against a stated rubric and return a score plus a witty one-line reason"] },
+  "ui": {
+    "layout": "single card: canvas, controls, leaderboard, gallery",
+    "sections": ["drawing canvas", "submit controls", "leaderboard", "scored gallery"]
+  },
+  "skills": ["judge"],
+  "acceptance": [
+    "Submit calls files.upload then ai.chat with the image and a 0-10 rubric prompt",
+    "The score is clamped 0-10 and stored with the AI's reason on the entry doc",
+    "The AI judges only the drawing artifact, never any person",
+    "Both the score and the reason are shown for each gallery entry"
+  ]
+}

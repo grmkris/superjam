@@ -1,0 +1,19 @@
+{
+  "name": "@superjam/contracts",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./abi/stake-slash": "./generated/stake-slash.abi.ts"
+  },
+  "scripts": {
+    "compile": "forge build",
+    "gen": "bun run scripts/gen-abi.ts",
+    "build:contracts": "forge build && bun run scripts/gen-abi.ts",
+    "test:forge": "forge test -vvv",
+    "typecheck": "tsc --noEmit",
+    "deploy:baseSepolia": "forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_SEPOLIA_RPC_URL --private-key $SERVER_WALLET_PRIVATE_KEY --broadcast"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14"
+  }
+}

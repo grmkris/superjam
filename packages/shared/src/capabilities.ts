@@ -47,6 +47,7 @@ export const METHOD_CAPABILITY: Record<BridgeMethod, Capability | null> = {
   "share.link": null,
   "files.upload": null,
   "ui.toast": null,
+  "auth.getToken": null,
   "data.subscribe": null,
   "data.unsubscribe": null,
 };

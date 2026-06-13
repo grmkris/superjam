@@ -1,0 +1,6 @@
+/.next/
+/node_modules
+*.tsbuildinfo
+.vercel
+.env*.local
+# next-env.d.ts is committed so `tsc --noEmit` (the gate) works on fresh checkout.

@@ -1,0 +1,37 @@
+{
+  "name": "Match Pot",
+  "slug": "match-pot",
+  "description": "Host an escrowed wager on a match; stake on a side and the pot pays out winners.",
+  "iconEmoji": "🎲",
+  "category": "game",
+  "capabilities": ["payments"],
+  "features": [
+    "A World-verified host creates a pot with two outcomes and an AI resolver",
+    "Anyone stakes up to 10 USDC on a side via the confirm sheet",
+    "Live totals per option shown as bars, polled while the pot is open",
+    "On resolution the platform pays winners pro-rata; void refunds after the deadline"
+  ],
+  "data": {
+    "collections": [],
+    "counters": [],
+    "storage": [
+      { "key": "potId", "meaning": "the active pot id so the player returns to it" }
+    ]
+  },
+  "payments": {
+    "actions": [
+      { "label": "Stake on a side", "amountUsdc": "2.00", "to": "appTreasury" }
+    ]
+  },
+  "ui": {
+    "layout": "single card: question, option bars with stake buttons, result",
+    "sections": ["pot question", "option totals + stake buttons", "your bet / result"]
+  },
+  "skills": ["market"],
+  "acceptance": [
+    "The create control is gated on ctx.user.worldVerified",
+    "Staking calls pot.stake with amount <= 10 inside a try/catch for USER_REJECTED",
+    "Live totals come from polling pot.get every ~5s while status is open",
+    "Stake buttons disappear once the pot is resolved or void"
+  ]
+}

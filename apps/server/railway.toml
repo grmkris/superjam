@@ -1,0 +1,10 @@
+# Server service build config. The reliable mechanism on Railway's deploy-tarball
+# is the service var RAILWAY_DOCKERFILE_PATH=apps/server/Dockerfile (set via MCP);
+# this file documents intent + mirrors apps/gateway/railway.toml (integrator-owned).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/server/Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

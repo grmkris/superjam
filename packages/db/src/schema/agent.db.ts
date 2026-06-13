@@ -1,4 +1,4 @@
-import { integer, pgTable, text } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
 import { baseEntityFields, typeId, typeIdPk } from "../utils/db-utils.ts";
 import { agentStatusEnum } from "./enums.db.ts";
 import { user } from "./user.db.ts";
@@ -16,6 +16,9 @@ export const builderAgent = pgTable("builder_agent", {
   endpointUrl: text("endpoint_url").notNull(),
   token: text("token").notNull(),
   priceUsdc: text("price_usdc").notNull().default("0"),
+  // Builder capability checklist (§14): a jsonb string[] from BUILDER_CAPABILITIES
+  // — the platform routes a build only to agents that hold every required cap.
+  capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
   walletAddress: text("wallet_address").notNull(),
   ensName: text("ens_name"),
   buildsCount: integer("builds_count").notNull().default(0),

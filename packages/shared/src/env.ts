@@ -1,8 +1,10 @@
 // Env schemas (§1 manifest + §5.1 mode flags). The schema lives here; each app
 // parses process.env against it fail-fast in its own env.ts (apps/server,
-// apps/web). Core creds are assumed present (§0.2) — but we keep most rows
-// optional in the SCHEMA so typecheck/build never needs live secrets; the
-// server asserts presence of what a given route actually uses at call time.
+// apps/web). Core creds (§0.2) are REQUIRED — `env.X` is typed `string`, so no
+// `?? ""` fallbacks or `if (!env.X) throw` guards at call sites. Genuinely-gated
+// features stay optional. Builds/lint/CI run without secrets via
+// SKIP_ENV_VALIDATION (parse is bypassed at build time; runtime boot still
+// validates fail-fast). See ~/.claude/plans/which-env-vars-we-calm-truffle.md §F.
 import { z } from "zod";
 import { ENVIRONMENTS } from "./service-urls.ts";
 
@@ -24,9 +26,9 @@ export const serverEnvSchema = z.object({
   S3_SECRET_KEY: optionalStr,
   S3_REGION: z.string().default("us-east-1"),
 
-  // AI
-  GOOGLE_GENERATIVE_AI_API_KEY: optionalStr,
-  ANTHROPIC_API_KEY: optionalStr,
+  // AI — platform is Gemini-only (refine + in-app sdk.ai). No Anthropic key:
+  // builder codegen rides the subscription-authed `claude` CLI on the VPS (§18).
+  GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
   FAL_KEY: optionalStr,
 
   // builder
@@ -34,9 +36,17 @@ export const serverEnvSchema = z.object({
   BUILDER_URL: optionalStr,
   BUILDER_TOKEN: optionalStr,
 
-  // auth (Dynamic)
-  DYNAMIC_ENVIRONMENT_ID: optionalStr,
+  // auth (Dynamic) — env id gates ALL login, so required. API token (onchain
+  // server-wallet signer) stays optional until the chain lane provisions it.
+  DYNAMIC_ENVIRONMENT_ID: z.string().min(1),
   DYNAMIC_API_TOKEN: optionalStr,
+
+  // app identity token — the platform MINTS these (ES256) so an external,
+  // developer-hosted mini-app's backend can verify the SuperJam user against
+  // our /.well-known/jwks.json (pivot §1). Required: identity is core surface.
+  APP_JWT_PRIVATE_KEY: z.string().min(1), // ES256 PKCS8 PEM (server-only secret)
+  APP_JWT_PUBLIC_KEY: z.string().min(1), // ES256 SPKI PEM (published in the JWKS)
+  APP_JWT_KID: z.string().min(1).default("sj-app"), // stable key id for rotation
 
   // World
   WORLD_APP_ID: optionalStr,
@@ -66,8 +76,18 @@ export const webEnvSchema = z.object({
 });
 export type WebEnv = z.infer<typeof webEnvSchema>;
 
+// Build-time escape hatch (t3-env's skipValidation pattern): image builds, lint,
+// and CI run with no secrets present. Bypasses the parse so a required schema
+// doesn't break `next build`/bundling; RUNTIME boot still validates fail-fast
+// (Railway has the real secrets). NB: skipping also skips zod .default() — so
+// defaulted vars are undefined under the flag; safe because build doesn't read
+// them. Keep literal fallbacks at any module-eval read site.
+const skipValidation = (source: Record<string, string | undefined>): boolean =>
+  Boolean(source.SKIP_ENV_VALIDATION);
+
 /** Parse + assert, throwing a readable aggregate on the first missing/invalid var. */
 export const parseServerEnv = (source: Record<string, string | undefined>): ServerEnv => {
+  if (skipValidation(source)) return source as unknown as ServerEnv;
   const result = serverEnvSchema.safeParse(source);
   if (!result.success) {
     throw new Error(
@@ -78,6 +98,7 @@ export const parseServerEnv = (source: Record<string, string | undefined>): Serv
 };
 
 export const parseWebEnv = (source: Record<string, string | undefined>): WebEnv => {
+  if (skipValidation(source)) return source as unknown as WebEnv;
   const result = webEnvSchema.safeParse(source);
   if (!result.success) {
     throw new Error(`Invalid web env:\n${z.prettifyError(result.error)}`);
