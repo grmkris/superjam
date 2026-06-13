@@ -4,6 +4,7 @@
 // ✓-human), the Dynamic wallet block (address + USDC balance as the hero
 // number), your registered builders, and the World verify block. USDC only — no
 // gas / network / token lists.
+import type { BuildDraftId } from "@superjam/shared";
 import { useLogout } from "@dynamic-labs-sdk/react-hooks";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -30,8 +31,29 @@ interface Builder {
   ensName: string | null;
   buildsCount: number;
 }
+/** A paused wizard draft (pending build) — resumable from where it stopped. */
+interface Draft {
+  id: string;
+  step: string;
+  prompt: string;
+  name: string | null;
+  iconEmoji: string | null;
+}
+/** A build/jam (running or completed) from apps.mine. */
+interface Jam {
+  id: string;
+  slug: string;
+  name: string;
+  iconEmoji: string;
+  status: string;
+  buildStatus: string | null;
+}
 
 const short = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
+
+// Feed order within "your jams": running (building) first, then live, then failed.
+const jamRank = (j: { status: string; buildStatus: string | null }): number =>
+  j.buildStatus === "failed" ? 2 : j.status === "listed" ? 1 : 0;
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -44,8 +66,15 @@ export default function ProfilePage() {
   const [balance, setBalance] = useState<string | null | "loading">("loading");
   const [shielded, setShielded] = useState<string | null | "loading">("loading");
   const [builders, setBuilders] = useState<Builder[]>([]);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [jams, setJams] = useState<Jam[]>([]);
   const [verifying, setVerifying] = useState(false);
   const [adding, setAdding] = useState(false);
+
+  const discardDraft = (id: string) => {
+    setDrafts((d) => d.filter((x) => x.id !== id));
+    client.builds.deleteDraft({ draftId: id as BuildDraftId }).catch(() => {});
+  };
 
   const loadShielded = () =>
     client.payments
@@ -73,6 +102,35 @@ export default function ProfilePage() {
       .then((rows) =>
         setBuilders(
           rows.map((a) => ({ id: a.id, name: a.name, ensName: a.ensName, buildsCount: a.buildsCount }))
+        )
+      )
+      .catch(() => {});
+    client.builds
+      .listDrafts()
+      .then((d) =>
+        setDrafts(
+          d.map((x) => ({
+            id: x.id,
+            step: x.step,
+            prompt: x.prompt,
+            name: x.name,
+            iconEmoji: x.iconEmoji,
+          }))
+        )
+      )
+      .catch(() => {});
+    client.apps
+      .mine()
+      .then((r) =>
+        setJams(
+          r.jams.map((j) => ({
+            id: j.id,
+            slug: j.slug,
+            name: j.name,
+            iconEmoji: j.iconEmoji,
+            status: j.status,
+            buildStatus: j.buildStatus,
+          }))
         )
       )
       .catch(() => {});
@@ -167,6 +225,75 @@ export default function ProfilePage() {
           </StickerButton>
         )}
       </StickerCard>
+
+      {/* your jams — pending (drafts) → running (building) → completed (live) */}
+      {(drafts.length > 0 || jams.length > 0) && (
+        <div className="flex flex-col gap-2">
+          <div className="text-small font-extrabold uppercase tracking-wide text-muted">
+            your jams
+          </div>
+
+          {/* pending — paused wizard drafts, resumable */}
+          {drafts.map((d) => (
+            <StickerCard key={d.id} color="cream" className="p-3.5 flex items-center gap-3">
+              <EmojiToken emoji={d.iconEmoji ?? "✏️"} color="yellow" size={40} rounded="toy" />
+              <div className="flex flex-col min-w-0">
+                <div className="font-extrabold text-body truncate">
+                  {d.name ?? d.prompt ?? "Untitled idea"}
+                </div>
+                <div className="text-small font-semibold text-muted">draft · paused</div>
+              </div>
+              <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => router.push(`/build?d=${d.id}&step=${d.step}`)}
+                  className="focus-ring whitespace-nowrap border-2 border-ink rounded-full bg-pink text-white px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                >
+                  Resume →
+                </button>
+                <button
+                  onClick={() => discardDraft(d.id)}
+                  aria-label="discard draft"
+                  className="focus-ring text-muted font-extrabold px-1.5 text-body"
+                >
+                  ✕
+                </button>
+              </div>
+            </StickerCard>
+          ))}
+
+          {/* running (building) then completed (live) */}
+          {[...jams]
+            .sort((a, b) => jamRank(a) - jamRank(b))
+            .map((j) => {
+              const live = j.status === "listed";
+              const failed = j.buildStatus === "failed";
+              return (
+                <StickerCard key={j.id} className="p-3.5 flex items-center gap-3">
+                  <EmojiToken
+                    emoji={j.iconEmoji}
+                    color={live ? "green" : failed ? "pink" : "blue"}
+                    size={40}
+                    rounded="toy"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <div className="font-extrabold text-body truncate">{j.name}</div>
+                    <div className="text-small font-semibold text-muted">
+                      {live ? "live ✓" : failed ? "didn't finish" : "making… ⛏"}
+                    </div>
+                  </div>
+                  {live && (
+                    <button
+                      onClick={() => router.push(`/app/${j.slug}`)}
+                      className="ml-auto shrink-0 focus-ring whitespace-nowrap border-2 border-ink rounded-full bg-green text-ink px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                    >
+                      ▸ Play
+                    </button>
+                  )}
+                </StickerCard>
+              );
+            })}
+        </div>
+      )}
 
       {/* registered builders */}
       <div className="flex flex-col gap-2">

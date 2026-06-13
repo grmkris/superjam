@@ -4,17 +4,18 @@
 // wizard: idea → follow-ups → plan → choose builder → (World gate, once) →
 // workshop → reveal. Machinery hidden throughout: no build logs, file names,
 // terminals, or "AI/agent" talk anywhere a user can see.
-import type { AppSpec, BuildId, RefineResult, Similar } from "@superjam/shared";
+import type { AppSpec, BuildDraftId, BuildId, BuilderAgentId, RefineResult, Similar } from "@superjam/shared";
 import { ATTACH_MAX_MB, BUILD_ATTACH_MAX } from "@superjam/shared";
 import { useLogin } from "../../components/login";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useConfirm } from "../../components/confirm/confirm-provider";
 import { jamEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { Input, Textarea } from "../../components/ui/field";
+import { MicButton } from "../../components/ui/mic-button";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { ToyboxSheet } from "../../components/ui/sheet";
 import {
@@ -27,6 +28,7 @@ import {
 import { usePlatformClient } from "../../components/use-platform-client";
 import { WorldGate } from "../../components/world-gate";
 import { useHostAuth } from "../../lib/use-host-auth";
+import { useBuildDraft } from "../../lib/use-build-draft";
 
 type Step = "home" | "followups" | "plan" | "builder" | "worldgate" | "workshop" | "reveal";
 
@@ -60,6 +62,12 @@ interface Builder {
   owner: { username: string; worldVerified: boolean };
 }
 
+/** The picked builder + how its fee was settled, carried into builds.create. */
+interface Chosen {
+  agentId: string;
+  payment?: { via: "x402"; txHash: string | null };
+}
+
 export default function MakePage() {
   return (
     <Suspense fallback={null}>
@@ -78,7 +86,6 @@ function MakeFlow() {
   const { openLogin } = useLogin();
   const username = hostUser?.username ?? "you";
 
-  const [step, setStep] = useState<Step>("home");
   const [idea, setIdea] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -91,9 +98,91 @@ function MakeFlow() {
   const [builders, setBuilders] = useState<Builder[] | null>(null);
   const [exchange, setExchange] = useState<{ you: string; back: string }[]>([]);
   const [buildId, setBuildId] = useState<string | null>(null);
+  // The builder the user picked + the build-fee outcome (x402 settlement hash, or
+  // null for a free build) — threaded into builds.create so it routes to that
+  // builder and skips the legacy EIP-3009 receipt check.
+  const [chosen, setChosen] = useState<Chosen | null>(null);
   const [revealSlug, setRevealSlug] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  // --- resumable draft (URL + localStorage + DB) — survives reload / pay redirect /
+  //     World-App round-trip, so the wizard resumes instead of resetting to home. ---
+  const { draftId, persist, load } = useBuildDraft({
+    initialDraftId: search.get("d"),
+    isLoggedIn,
+  });
+  const [hydrated, setHydrated] = useState(false);
+
+  // The current step is DERIVED from the URL — no state, no URL↔state sync effect
+  // (react.dev "You Might Not Need an Effect"). Transitions navigate via go(), which
+  // also carries the draft id + remix so a reload/back/forward resumes the right step.
+  const step = (search.get("step") as Step | null) ?? "home";
+  const go = useCallback(
+    (next: Step) => {
+      const params = new URLSearchParams();
+      if (remixSlug) params.set("remix", remixSlug);
+      params.set("d", draftId);
+      params.set("step", next);
+      router.push(`/build?${params.toString()}`, { scroll: false });
+    },
+    [remixSlug, draftId, router]
+  );
+
+  // ONE mount effect: ensure ?d= is in the URL (resume token) + hydrate the wizard
+  // DATA from the persisted draft (localStorage → server). Step is URL-derived, so
+  // we never set it here — if the URL has no ?step we jump to the draft's saved step.
+  useEffect(() => {
+    let cancelled = false;
+    load().then((snap) => {
+      if (cancelled) return;
+      if (snap) {
+        setIdea(snap.prompt || "");
+        setSpec(snap.spec);
+        const s = snap.state ?? {};
+        setQuestions(s.questions ?? []);
+        setPicks((s.picks ?? {}) as Record<number, string>);
+        setComments(s.comments ?? []);
+        setExchange(s.exchange ?? []);
+        setSimilar(s.similar ?? []);
+        setChosen((s.chosen ?? null) as Chosen | null);
+        setAttachments((s.attachments ?? []) as Attachment[]);
+        setRevealSlug(s.revealSlug ?? null);
+        setBuildId(snap.buildId ?? null);
+      }
+      const urlStep = search.get("step");
+      const needD = search.get("d") !== draftId;
+      const resumeStep = !urlStep && snap?.step && snap.step !== "home" ? snap.step : null;
+      if (needD || resumeStep) {
+        const params = new URLSearchParams();
+        if (remixSlug) params.set("remix", remixSlug);
+        params.set("d", draftId);
+        params.set("step", urlStep ?? resumeStep ?? "home");
+        router.replace(`/build?${params.toString()}`, { scroll: false });
+      }
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-save on any meaningful change (after hydration). localStorage is immediate;
+  // the DB save is debounced + best-effort inside the hook. (A draft auto-save is a
+  // legit "sync state to an external store" — far cleaner than threading persist into
+  // every handler.)
+  useEffect(() => {
+    if (!hydrated) return;
+    persist({
+      step,
+      prompt: idea,
+      spec,
+      state: { questions, picks, comments, exchange, similar, chosen, attachments, revealSlug },
+      buildId,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, step, idea, spec, questions, picks, comments, exchange, similar, chosen, attachments, buildId, revealSlug]);
 
   // Upload reference files (images + CSV/Excel/PDF) for the build prompt: images
   // feed Gemini vision in refine, all are handed to the builder agent as URLs.
@@ -148,10 +237,10 @@ function MakeFlow() {
         setSimilar(res.similar ?? []);
         if (res.type === "questions" && res.questions) {
           setQuestions(res.questions);
-          setStep("followups");
+          go("followups");
         } else if (res.spec) {
           setSpec(res.spec);
-          setStep("plan");
+          go("plan");
         }
       } catch {
         // Refiner unavailable — keep the user moving with a friendly fallback.
@@ -160,7 +249,7 @@ function MakeFlow() {
         setBusy(false);
       }
     },
-    [client, idea, attachments]
+    [client, idea, attachments, go]
   );
 
   const drawPlan = () => {
@@ -193,7 +282,7 @@ function MakeFlow() {
   };
 
   const goBuilders = async () => {
-    setStep("builder");
+    go("builder");
     try {
       const rows = await client.agents.list();
       setBuilders(
@@ -217,19 +306,22 @@ function MakeFlow() {
 
   const pickBuilder = async (b: Builder) => {
     const price = Number(b.priceUsdc);
+    let pick: Chosen = { agentId: b.id };
     if (price > 0) {
-      // Paid builders route USDC via the confirm sheet BEFORE dispatch
-      // (build fee = attempt fee, no refunds).
+      // Paid builders settle the fee via the confirm sheet BEFORE dispatch — over
+      // the x402 PRIVATE rail (free for a verified human hiring a human-backed
+      // builder). The sheet quotes the builder + offers top-up if short.
       const res = await confirm({
-        kind: "tip",
-        to: b.ensName ?? b.id,
+        kind: "buildFee",
+        builderId: b.id,
         toName: b.ensName ?? undefined,
         amountUsdc: price,
-        memo: "build fee — no refunds",
         jam: spec ? { name: spec.name, iconEmoji: spec.iconEmoji } : undefined,
-      }).catch(() => ({ approved: false }));
+      }).catch(() => ({ approved: false, txHash: null }));
       if (!res.approved) return;
+      pick = { agentId: b.id, payment: { via: "x402", txHash: res.txHash ?? null } };
     }
+    setChosen(pick);
     // Don't treat a not-yet-loaded/failed profile as "unverified" — that would
     // route an already-verified human into the gate (→ nullifier_replayed).
     // Resolve `me` authoritatively when it isn't settled yet.
@@ -240,18 +332,24 @@ function MakeFlow() {
         .then((m) => m.worldVerified)
         .catch(() => false);
     }
-    if (!verified) setStep("worldgate");
-    else startBuild();
+    // Pass the pick directly (state isn't flushed yet on the non-gated path); the
+    // world-gate path re-renders first, so its onVerified reads `chosen` from state.
+    if (!verified) go("worldgate");
+    else startBuild(pick);
   };
 
-  const startBuild = async () => {
-    setStep("workshop");
+  const startBuild = async (pick?: Chosen) => {
+    const c = pick ?? chosen;
+    go("workshop");
     try {
       // Fire the real build; the workshop then polls builds.status for progress.
       const res = await client.builds.create({
         spec: spec!,
         prompt: idea,
         attachmentKeys,
+        draftId: draftId as BuildDraftId,
+        ...(c?.agentId ? { agentId: c.agentId as BuilderAgentId } : {}),
+        ...(c?.payment ? { payment: c.payment } : {}),
       });
       setBuildId(res.buildId);
     } catch {
@@ -315,7 +413,9 @@ function MakeFlow() {
         />
       )}
 
-      {step === "worldgate" && <WorldGate onVerified={startBuild} />}
+      {step === "worldgate" && (
+        <WorldGate onVerified={() => startBuild(chosen ?? undefined)} />
+      )}
 
       {step === "workshop" && spec && (
         <WorkshopBeat
@@ -324,7 +424,7 @@ function MakeFlow() {
           buildId={buildId}
           onDone={(slug) => {
             setRevealSlug(slug);
-            setStep("reveal");
+            go("reveal");
           }}
         />
       )}
@@ -404,13 +504,20 @@ function HomeBeat({
           Say it in a sentence — we'll make it real.
         </div>
       </div>
-      <Textarea
-        value={idea}
-        onChange={(e) => setIdea(e.target.value)}
-        rows={3}
-        placeholder="what should it do?"
-        className="leading-relaxed shadow-sticker"
-      />
+      <div className="relative">
+        <Textarea
+          value={idea}
+          onChange={(e) => setIdea(e.target.value)}
+          rows={3}
+          placeholder="what should it do?"
+          className="leading-relaxed shadow-sticker pr-14"
+        />
+        <MicButton
+          value={idea}
+          onChange={setIdea}
+          className="absolute bottom-2.5 right-2.5"
+        />
+      </div>
 
       {/* Reference attachments — images (mockups/sketches) + docs (CSV/Excel/PDF). */}
       {isLoggedIn && (
@@ -598,6 +705,7 @@ function FollowupsBeat({
             placeholder="add a line…"
             className="flex-1 rounded-full text-small"
           />
+          <MicButton value={draft} onChange={setDraft} size={48} />
           <button
             onClick={() => {
               if (draft.trim()) {
@@ -713,6 +821,7 @@ function PlanBeat({
           placeholder="✏️ change anything — just say it"
           className="flex-1 rounded-full text-small"
         />
+        <MicButton value={draft} onChange={setDraft} size={48} />
         <button
           onClick={() => {
             if (draft.trim() && !busy) {
