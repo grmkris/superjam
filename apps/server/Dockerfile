@@ -14,13 +14,15 @@
 FROM oven/bun:1.3.14
 WORKDIR /app
 
-# Install workspace deps against the committed lockfile. All workspace manifests
-# are present (app-template/example-app keep only their package.json) so
-# --frozen-lockfile resolves the full graph.
+# Install workspace deps. All workspace manifests are present
+# (app-template/example-app keep only their package.json) so the graph resolves.
+# NOT --frozen-lockfile: ~7 lanes churn deps on dev and bun.lock drifts out of
+# sync constantly; a frozen check breaks the image build on every drift. Plain
+# install resolves the manifests (lockfile regen stays a checkpoint task for A).
 COPY package.json bun.lock turbo.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps ./apps
-RUN bun install --frozen-lockfile
+RUN bun install
 
 ENV PORT=4701
 EXPOSE 4701
