@@ -7,6 +7,8 @@ import type { Address, Hex } from "viem";
 export interface MockOnchain extends Onchain {
   /** Every sendUsdc call, in order — assert payout count/amounts/idempotency. */
   sends: { to: Address; value: Usdc }[];
+  /** Every fundViaCctp (Sepolia→Arc bridge) call, in order. */
+  bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[];
   /** Override the next verifyUsdcTransfer result (or make it throw). */
   setVerify(fn: NonNullable<MockOnchainOptions["verify"]>): void;
 }
@@ -31,6 +33,7 @@ export const createMockOnchain = (
   opts: MockOnchainOptions = {}
 ): MockOnchain => {
   const sends: { to: Address; value: Usdc }[] = [];
+  const bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[] = [];
   let verify =
     opts.verify ??
     (async () => {
@@ -41,6 +44,8 @@ export const createMockOnchain = (
     serverAddress:
       opts.serverAddress ?? "0x000000000000000000000000000000000000eeee",
     sends,
+    bridges,
+    stakeSlash: null,
     setVerify(fn) {
       verify = fn;
     },
@@ -57,6 +62,10 @@ export const createMockOnchain = (
     sendUsdc: async (_chain, to, value) => {
       sends.push({ to, value });
       return fakeHash();
+    },
+    fundViaCctp: async ({ amount, mintRecipient, fast = true }) => {
+      bridges.push({ amount, mintRecipient, fast });
+      return { burnTxHash: fakeHash(), mintTxHash: fakeHash() };
     },
     mintV2Subname: async ({ slug }) => ({
       ensName: `${slug}.superjam.eth`,

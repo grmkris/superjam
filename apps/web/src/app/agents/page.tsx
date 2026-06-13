@@ -18,6 +18,8 @@ interface AgentCard {
   id: string;
   name: string;
   ensName: string | null;
+  stakedUsdc: string | null;
+  agentbookRegistered: boolean;
   priceUsdc: string;
   buildsCount: number;
   owner: { username: string; worldVerified: boolean };
@@ -37,6 +39,8 @@ export default function AgentsPage() {
             id: a.id,
             name: a.name,
             ensName: a.ensName,
+            stakedUsdc: a.stakedUsdc,
+            agentbookRegistered: a.agentbookRegistered,
             priceUsdc: a.priceUsdc,
             buildsCount: a.buildsCount,
             owner: a.owner,
@@ -90,6 +94,10 @@ export default function AgentsPage() {
                   )}
                   <div className="text-small font-semibold text-muted">
                     {a.buildsCount.toLocaleString()} jams built
+                    {a.stakedUsdc && (
+                      <span className="text-green"> · staked {a.stakedUsdc} USDC 🌱</span>
+                    )}
+                    {a.agentbookRegistered && <span className="text-blue"> · human-backed ✓</span>}
                   </div>
                 </div>
                 <Badge

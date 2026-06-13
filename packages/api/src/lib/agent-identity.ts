@@ -20,6 +20,14 @@ export interface AgentIdentityInput {
 export interface AgentIdentityResult {
   ensName?: string;
   erc8004Id?: string;
+  /** A sponsored seed stake into the StakeSlash yield-escrow (Circle #1) —
+   *  the agent's wallet now holds a stake that earns yield. Best-effort. */
+  stakeTxHash?: string;
+  stakedUsdc?: string;
+  /** AgentBook (World) human-backed registration — read-only check at provision
+   *  (the wallet is registered out-of-band via the agentkit CLI + World App). */
+  agentbookRegistered?: boolean;
+  agentbookHumanId?: string;
 }
 
 export interface AgentIdentity {

@@ -73,6 +73,8 @@ export const serverEnvSchema = z.object({
   // ERC-8004 agent identity — same Sepolia L1 chain as ENSv2, signed by the shared
   // ENS-admin signer (ENS_V2_SIGNER_KEY). Absent ⇒ 8004 ops degrade.
   ERC8004_REGISTRY: optionalStr,
+  // StakeSlash yield-escrow on Arc (Circle #1). Absent ⇒ agent staking degrades.
+  STAKE_SLASH_ADDRESS: optionalStr,
   TREASURY_ADDRESS: optionalStr,
   // Sepolia L1 RPC — the single identity chain (ENSv2 + ERC-8004).
   SEPOLIA_RPC_URL: optionalStr,

@@ -25,15 +25,47 @@ export interface OnchainBuild {
 }
 
 export interface StakeSlashDeps {
-  /** Deployed StakeSlash address (Base Sepolia, the public/provable rail). */
+  /** Deployed StakeSlash address (Arc — the money/settlement rail). */
   address: Address;
-  /** The sole privileged signer — executes arbiter rulings. */
+  /** The privileged signer — arbiter rulings + sponsored stake deposits. */
   serverWallet: ServerWallet;
-  /** Base Sepolia client for state reads. */
+  /** Arc client for state reads. */
   publicClient: PublicClient;
 }
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const MAX_UINT = (1n << 256n) - 1n;
+
+// USDC ERC-20 (approve + allowance) — `depositFor` pulls USDC from the server
+// wallet (`_pullIn` does transferFrom), so it must be approved to StakeSlash once.
+const ERC20_ABI = [
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [{ type: "address" }, { type: "uint256" }],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [{ type: "address" }, { type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
+
+// SimpleYieldVault — read the underlying assets (principal + accrued yield) the
+// vault holds for the escrow, to compute swept-able yield.
+const VAULT_ABI = [
+  {
+    type: "function",
+    name: "assetsOf",
+    stateMutability: "view",
+    inputs: [{ type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
 
 export const createStakeSlash = ({
   address,
@@ -65,6 +97,74 @@ export const createStakeSlash = ({
         args: [builder],
       })) as bigint;
       return asUsdc(raw);
+    },
+    /** Alias — a builder's current staked (free) balance, in USDC. */
+    stakeOf: async (builder: Address): Promise<Usdc> => {
+      const raw = (await publicClient.readContract({
+        address,
+        abi: stakeSlashAbi,
+        functionName: "stake",
+        args: [builder],
+      })) as bigint;
+      return asUsdc(raw);
+    },
+
+    /** Stake on behalf of a builder (arbiter-sponsored seed): pulls USDC from the
+     *  server wallet, credits the builder's free stake, and `_pullIn` auto-supplies
+     *  it to the yield vault. Ensures the one-time USDC approval to StakeSlash. */
+    depositFor: async (builder: Address, amount: Usdc): Promise<Hex> => {
+      const token = (await publicClient.readContract({
+        address,
+        abi: stakeSlashAbi,
+        functionName: "usdc",
+      })) as Address;
+      const allowance = (await publicClient.readContract({
+        address: token,
+        abi: ERC20_ABI,
+        functionName: "allowance",
+        args: [serverWallet.address, address],
+      })) as bigint;
+      if (allowance < amount) {
+        await serverWallet.writeContract({
+          address: token,
+          abi: ERC20_ABI,
+          functionName: "approve",
+          args: [address, MAX_UINT],
+        });
+      }
+      return write("depositFor", [builder, amount]);
+    },
+
+    /** Builder self-deposit USDC stake (server signs as itself — used for tests
+     *  / platform staking). */
+    deposit: (amount: Usdc) => write("deposit", [amount]),
+
+    /** Withdraw unlocked free stake back to the caller. */
+    withdraw: (amount: Usdc) => write("withdraw", [amount]),
+
+    /** Yield accrued in the vault above tracked principal (swept to treasury by
+     *  `harvest()`). Reads `yieldAdapter.assetsOf(escrow) - totalPrincipal`. */
+    accruedYield: async (): Promise<Usdc> => {
+      const vault = (await publicClient.readContract({
+        address,
+        abi: stakeSlashAbi,
+        functionName: "yieldAdapter",
+      })) as Address;
+      if (vault === ZERO_ADDRESS) return asUsdc(0n);
+      const [held, principal] = (await Promise.all([
+        publicClient.readContract({
+          address: vault,
+          abi: VAULT_ABI,
+          functionName: "assetsOf",
+          args: [address],
+        }),
+        publicClient.readContract({
+          address,
+          abi: stakeSlashAbi,
+          functionName: "totalPrincipal",
+        }),
+      ])) as [bigint, bigint];
+      return asUsdc(held > principal ? held - principal : 0n);
     },
 
     /** Full on-chain build record (null if never registered). */

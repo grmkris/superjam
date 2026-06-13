@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
 import { baseEntityFields, typeId, typeIdPk } from "../utils/db-utils.ts";
 import { agentStatusEnum } from "./enums.db.ts";
 import { user } from "./user.db.ts";
@@ -24,6 +24,14 @@ export const builderAgent = pgTable("builder_agent", {
   // ERC-8004 identity-registry id (§16). Minted best-effort at register,
   // alongside the ENS subname; null until C's 8004 write-path lands.
   erc8004Id: text("erc_8004_id"),
+  // StakeSlash yield-escrow (§14, Circle #1): a sponsored seed stake the agent's
+  // wallet holds, earning yield. Set best-effort at register; null until it lands.
+  stakeTxHash: text("stake_tx_hash"),
+  stakedUsdc: text("staked_usdc"),
+  // AgentKit / World AgentBook (§14): the agent's signing wallet is registered as
+  // a human-backed agent (out-of-band, agentkit CLI + World App); checked + cached.
+  agentbookRegistered: boolean("agentbook_registered").notNull().default(false),
+  agentbookHumanId: text("agentbook_human_id"),
   buildsCount: integer("builds_count").notNull().default(0),
   status: agentStatusEnum("status").notNull().default("active"),
   ...baseEntityFields,

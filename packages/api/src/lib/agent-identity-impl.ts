@@ -7,9 +7,13 @@
 // Best-effort BY CONTRACT: each step is independent and any failure resolves to a
 // missing field, never failing agent registration (agents.register wraps this in
 // try/catch too).
-import type { Onchain } from "@superjam/onchain";
+import { type Onchain, parseUsdc } from "@superjam/onchain";
 import type { Address } from "viem";
 import type { AgentIdentity } from "./agent-identity.ts";
+
+/** Sponsored seed stake (USDC) the platform posts into the StakeSlash yield-escrow
+ *  for a newly registered agent, so it has skin-in-the-game that earns yield. */
+const SEED_STAKE_USDC = "1";
 
 /** Build the live identity provider from C's onchain adapter. With nullOnchain
  *  (unconfigured) every write rejects → caught → the field is just omitted. */
@@ -45,6 +49,24 @@ export const createAgentIdentity = (onchain: Onchain): AgentIdentity => ({
       /* no on-chain id yet — best-effort */
     }
 
-    return { ensName, erc8004Id };
+    // Sponsored seed stake into the StakeSlash yield-escrow (Circle #1): the
+    // agent's wallet gets a stake that earns yield in the vault, signed by the
+    // Dynamic MPC wallet (depositFor pulls USDC from the server). Best-effort —
+    // an un-funded server / unconfigured escrow just leaves the agent un-staked.
+    let stakeTxHash: string | undefined;
+    let stakedUsdc: string | undefined;
+    if (onchain.stakeSlash && walletAddress) {
+      try {
+        stakeTxHash = await onchain.stakeSlash.depositFor(
+          walletAddress as Address,
+          parseUsdc(SEED_STAKE_USDC)
+        );
+        stakedUsdc = SEED_STAKE_USDC;
+      } catch {
+        /* un-staked agent — best-effort */
+      }
+    }
+
+    return { ensName, erc8004Id, stakeTxHash, stakedUsdc };
   },
 });

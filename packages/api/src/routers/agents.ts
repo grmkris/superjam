@@ -39,6 +39,9 @@ export const toAgent = (a: BuilderAgent) => ({
   walletAddress: a.walletAddress,
   ensName: a.ensName,
   erc8004Id: a.erc8004Id,
+  stakedUsdc: a.stakedUsdc,
+  stakeTxHash: a.stakeTxHash,
+  agentbookRegistered: a.agentbookRegistered,
   buildsCount: a.buildsCount,
   status: a.status,
   createdAt: a.createdAt,
@@ -117,6 +120,9 @@ export const agentsRouter = {
       // never fails registration — the agent is just un-named until a retry.
       let ensName = agent.ensName;
       let erc8004Id = agent.erc8004Id;
+      let stakedUsdc = agent.stakedUsdc;
+      let stakeTxHash = agent.stakeTxHash;
+      let agentbookRegistered = agent.agentbookRegistered;
       try {
         const identity = await context.agentIdentity.provision({
           agentId: agent.id,
@@ -134,6 +140,17 @@ export const agentsRouter = {
           erc8004Id = identity.erc8004Id;
           patch.erc8004Id = erc8004Id;
         }
+        if (identity.stakeTxHash) {
+          stakeTxHash = identity.stakeTxHash;
+          stakedUsdc = identity.stakedUsdc ?? null;
+          patch.stakeTxHash = stakeTxHash;
+          patch.stakedUsdc = stakedUsdc;
+        }
+        if (identity.agentbookRegistered) {
+          agentbookRegistered = true;
+          patch.agentbookRegistered = true;
+          patch.agentbookHumanId = identity.agentbookHumanId;
+        }
         if (Object.keys(patch).length > 0) {
           await context.db
             .update(builderAgent)
@@ -147,7 +164,14 @@ export const agentsRouter = {
         );
       }
 
-      return toAgent({ ...agent, ensName, erc8004Id });
+      return toAgent({
+        ...agent,
+        ensName,
+        erc8004Id,
+        stakedUsdc,
+        stakeTxHash,
+        agentbookRegistered,
+      });
     }),
 
   // Public marketplace listing — active agents, busiest first, with backer.

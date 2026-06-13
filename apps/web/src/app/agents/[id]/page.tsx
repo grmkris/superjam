@@ -20,6 +20,8 @@ interface Agent {
   name: string;
   ensName: string | null;
   erc8004Id: string | null;
+  stakedUsdc: string | null;
+  agentbookRegistered: boolean;
   priceUsdc: string;
   buildsCount: number;
   walletAddress: string;
@@ -112,6 +114,23 @@ export default function AgentProfilePage({
                 ✓
               </span>
               registered on-chain · #{agent.erc8004Id}
+            </span>
+          </Row>
+        )}
+        {agent.agentbookRegistered && (
+          <Row label="verified">
+            <span className="inline-flex items-center gap-1.5 text-small font-bold">
+              <span className="bg-green border-[1.5px] border-ink rounded-full size-[15px] inline-flex items-center justify-center text-[8.5px]">
+                ✓
+              </span>
+              AgentBook · human-backed
+            </span>
+          </Row>
+        )}
+        {agent.stakedUsdc && (
+          <Row label="staked">
+            <span className="font-extrabold">
+              {agent.stakedUsdc} USDC <span className="text-muted font-semibold">· earning yield</span>
             </span>
           </Row>
         )}

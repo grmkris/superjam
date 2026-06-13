@@ -114,6 +114,9 @@ const onchain =
         : undefined,
     sepoliaRpcUrl: env.SEPOLIA_RPC_URL,
     ensV2SignerKey: env.ENS_V2_SIGNER_KEY,
+    // StakeSlash yield-escrow on Arc (Circle #1) — agent stakes earn yield. Absent
+    // ⇒ onchain.stakeSlash is null and staking degrades (never blocks a register).
+    stakeSlashAddress: env.STAKE_SLASH_ADDRESS,
   }) ?? nullOnchain;
 // Per-user private-payments rail (§23): the server signs AS the user via Dynamic
 // delegated access (no per-tx popup). Live only when the delegation private key +

@@ -16,10 +16,18 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { CHAINS, type ChainKey, PUBLIC_CHAIN, USDC } from "./chains.ts";
+import {
+  type BridgeParams,
+  type CctpEndpoint,
+  FINALITY_FAST,
+  FINALITY_STANDARD,
+  createCctp,
+} from "./cctp.ts";
 import { type EnsV2, type EnsV2Config, createEnsV2 } from "./ens-v2.ts";
 import { type Erc8004Config, createErc8004 } from "./erc8004.ts";
+import { type StakeSlash, createStakeSlash } from "./staking/stake-slash.ts";
 import { OnchainError } from "./errors.ts";
-import { type Usdc } from "./money.ts";
+import { type Usdc, usdc } from "./money.ts";
 import { createServerWallet } from "./viem-server-wallet.ts";
 import {
   type UnlinkClient,
@@ -55,6 +63,24 @@ export interface OnchainDeps {
    *  ENS tooling (Sepolia L1). Pre-built in createOnchainFromConfig. Absent ⇒ the
    *  v2 mint degrades (build unaffected). */
   ensV2?: EnsV2;
+  /** Pre-built CCTP Sepolia→Arc bridge (the platform funding rail). Built in
+   *  createOnchainFromConfig from the identity key (funded on BOTH chains). Absent
+   *  ⇒ fundViaCctp rejects with CHAIN_UNAVAILABLE. */
+  cctp?: { bridge: (p: BridgeParams) => Promise<{ burnTxHash: Hex; mintTxHash: Hex }> };
+  /** StakeSlash yield-bearing escrow on Arc (builder stakes earn yield). Absent ⇒
+   *  `onchain.stakeSlash` is null and staking degrades (never fails a register). */
+  stakeSlash?: StakeSlash;
+}
+
+/** Platform-funding bridge: burn USDC on Sepolia → mint native USDC on Arc. */
+export interface FundViaCctpParams {
+  amount: Usdc;
+  /** Where the minted Arc USDC lands (usually the platform Arc address, which then
+   *  faucets the user's shielded balance). */
+  mintRecipient: Address;
+  /** Fast Transfer (soft finality, ~min) when true — the default for funding;
+   *  false = standard finalized (~13-19 min on Ethereum L1). */
+  fast?: boolean;
 }
 
 export interface RelayParams {
@@ -71,6 +97,8 @@ export const createOnchain = ({
   identityWallet,
   erc8004,
   ensV2,
+  cctp,
+  stakeSlash,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
     // Arc is the only money chain — publicClient is built for PUBLIC_CHAIN.
@@ -124,6 +152,27 @@ export const createOnchain = ({
     sendUsdc: (chain: ChainKey, to: Address, value: Usdc): Promise<Hex> =>
       serverWallet.sendUsdc({ token: USDC[chain], to, value }),
 
+    /** Platform funding rail (§ "Add funds"): burn USDC on Sepolia → CCTP →
+     *  mint native USDC on Arc to `mintRecipient`. Fast Transfer by default
+     *  (~min). Returns both tx hashes. Rejects if the bridge isn't configured. */
+    fundViaCctp: async ({
+      amount,
+      mintRecipient,
+      fast = true,
+    }: FundViaCctpParams): Promise<{ burnTxHash: Hex; mintTxHash: Hex }> => {
+      if (!cctp) {
+        throw new OnchainError("CHAIN_UNAVAILABLE", "CCTP bridge not configured");
+      }
+      return cctp.bridge({
+        amount,
+        mintRecipient,
+        finalityThreshold: fast ? FINALITY_FAST : FINALITY_STANDARD,
+        // Fast transfers require maxFee ≥ the per-transfer fast fee; a 2% cap is
+        // ample on testnet (validated live). Standard = no fee.
+        maxFee: fast ? usdc(amount / 50n) : usdc(0n),
+      });
+    },
+
     // --- ENS (§16) — the SINGLE naming path: ENSv2-native `<label>.superjam.eth`,
     //     resolvable in standard ENS tooling (viem/ethers/app.ens.domains). Used
     //     for apps, users, AND agents. Durin (the old L2 registry) was removed.
@@ -146,6 +195,11 @@ export const createOnchain = ({
     ) => requireErc8004().writeReputation(params),
     /** Aggregate the platform-written feedback for an agent (profile). */
     readReputation: (erc8004Id: string) => requireErc8004().readReputation(erc8004Id),
+
+    // --- StakeSlash (§14, Circle #1) — the yield-bearing builder escrow on Arc.
+    //     `null` when unconfigured ⇒ callers `if (onchain.stakeSlash)` and degrade
+    //     (a staking failure never blocks agent registration). ---
+    stakeSlash: stakeSlash ?? null,
   };
 };
 
@@ -173,6 +227,9 @@ export interface OnchainConfig {
    *  signs ERC-8004 writes. Distinct from the Dynamic payment wallet; the platform
    *  identity admin key (funded with Sepolia ETH). */
   ensV2SignerKey?: string;
+  /** StakeSlash yield-escrow address on Arc (Circle #1). Absent ⇒ staking degrades.
+   *  Signs via the Arc server wallet (the Dynamic MPC wallet sponsors seed stakes). */
+  stakeSlashAddress?: string;
 }
 
 /** Compose a live Onchain from env-style config — the composition-root wiring
@@ -208,29 +265,73 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   // address on Sepolia + Base Sepolia), so both adapters share ONE Sepolia client +
   // signer — the platform identity admin key (ensV2SignerKey, which owns the
   // SuperjamRegistry + is funded on Sepolia), NOT the Dynamic payment wallet.
+  const identityAccount = cfg.ensV2SignerKey
+    ? privateKeyToAccount(cfg.ensV2SignerKey as Hex)
+    : undefined;
   const identityClient =
-    cfg.sepoliaRpcUrl && cfg.ensV2SignerKey && (cfg.ensV2 || cfg.erc8004)
+    cfg.sepoliaRpcUrl && identityAccount && (cfg.ensV2 || cfg.erc8004)
       ? createPublicClient({ chain: sepolia, transport: http(cfg.sepoliaRpcUrl) })
       : undefined;
   const identityWallet =
-    identityClient && cfg.ensV2SignerKey
-      ? (() => {
-          const account = privateKeyToAccount(cfg.ensV2SignerKey as Hex);
-          return createServerWallet({
-            account,
-            walletClient: createWalletClient({
-              account,
-              chain: sepolia,
-              transport: http(cfg.sepoliaRpcUrl),
-            }),
-            publicClient: identityClient,
-          });
-        })()
+    identityClient && identityAccount
+      ? createServerWallet({
+          account: identityAccount,
+          walletClient: createWalletClient({
+            account: identityAccount,
+            chain: sepolia,
+            transport: http(cfg.sepoliaRpcUrl),
+          }),
+          publicClient: identityClient,
+        })
       : undefined;
   const ensV2Adapter =
     cfg.ensV2 && identityClient && identityWallet
       ? createEnsV2(identityClient, identityWallet, cfg.ensV2)
       : undefined;
+  // CCTP funding bridge (Sepolia → Arc): the identity key signs BOTH legs — it
+  // holds the source USDC on Sepolia (burn) and Arc gas/USDC (mint). Built only
+  // when both RPCs + the key are present (prod). The Dynamic payment wallet stays
+  // the relay/escrow signer; CCTP funding is a separate platform-operated rail.
+  const cctpBridge =
+    cfg.sepoliaRpcUrl && cfg.arcRpcUrl && identityAccount
+      ? (() => {
+          const sepClient =
+            identityClient ??
+            createPublicClient({ chain: sepolia, transport: http(cfg.sepoliaRpcUrl) });
+          const source: CctpEndpoint = {
+            chain: "sepolia",
+            usdc: USDC.sepolia.address,
+            publicClient: sepClient,
+            walletClient: createWalletClient({
+              account: identityAccount,
+              chain: sepolia,
+              transport: http(cfg.sepoliaRpcUrl),
+            }),
+            account: identityAccount,
+          };
+          const dest: CctpEndpoint = {
+            chain: "arcTestnet",
+            usdc: USDC.arcTestnet.address,
+            publicClient,
+            walletClient: createWalletClient({
+              account: identityAccount,
+              chain: CHAINS.arcTestnet,
+              transport: http(cfg.arcRpcUrl),
+            }),
+            account: identityAccount,
+          };
+          return createCctp({ source, dest });
+        })()
+      : undefined;
+  // StakeSlash yield-escrow on Arc — the Arc payment rail's client + server wallet
+  // (the Dynamic MPC wallet sponsors seed stakes via depositFor). Absent ⇒ null.
+  const stakeSlashAdapter = cfg.stakeSlashAddress
+    ? createStakeSlash({
+        address: cfg.stakeSlashAddress as Address,
+        serverWallet,
+        publicClient,
+      })
+    : undefined;
   return createOnchain({
     publicClient,
     serverWallet,
@@ -239,6 +340,8 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     identityWallet,
     erc8004: cfg.erc8004,
     ensV2: ensV2Adapter,
+    cctp: cctpBridge,
+    stakeSlash: stakeSlashAdapter,
   });
 };
 
@@ -257,10 +360,13 @@ export const nullOnchain: Onchain = {
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
   sendUsdc: () =>
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
+  fundViaCctp: () =>
+    Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
   mintV2Subname: () =>
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),
   ensV2Addr: () =>
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),
+  stakeSlash: null,
   registerAgentIdentity: () =>
     Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
   writeReputation: () =>
