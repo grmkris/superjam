@@ -17,6 +17,7 @@ import { Badge, Dot } from "../../components/ui/badge";
 import { EmptyState } from "../../components/ui/empty-state";
 import { Skeleton } from "../../components/ui/skeleton";
 import { Input } from "../../components/ui/field";
+import { MicButton } from "../../components/ui/mic-button";
 import { ToyboxTabs } from "../../components/ui/tabs";
 import { VerifiedBadge } from "../../components/verified-badge";
 import { usePlatformClient } from "../../components/use-platform-client";
@@ -397,6 +398,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
           placeholder="message…"
           className="flex-1 rounded-full text-small min-w-0"
         />
+        <MicButton value={draft} onChange={setDraft} />
       </div>
 
       {picking && <JamPicker onPick={shareJam} onClose={() => setPicking(false)} />}

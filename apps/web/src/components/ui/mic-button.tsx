@@ -67,6 +67,12 @@ export function MicButton({
           {interim}
         </span>
       )}
+      {/* Permission denied — phones never show the title tooltip, so surface it. */}
+      {denied && !listening && (
+        <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap rounded-full border-2 border-ink bg-pink px-2.5 py-1 text-tiny font-semibold text-white shadow-sticker-sm">
+          allow mic access
+        </span>
+      )}
       <span aria-hidden className="relative leading-none">
         🎤
       </span>

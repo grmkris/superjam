@@ -15,6 +15,7 @@ import { ensApp } from "../../../components/ui/brand";
 import { cx } from "../../../components/ui/cx";
 import { EmojiToken, Pill, StickerButton, StickerCard } from "../../../components/ui/sticker";
 import { Input } from "../../../components/ui/field";
+import { MicButton } from "../../../components/ui/mic-button";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { type FeedJam, loadFeed } from "../../../components/feed/jam";
@@ -268,6 +269,10 @@ export default function JamPage({
               maxLength={280}
               placeholder="say something…"
               className="flex-1 rounded-full text-small"
+            />
+            <MicButton
+              value={draftText}
+              onChange={(t) => setDraftText(t.slice(0, 280))}
             />
             <StickerButton
               color="yellow"
