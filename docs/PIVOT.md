@@ -88,3 +88,24 @@ Cross-lane SEAMS (typed contracts, announce signatures in your first commit):
   `packages/onchain/staking/`. World verify (K) gates the human-only surface.
 - Quotas reuse existing primitives (`_x402_quota` counter, `user.lastTopupAt`) —
   never build a parallel quota system.
+
+## BUILD DISCIPLINE — load management (effective 2026-06-13)
+
+~7 agents share this 6-core box. Per-commit FULL-repo gates (`turbo typecheck` +
+root `bun test` + `bun run build`) oversubscribe the CPU (load 16+), which makes
+pglite tests TIME OUT — contention misread as bugs. New rule:
+
+1. **Per commit, check ONLY your own package:**
+   `bunx turbo run typecheck --filter=<your-pkg>` + `bun test <your-own-test-dir>`
+   (e.g. `bun test packages/onchain`). turbo caches your deps; you only pay for
+   your package.
+2. **Do NOT run `bun run build` per commit** — it triggers `next build` for
+   apps/web + apps/example-app (60–120s, CPU-pinned), usually cross-lane.
+3. **Do NOT run the full-repo `bun run typecheck` / `bun test` per commit.**
+4. **Opus A (integrator) owns the FULL gate** — runs `typecheck && lint && test
+   && build` across the repo at green checkpoints (when load is low) and reports
+   any breakage to the owning lane. One full-gate, not seven concurrent ones.
+5. **If a test times out, run `uptime` FIRST** — load >8 on this box = CPU
+   contention, NOT a bug (see the pglite-flake memory). Don't add warm-ups or
+   retries; re-run when quiet, or trust the logic and let A's checkpoint gate it.
+6. `lint` (oxlint) is cheap (Rust) — fine to run anytime.
