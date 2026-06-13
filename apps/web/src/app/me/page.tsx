@@ -14,6 +14,7 @@ import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/stic
 import { Skeleton } from "../../components/ui/skeleton";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { VerifySheet } from "../../components/verify-sheet";
+import { AddFundsSheet } from "../../components/add-funds-sheet";
 import { useHostAuth } from "../../lib/use-host-auth";
 
 interface Me {
@@ -39,8 +40,16 @@ export default function ProfilePage() {
 
   const [me, setMe] = useState<Me | null>(null);
   const [balance, setBalance] = useState<string | null | "loading">("loading");
+  const [shielded, setShielded] = useState<string | null | "loading">("loading");
   const [builders, setBuilders] = useState<Builder[]>([]);
   const [verifying, setVerifying] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  const loadShielded = () =>
+    client.payments
+      .privateBalance()
+      .then((b) => setShielded(b.shieldedUsdc))
+      .catch(() => setShielded(null));
 
   const loadMe = () =>
     client.profile.me().then((m) =>
@@ -56,6 +65,7 @@ export default function ProfilePage() {
     if (!isLoggedIn) return;
     loadMe();
     client.payments.balance().then((b) => setBalance(b.publicUsdc)).catch(() => setBalance(null));
+    loadShielded();
     client.agents
       .mine()
       .then((rows) =>
@@ -96,27 +106,41 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* wallet block — USDC balance as the hero number */}
+      {/* wallet block — the SHIELDED (private) balance is the in-app wallet (hero);
+          public on-chain USDC is the secondary on/off-ramp line. */}
       <StickerCard color="white" className="p-5 flex flex-col gap-1 shadow-sticker-md">
         <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
-          your balance
+          your balance · private 🔒
         </div>
-        {balance === "loading" ? (
+        {shielded === "loading" ? (
           <Skeleton className="mt-1 h-11 w-44" />
         ) : (
           <div className="text-hero font-extrabold">
-            {balance ?? "0.00"}{" "}
+            {shielded ?? "0.00"}{" "}
             <span className="text-2xl text-muted">USDC</span>
           </div>
         )}
-        {me?.walletAddress && (
-          <button
-            onClick={() => navigator.clipboard?.writeText(me.walletAddress!).catch(() => {})}
-            className="focus-ring self-start mt-1 font-mono text-small font-semibold text-muted"
+        <div className="text-small font-semibold text-muted">
+          {balance === "loading" ? "…" : `${balance ?? "0.00"} USDC on-chain (public)`}
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <StickerButton
+            color="green"
+            size="sm"
+            onClick={() => setAdding(true)}
+            className="rounded-full"
           >
-            {short(me.walletAddress)} 📋
-          </button>
-        )}
+            + Add funds
+          </StickerButton>
+          {me?.walletAddress && (
+            <button
+              onClick={() => navigator.clipboard?.writeText(me.walletAddress!).catch(() => {})}
+              className="focus-ring font-mono text-small font-semibold text-muted"
+            >
+              {short(me.walletAddress)} 📋
+            </button>
+          )}
+        </div>
       </StickerCard>
 
       {/* World verify block */}
@@ -189,6 +213,15 @@ export default function ProfilePage() {
         onVerified={loadMe}
         title="Verify you're human"
         blurb="verify once to publish, review & build — one human, one account."
+      />
+
+      <AddFundsSheet
+        open={adding}
+        onClose={() => setAdding(false)}
+        onFunded={(shieldedUsdc) => {
+          if (shieldedUsdc !== undefined) setShielded(shieldedUsdc);
+          loadShielded();
+        }}
       />
     </div>
   );

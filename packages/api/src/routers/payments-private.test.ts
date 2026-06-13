@@ -7,6 +7,7 @@ import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
 import { createPgliteDb } from "@superjam/db/pglite";
 import { createLogger } from "@superjam/logger";
+import type { Onchain } from "@superjam/onchain";
 import { type Usdc, parseUsdc, usdc } from "@superjam/onchain";
 import { eq } from "drizzle-orm";
 import type { Address, Hex } from "viem";
@@ -15,6 +16,7 @@ import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
 import { appRouter } from "../router.ts";
 import type { UnlinkService } from "../services/unlink-service.ts";
+import { createMockOnchain } from "../testing/onchain-mock.ts";
 
 setDefaultTimeout(20_000);
 
@@ -59,13 +61,18 @@ beforeEach(async () => {
   mock = makeMockUnlink();
 });
 
-const ctxFor = (token?: string, unlink: UnlinkService = mock.svc) =>
+const ctxFor = (
+  token?: string,
+  unlink: UnlinkService = mock.svc,
+  onchain?: Onchain
+) =>
   createContext({
     db,
     logger,
     auth: auth.verifier,
     rateLimiter: createRateLimiter(),
     unlink,
+    ...(onchain ? { onchain } : {}),
     headers: new Headers(token ? { authorization: `Bearer ${token}` } : {}),
   });
 
@@ -177,6 +184,54 @@ describe("payments.privateSend", () => {
     const { token } = await seedUser({ username: "alice", dynamicUserId: "dyn_alice" });
     await expect(
       call(appRouter.payments.privateSend, { to: "@ghost", amount: "0.01" }, {
+        context: ctxFor(token),
+      })
+    ).rejects.toBeDefined();
+  });
+});
+
+describe("payments.addFunds", () => {
+  test("Arc rail credits the shielded balance instantly (no bridge)", async () => {
+    const { user, token } = await seedUser();
+    const res = await call(
+      appRouter.payments.addFunds,
+      { sourceChain: "arcTestnet", amount: "1.00" },
+      { context: ctxFor(token) }
+    );
+    expect(res.burnTxHash).toBeNull();
+    expect(res.mintTxHash).toBeNull();
+    expect(mock.faucets.at(-1)).toEqual({
+      to: mock.addr(user.id),
+      amount: parseUsdc("1.00"),
+    });
+  });
+
+  test("Sepolia rail: CCTP-fast mints to the user, then deposits to their confidential balance", async () => {
+    const onchain = createMockOnchain({ unlinkAvailable: true });
+    const { user, token } = await seedUser();
+    const res = await call(
+      appRouter.payments.addFunds,
+      { sourceChain: "sepolia", amount: "1.00" },
+      { context: ctxFor(token, mock.svc, onchain) }
+    );
+    // bridge mints to the USER's own wallet (the same dollars flow through)
+    expect(onchain.bridges).toHaveLength(1);
+    expect(onchain.bridges[0]).toMatchObject({
+      amount: parseUsdc("1.00"),
+      mintRecipient: WALLET,
+      fast: true,
+    });
+    expect(res.burnTxHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(res.mintTxHash).toMatch(/^0x[0-9a-f]{64}$/);
+    // swap-into-confidential = a deposit to the user (NOT a pool faucet)
+    expect(mock.faucets).toHaveLength(0);
+    expect(res.shieldedUsdc).toBe("1");
+  });
+
+  test("over the per-tx cap is rejected", async () => {
+    const { token } = await seedUser();
+    await expect(
+      call(appRouter.payments.addFunds, { sourceChain: "arcTestnet", amount: "100000" }, {
         context: ctxFor(token),
       })
     ).rejects.toBeDefined();

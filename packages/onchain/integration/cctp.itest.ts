@@ -21,14 +21,16 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { CCTP_SOURCE_CHAIN, CHAINS, USDC } from "../src/chains.ts";
-import { createCctp } from "../src/cctp.ts";
-import { parseUsdc } from "../src/money.ts";
+import { FINALITY_FAST, createCctp } from "../src/cctp.ts";
+import { parseUsdc, usdc } from "../src/money.ts";
 
 const RUN = process.env.RUN_ONCHAIN_INTEGRATION === "1";
 const suite = RUN ? describe : describe.skip;
 
 const WALLET = "0x56592bA38D41370Fc0ebb43a02274709084c9904" as const;
-const TEN_MIN = 600_000;
+// Ethereum Sepolia L1 finalization is slow (~13–19 min) vs Base Sepolia — give the
+// Iris poller + the test a generous window so a standard-finality burn can attest.
+const TWENTY_FIVE_MIN = 1_500_000;
 
 suite("live CCTP V2 — Ethereum Sepolia → Arc (real burn, real mint)", () => {
   test(
@@ -59,14 +61,21 @@ suite("live CCTP V2 — Ethereum Sepolia → Arc (real burn, real mint)", () => 
         };
       };
 
+      const amount = parseUsdc("0.05");
       const cctp = createCctp({
         source: endpoint(src, srcRpc),
         dest: endpoint(dst, dstRpc),
+        // Fast Transfer attests in ~min; keep a generous window as a backstop.
+        iris: { maxAttempts: 60, intervalMs: 15_000 },
       });
 
       const { burnTxHash, mintTxHash } = await cctp.bridge({
-        amount: parseUsdc("0.05"),
+        amount,
         mintRecipient: WALLET, // back to ourselves — bridged USDC is recovered
+        // Fast Transfer (soft finality) — the in-product rail. maxFee covers the
+        // per-transfer fast fee (2% cap; tiny on testnet).
+        finalityThreshold: FINALITY_FAST,
+        maxFee: usdc(amount / 50n),
       });
 
       // eslint-disable-next-line no-console
@@ -76,6 +85,6 @@ suite("live CCTP V2 — Ethereum Sepolia → Arc (real burn, real mint)", () => 
       expect(burnTxHash).toMatch(/^0x[0-9a-fA-F]{64}$/);
       expect(mintTxHash).toMatch(/^0x[0-9a-fA-F]{64}$/);
     },
-    TEN_MIN
+    TWENTY_FIVE_MIN
   );
 });

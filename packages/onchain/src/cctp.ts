@@ -138,8 +138,13 @@ export interface BridgeParams {
    *  When `hookData` is set this MUST be the destination hook contract
    *  (CctpEscrowHook) — it receives the mint, then executes the hook. */
   mintRecipient: Address;
-  /** Standard (finalized) by default — no fee on testnet. */
+  /** Standard (finalized, threshold 2000) by default. Pass FINALITY_FAST (1000) for
+   *  soft-finality "fast" attestation (~seconds–min instead of ~13-19 min on L1). */
   finalityThreshold?: number;
+  /** Max fee (base units) the burner will pay the fast relayer. 0 (default) = standard
+   *  transfer (no fee). Fast transfers (finalityThreshold ≤ 1000) require maxFee ≥ the
+   *  per-transfer fast fee; on testnet this is typically tiny/zero. */
+  maxFee?: Usdc;
   /** Opaque CCTP V2 hook payload, executed by the destination receiver after the
    *  mint (bounty #2 atomic deposit-into-escrow). For CctpEscrowHook this is
    *  `encodeAbiParameters([{type:"address"}], [builder])`. Triggers
@@ -157,6 +162,8 @@ export const fetchAttestation = async (
     fetchImpl?: FetchLike;
     sleepMs?: (ms: number) => Promise<void>;
     maxAttempts?: number;
+    /** Poll interval (ms). Default 5s; raise for slow-finality sources (Ethereum L1). */
+    intervalMs?: number;
   } = {}
 ): Promise<{ message: Hex; attestation: Hex }> => {
   const base = opts.irisBaseUrl ?? IRIS_SANDBOX_URL;
@@ -164,6 +171,7 @@ export const fetchAttestation = async (
   const sleep = opts.sleepMs ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
   const url = `${base}/v2/messages/${sourceDomain}?transactionHash=${burnTxHash}`;
   const maxAttempts = opts.maxAttempts ?? 60; // ~minutes
+  const intervalMs = opts.intervalMs ?? 5000;
   for (let i = 0; i < maxAttempts; i++) {
     const res = await f(url);
     if (res.ok) {
@@ -175,7 +183,7 @@ export const fetchAttestation = async (
         return { message: m.message, attestation: m.attestation };
       }
     }
-    await sleep(5000);
+    await sleep(intervalMs);
   }
   throw new OnchainError("RELAY_FAILED", `CCTP attestation timed out for ${burnTxHash}`);
 };
@@ -187,11 +195,17 @@ export const createCctp = ({
 }: {
   source: CctpEndpoint;
   dest: CctpEndpoint;
-  iris?: { irisBaseUrl?: string; fetchImpl?: FetchLike };
+  iris?: {
+    irisBaseUrl?: string;
+    fetchImpl?: FetchLike;
+    maxAttempts?: number;
+    intervalMs?: number;
+  };
 }) => ({
   /** Burn on source → attest → mint on dest. Returns both tx hashes. */
   async bridge(params: BridgeParams): Promise<{ burnTxHash: Hex; mintTxHash: Hex }> {
     const finality = params.finalityThreshold ?? FINALITY_STANDARD;
+    const maxFee = params.maxFee ?? 0n;
     // 1) approve USDC to the TokenMessenger on the source chain. MUST wait for
     //    the receipt — depositForBurn estimates/executes against current state,
     //    so an un-mined approve ⇒ "transfer amount exceeds allowance" revert.
@@ -221,7 +235,7 @@ export const createCctp = ({
             toBytes32(params.mintRecipient),
             source.usdc,
             ZERO_CALLER,
-            0n,
+            maxFee,
             finality,
             params.hookData,
           ],
@@ -238,7 +252,7 @@ export const createCctp = ({
             toBytes32(params.mintRecipient),
             source.usdc,
             ZERO_CALLER, // any caller
-            0n, // maxFee (0 for standard/finalized)
+            maxFee, // 0 for standard/finalized; >0 for fast
             finality,
           ],
         });

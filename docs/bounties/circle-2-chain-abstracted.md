@@ -56,6 +56,31 @@ Pre-flight confirmed CCTP V2 is live on Arc: `MessageTransmitter.localDomain() =
 
 (Burn on `sepolia.basescan.org`; mint on `https://testnet.arcscan.app`.)
 
+### Re-pointed source — LIVE Ethereum Sepolia L1 → Arc (2026-06-13)
+After dropping Base Sepolia, the source moved to **Ethereum Sepolia L1 (domain 0)**.
+Re-proven end-to-end (0.05 USDC, standard finality ~17 min — which is exactly why the
+in-product "Add funds" rail uses **Fast Transfer**, finality 1000, see below):
+
+| step | chain | tx |
+|---|---|---|
+| `depositForBurn` (burn) | Ethereum Sepolia (domain 0) | `0x9689cc576fd97eea6c55311532f507ece98251a369e55827050c402dc43a8233` |
+| `receiveMessage` (mint) | Arc (domain 26) | `0x650b6f0f30149e6588653dd07d2dadd584ad31cacf2b6cc474d76b791a7457f8` |
+
+### Productized: "Add funds" → shielded balance, via CCTP Fast Transfer (LIVE)
+CCTP is now wired into the app (no longer a standalone proof). The `payments.addFunds`
+procedure + onchain `fundViaCctp({ amount, mintRecipient, fast })` burn USDC on Sepolia
+with `finalityThreshold = FINALITY_FAST (1000)` + a small `maxFee`, mint on Arc, then
+credit the user's Unlink **shielded** balance — chain-abstracted onboarding in one tap.
+
+**Live Fast Transfer proof (2026-06-13) — ~53 seconds end-to-end** (vs ~17 min standard):
+
+| step | chain | tx |
+|---|---|---|
+| `depositForBurn` (fast, maxFee>0) | Ethereum Sepolia (domain 0) | `0x8402facc4849cecdf49f010bae8f3d4867fbf28a6f7af7ad9d17c2d35e5fc736` |
+| `receiveMessage` (mint) | Arc (domain 26) | `0x1d466196233e11739df1284f96e8abb89c84dc289b3882670a50d3e1c3243d19` |
+
+(Burn on `sepolia.etherscan.io`; mint on `testnet.arcscan.app`.)
+
 ## hookData — atomic cross-chain stake into the escrow (LIVE, 2026-06-13)
 The flagship variant: a burn on any CCTP chain with `hookData = abi.encode(builder)`
 and `mintRecipient = the Arc hook contract` lands the USDC **directly as that

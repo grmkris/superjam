@@ -154,23 +154,31 @@ export const createOnchain = ({
 
     /** Platform funding rail (§ "Add funds"): burn USDC on Sepolia → CCTP →
      *  mint native USDC on Arc to `mintRecipient`. Fast Transfer by default
-     *  (~min). Returns both tx hashes. Rejects if the bridge isn't configured. */
+     *  (~min). Returns the tx hashes + `minted` (a SAFE lower bound = amount −
+     *  maxFee — the recipient receives at least this), so the caller can deposit
+     *  exactly what arrived. Rejects if the bridge isn't configured. */
     fundViaCctp: async ({
       amount,
       mintRecipient,
       fast = true,
-    }: FundViaCctpParams): Promise<{ burnTxHash: Hex; mintTxHash: Hex }> => {
+    }: FundViaCctpParams): Promise<{
+      burnTxHash: Hex;
+      mintTxHash: Hex;
+      minted: Usdc;
+    }> => {
       if (!cctp) {
         throw new OnchainError("CHAIN_UNAVAILABLE", "CCTP bridge not configured");
       }
-      return cctp.bridge({
+      // Fast transfers require maxFee ≥ the per-transfer fast fee; a 2% cap is
+      // ample on testnet (validated live). Standard = no fee.
+      const maxFee = fast ? usdc(amount / 50n) : usdc(0n);
+      const { burnTxHash, mintTxHash } = await cctp.bridge({
         amount,
         mintRecipient,
         finalityThreshold: fast ? FINALITY_FAST : FINALITY_STANDARD,
-        // Fast transfers require maxFee ≥ the per-transfer fast fee; a 2% cap is
-        // ample on testnet (validated live). Standard = no fee.
-        maxFee: fast ? usdc(amount / 50n) : usdc(0n),
+        maxFee,
       });
+      return { burnTxHash, mintTxHash, minted: usdc(amount - maxFee) };
     },
 
     // --- ENS (§16) — the SINGLE naming path: ENSv2-native `<label>.superjam.eth`,

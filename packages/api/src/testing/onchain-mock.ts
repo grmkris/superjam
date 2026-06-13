@@ -65,7 +65,8 @@ export const createMockOnchain = (
     },
     fundViaCctp: async ({ amount, mintRecipient, fast = true }) => {
       bridges.push({ amount, mintRecipient, fast });
-      return { burnTxHash: fakeHash(), mintTxHash: fakeHash() };
+      // mock: no fee deducted — `minted` == amount (real adapter returns amount − maxFee).
+      return { burnTxHash: fakeHash(), mintTxHash: fakeHash(), minted: amount };
     },
     mintV2Subname: async ({ slug }) => ({
       ensName: `${slug}.superjam.eth`,
