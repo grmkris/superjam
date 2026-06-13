@@ -67,7 +67,7 @@ export default function ProfilePage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="flex flex-col items-center gap-4 py-16 px-6 text-center bg-cream min-h-full">
+      <div className="flex flex-col items-center justify-center gap-4 px-6 text-center bg-cream min-h-full">
         <div className="text-5xl">🙂</div>
         <div className="font-extrabold text-xl">sign in to see your profile</div>
         <StickerButton color="pink" size="lg" onClick={() => setShowAuthFlow(true)}>

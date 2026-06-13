@@ -289,7 +289,7 @@ function HomeBeat({
   onGo: () => void;
 }) {
   return (
-    <>
+    <div className="flex flex-1 flex-col justify-center gap-4">
       {remix && (
         <div className="bg-yellow border-2 border-ink rounded-toy px-3 py-2 text-[13px] font-bold">
           🔁 Based on <span className="underline">{remix}</span> — say your changes
@@ -341,7 +341,7 @@ function HomeBeat({
           )
         )}
       </div>
-    </>
+    </div>
   );
 }
 

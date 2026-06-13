@@ -90,10 +90,11 @@ function Notifications() {
     setRows((rs) => rs?.map((r) => ({ ...r, read: true })) ?? rs);
   };
 
-  if (rows === null) return <div className="text-muted font-semibold py-6">loading…</div>;
+  if (rows === null)
+    return <div className="flex-1 grid place-items-center text-muted font-semibold">loading…</div>;
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-12 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <div className="text-5xl">📭</div>
         <div className="font-extrabold text-lg">no mail yet</div>
         <div className="text-muted font-semibold text-sm">
@@ -198,10 +199,11 @@ function Friends() {
   };
 
   if (open) return <ChatThread friend={open} onBack={() => { setOpen(null); load(); }} />;
-  if (friends === null) return <div className="text-muted font-semibold py-6">loading…</div>;
+  if (friends === null)
+    return <div className="flex-1 grid place-items-center text-muted font-semibold">loading…</div>;
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-1 flex-col gap-2.5">
       <div className="flex gap-2">
         <input
           value={handle}
@@ -216,7 +218,7 @@ function Friends() {
       </div>
 
       {friends.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-10 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
           <div className="text-5xl">👋</div>
           <div className="font-extrabold text-lg">no crew yet</div>
           <div className="text-muted font-semibold text-sm">add a friend to share jams + challenge</div>

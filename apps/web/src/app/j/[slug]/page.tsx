@@ -129,7 +129,7 @@ export default function JamPage({
   }
   if (jam === "missing") {
     return (
-      <div className="flex flex-col items-center gap-3 p-10 text-center">
+      <div className="flex flex-col items-center justify-center gap-3 p-10 text-center min-h-full">
         <div className="text-5xl">🧸</div>
         <div className="font-extrabold text-lg">this jam wandered off</div>
         <button onClick={() => router.push("/")} className="font-bold text-pink">
