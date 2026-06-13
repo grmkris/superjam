@@ -46,14 +46,15 @@ flowchart TD
 | **Circle #2 — Chain-Abstracted USDC** | CCTP V2 burn→mint, Arc as liquidity hub (now Ethereum Sepolia L1 → Arc) | [circle-2](circle-2-chain-abstracted.md) · LIVE proof (historical, Base Sepolia→Arc): burn `0x35dd…52df` / mint `0x1d01…d7df` |
 | **Circle #3 — Agentic Economy** | builder-agents (ERC-8004 id) earn USDC per build; gas-free x402 nanopayments | [circle-3](circle-3-agentic-economy.md) |
 | **Unlink — Best Private Nano Payment** | Dynamic + Unlink (private acct/transfer) + Arc + Circle | [dynamic-unlink](dynamic-unlink.md) |
-| **Dynamic — Best Agentic Build** | the sole-signer server wallet + agent identity | [dynamic-unlink](dynamic-unlink.md) |
+| **Dynamic — Best Agentic Build** | LIVE Dynamic TSS-MPC server wallet `0x159b…` signs onchain (no raw key) + agent identity | [dynamic-unlink](dynamic-unlink.md) · proof tx `0x0cb38f71…f16bd` (Arc) |
 | **ENS** | ENSv2-native `slug.superjam.eth` (SuperjamRegistry), resolvable in standard ENS tooling | ENSv2 SuperjamRegistry on Sepolia L1 (via `ENS_V2_REGISTRY`) |
 
 ## Live addresses (testnet)
 
 | | address | chain |
 |---|---|---|
-| Server wallet (signer / arbiter / treasury) | `0x56592bA38D41370Fc0ebb43a02274709084c9904` | all |
+| **Agent signer — Dynamic TSS-MPC server wallet** (money rail + escrow hook arbiter) | `0x159bA4a6e3358429cE134269a8D90Bf258e4E3ab` | Arc / all EVM |
+| Identity/treasury key (StakeSlash arbiter+treasury · Sepolia ENS-admin) | `0x56592bA38D41370Fc0ebb43a02274709084c9904` | all |
 | StakeSlash (yield escrow) | `0x90E8C7da6AA73d0000ffa9fC0cb906Df2aeEc4E6` | Arc 5042002 |
 | SimpleYieldVault | `0x020d3C641b6Fd1edf1c04Dc813829086FB0e1266` | Arc 5042002 |
 | USDC (native gas) / EURC | `0x3600…0000` / `0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a` | Arc |

@@ -9,13 +9,18 @@ bounty rewards.
 - **Embedded wallets**: email login → Dynamic TSS-MPC embedded wallet, no seed phrase
   (onboarding ladder, §15.1). The user's wallet is also the EIP-1193 provider Unlink
   wraps into a private account.
-- **The sole privileged signer**: one server wallet (`ServerWallet` seam,
-  `0x56592bA38D41370Fc0ebb43a02274709084c9904`) is the only gas-holder + chain-writer —
-  it relays, custodies pot/build escrow, mints ENS, and is the StakeSlash arbiter. A
-  funded plain key today; a Dynamic server wallet (TSS-MPC, `DYNAMIC_API_TOKEN`) is a
-  drop-in behind the same interface (`packages/onchain/src/viem-server-wallet.ts`).
-- **Agent identity**: builder agents are bound to a verified human + given onchain
-  identity (ERC-8004) — autonomous agents that transact.
+- **The agent's onchain signer is a LIVE Dynamic TSS-MPC server wallet**
+  `0x159bA4a6e3358429cE134269a8D90Bf258e4E3ab` — NO raw key in the process: the key is
+  split across Dynamic's MPC nodes (shares backed up at Dynamic, gated by a password),
+  built at boot (`apps/server/src/dynamic-wallet.ts`) and injected as the `ServerWallet`
+  into `createOnchainFromConfig`. It relays, custodies pot/build escrow, settles
+  payments, and is the onchain escrow **hook arbiter** — the agent decides-then-executes
+  through it. **Proven live (MPC-signed USDC tx on Arc, 2026-06-13):**
+  `0x0cb38f71a0cff7a263ba4ad8689b55f1b76f4451eb25b39abf9e3692f2df16bd`.
+  (The identity/treasury key `0x56592bA3…9904` is a separate role: StakeSlash
+  arbiter/treasury + the Sepolia ENS-admin signer — NOT the money-rail agent signer.)
+- **Agent identity**: builder agents are bound to a verified human (World ID) + given
+  onchain identity (ERC-8004) + a resolvable ENS name — autonomous agents that transact.
 
 ## Unlink — Best Private Nano Payment App ($2k/$1k)
 Requires Dynamic (wallet) + Unlink (private accounts/routing) + Circle (USDC) on Arc.
