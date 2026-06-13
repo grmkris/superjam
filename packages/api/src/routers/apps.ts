@@ -122,16 +122,20 @@ export const finalizeExternalApp = async (
     try {
       const owner = await db.query.user.findFirst({
         where: eq(user.id, row.ownerUserId),
-        columns: { walletAddress: true },
+        columns: { walletAddress: true, username: true },
       });
       if (owner?.walletAddress) {
-        // ENSv2-native (Sepolia L1) — `<slug>.superjam.eth`, the single naming
-        // path: resolvable in standard ENS tooling (viem/ethers/app.ens.domains).
-        // Best-effort — an ENS failure NEVER fails finalize; the app stays listed
-        // un-named. (category/remixOf are DB-sourced for the feed, not on-chain.)
+        // ENSv2-native (Sepolia L1) — `<slug>.<user>.superjam.eth` (nested under
+        // the owner's claimed username via ENSIP-10 wildcard; see ens-v2.ts), the
+        // single naming path: resolvable in standard ENS tooling
+        // (viem/ethers/app.ens.domains). Falls back to flat `<slug>.superjam.eth`
+        // if the owner has no username. Best-effort — an ENS failure NEVER fails
+        // finalize; the app stays listed un-named. (category/remixOf are
+        // DB-sourced for the feed, not on-chain.)
         const v2 = await onchain.mintV2Subname({
           slug: row.slug,
           owner: owner.walletAddress as Address,
+          under: owner.username ?? undefined,
           records: { url: input.entryUrl },
         });
         const [named] = await db

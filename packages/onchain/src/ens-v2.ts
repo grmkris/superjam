@@ -11,6 +11,14 @@
 // EthRegistry's `superjam` entry was pointed at it via setSubregistry (one-time,
 // by the superjam.eth owner). Minting a name = ONE `setSubname` call here.
 //
+// NESTED names `<slug>.<user>.superjam.eth` (MintV2Params.under) resolve via
+// ENSIP-10 WILDCARD, not sub-registries: the deployed registry has no
+// setSubregistry (getSubregistry is always 0), but it IS an IExtendedResolver
+// (supportsInterface 0x9061b923). The walk descends to SuperjamRegistry, anchors
+// the resolver at the registered `<user>` label, then 0x822f answers
+// `resolve(…, addr(fullNode))`. So one `setSubname(slug, namehash(full), owner)`
+// is enough — no per-user contract. Verified live 2026-06-13.
+//
 // Pure viem (web-bundle-safe, like ens.ts). Degrade-safe: writes throw
 // OnchainError("ENS_WRITE_FAILED") so the build pipeline try/catches and an ENS
 // failure NEVER fails a build (§11 step 5).
@@ -71,6 +79,15 @@ export interface MintV2Params {
   slug: string;
   owner: Address;
   records?: { url?: string };
+  /** Nest the name under this user label → `<slug>.<under>.<parent>` (e.g.
+   *  `tip-jar.kristjangrm1.superjam.eth`). Omit for a flat `<slug>.<parent>`.
+   *  Nested names resolve via ENSIP-10 wildcard: the walk anchors the resolver at
+   *  the (already-registered) `<under>` node, then `0x822f` (an IExtendedResolver)
+   *  answers `resolve(…, addr(fullNode))`. So nesting needs only this one
+   *  `setSubname` — no per-user sub-registry (the deployed registry has no
+   *  setSubregistry). Verified live 2026-06-13. The `<under>` label MUST already be
+   *  registered (claimUsername mints it) or the wildcard has no anchor. */
+  under?: string;
 }
 
 export interface MintV2Result {
@@ -91,8 +108,8 @@ export const createEnsV2 = (
   return {
     /** Mint (or re-point) `<slug>.superjam.eth` -> owner, natively in ENSv2.
      *  One tx; optionally a second for the url text record. Returns the name. */
-    async mintSubname({ slug, owner, records }: MintV2Params): Promise<MintV2Result> {
-      const ensName = `${slug}.${parentName}`;
+    async mintSubname({ slug, owner, records, under }: MintV2Params): Promise<MintV2Result> {
+      const ensName = under ? `${slug}.${under}.${parentName}` : `${slug}.${parentName}`;
       const node = namehash(ensName);
       let txHash: Hex;
       try {
