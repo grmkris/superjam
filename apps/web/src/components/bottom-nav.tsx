@@ -28,7 +28,7 @@ export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const unread = useUnreadCount(pathname);
   return (
-    <nav className="flex border-t-2 border-ink bg-card px-2 pt-2.5 pb-7 shrink-0">
+    <nav className="flex border-t-2 border-ink bg-card px-2 pt-2 pb-3 shrink-0">
       {TABS.map((tab) => {
         const active = tab.match(pathname);
         return (

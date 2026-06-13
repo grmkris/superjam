@@ -31,17 +31,25 @@ const ACCENT_TITLE: Record<FeedJam["accent"], string> = {
 export function JamFeedCard({
   jam,
   next,
+  onPlayingChange,
   onComments,
   onRemix,
 }: {
   jam: FeedJam;
   next: FeedJam | null;
+  onPlayingChange?: (playing: boolean) => void;
   onComments: (j: FeedJam) => void;
   onRemix: (j: FeedJam) => void;
 }) {
   const [playing, setPlaying] = useState(false);
   const [liked, setLiked] = useState(false);
   const [picking, setPicking] = useState(false);
+
+  // toggle play AND notify the feed page so it can hide the floating tab pills
+  const setPlay = (v: boolean) => {
+    setPlaying(v);
+    onPlayingChange?.(v);
+  };
 
   if (playing) {
     return (
@@ -53,7 +61,7 @@ export function JamFeedCard({
             <Handle username={jam.maker.username} verified={jam.maker.verified} muted />
           </span>
           <button
-            onClick={() => setPlaying(false)}
+            onClick={() => setPlay(false)}
             aria-label="Close jam"
             className="ml-auto flex items-center justify-center w-[38px] h-[38px] rounded-full bg-card border-2 border-ink text-[15px] font-extrabold sticker-press"
           >
@@ -96,7 +104,7 @@ export function JamFeedCard({
       </div>
 
       <button
-        onClick={() => setPlaying(true)}
+        onClick={() => setPlay(true)}
         className="inline-flex items-center gap-2 bg-pink text-white border-[2.5px] border-ink rounded-full px-9 py-3.5 text-lg font-extrabold shadow-sticker-lg sticker-press"
       >
         ▸ Play now

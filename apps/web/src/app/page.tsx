@@ -22,6 +22,7 @@ export default function DiscoverPage() {
   const client = usePlatformClient();
   const [tab, setTab] = useState<FeedTab>("foryou");
   const [jams, setJams] = useState<FeedJam[] | null>(null);
+  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,23 +37,25 @@ export default function DiscoverPage() {
 
   return (
     <div className="relative h-full bg-blue">
-      {/* tab pills */}
-      <div className="absolute top-14 left-0 right-0 z-20 flex justify-center gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={cx(
-              "border-2 border-ink rounded-full px-4 py-1.5 text-[13.5px]",
-              tab === t.key
-                ? "bg-ink text-cream font-bold"
-                : "bg-white/85 text-ink font-semibold"
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* tab pills — hidden while a jam plays so they don't overlap its header */}
+      {!playing && (
+        <div className="absolute top-5 left-0 right-0 z-20 flex gap-2 px-4">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={cx(
+                "flex-1 text-center border-2 border-ink rounded-full px-4 py-1.5 text-[13.5px]",
+                tab === t.key
+                  ? "bg-ink text-cream font-bold"
+                  : "bg-white/85 text-ink font-semibold"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {jams === null ? (
         <FeedSkeleton />
@@ -65,6 +68,7 @@ export default function DiscoverPage() {
               key={jam.id}
               jam={jam}
               next={jams[i + 1] ?? null}
+              onPlayingChange={setPlaying}
               onComments={(j) => router.push(`/j/${j.slug}`)}
               onRemix={(j) => router.push(`/build?remix=${j.slug}`)}
             />
