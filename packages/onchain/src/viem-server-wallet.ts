@@ -83,6 +83,7 @@ export const createServerWallet = ({
 
   return {
     address: account.address,
+    account,
 
     relayTransfer: ({ token, authorization, signature }: RelayTransferArgs) =>
       submit(() =>
