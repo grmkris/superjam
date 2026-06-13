@@ -44,15 +44,22 @@ const generatedApp = (needsData: boolean): GeneratedApp => ({
 });
 
 /** A Vercel stub that records calls and walks a scripted readyState sequence. */
-const makeVercel = (states: VercelDeployment["readyState"][]) => {
+const makeVercel = (
+  states: VercelDeployment["readyState"][],
+  opts: { failCreate?: boolean; failDelete?: boolean } = {}
+) => {
   const calls = {
     env: [] as VercelEnvVar[][],
     deployArgs: [] as { prebuilt: boolean; fileCount: number }[],
     polls: 0,
+    deleted: [] as string[],
   };
   let i = 0;
   const client: VercelClient = {
-    createProject: async () => ({ projectId: "prj_1" }),
+    createProject: async () => {
+      if (opts.failCreate) throw new Error("vercel create boom");
+      return { projectId: "prj_1" };
+    },
     setEnv: async (_p, vars) => {
       calls.env.push(vars);
     },
@@ -70,7 +77,29 @@ const makeVercel = (states: VercelDeployment["readyState"][]) => {
       return { deploymentId: "dpl_1", url: "x.vercel.app", readyState: state };
     },
     productionUrl: (_p, name) => `https://${name}.vercel.app`,
-    deleteProject: async () => {},
+    deleteProject: async (id) => {
+      calls.deleted.push(id);
+      if (opts.failDelete) throw new Error("vercel delete boom");
+    },
+  };
+  return { client, calls };
+};
+
+/** A Neon stub that records created + deleted project ids. */
+const makeNeon = () => {
+  const calls = { created: 0, deleted: [] as string[] };
+  const client: NeonClient = {
+    createProject: async () => {
+      calls.created += 1;
+      return {
+        projectId: "neon_1",
+        pooledDsn: "postgres://pooled?sslmode=require",
+        directDsn: "postgres://direct?sslmode=require",
+      };
+    },
+    deleteProject: async (id) => {
+      calls.deleted.push(id);
+    },
   };
   return { client, calls };
 };
@@ -188,5 +217,82 @@ describe("runDeploy", () => {
         { ...fastDeps, generate: async () => generatedApp(true), vercel: client }
       )
     ).rejects.toThrow(/no Neon client/);
+  });
+});
+
+describe("runDeploy — partial-failure reaper", () => {
+  test("data app, Vercel create fails: reaps Neon only, rethrows original", async () => {
+    const { client, calls } = makeVercel(["READY"], { failCreate: true });
+    const neon = makeNeon();
+    await expect(
+      runDeploy(
+        { spec: baseSpec, buildId: "b", appId: "app_6", projectName: "superjam-app_6" },
+        { ...fastDeps, generate: async () => generatedApp(true), vercel: client, neon: neon.client }
+      )
+    ).rejects.toThrow(/vercel create boom/);
+    expect(neon.calls.deleted).toEqual(["neon_1"]);
+    expect(calls.deleted).toEqual([]); // nothing created on Vercel → nothing to reap
+  });
+
+  test("no-data app, deploy errors: reaps the Vercel project, rethrows", async () => {
+    const { client, calls } = makeVercel(["BUILDING", "ERROR"]);
+    await expect(
+      runDeploy(
+        { spec: baseSpec, buildId: "b", appId: "app_7", projectName: "superjam-app_7" },
+        { ...fastDeps, generate: async () => generatedApp(false), vercel: client, neon: noNeonNeeded }
+      )
+    ).rejects.toThrow(/ERROR/);
+    expect(calls.deleted).toEqual(["prj_1"]);
+  });
+
+  test("data app, deploy errors: reaps both projects", async () => {
+    const { client, calls } = makeVercel(["ERROR"]);
+    const neon = makeNeon();
+    await expect(
+      runDeploy(
+        { spec: baseSpec, buildId: "b", appId: "app_8", projectName: "superjam-app_8" },
+        { ...fastDeps, generate: async () => generatedApp(true), vercel: client, neon: neon.client }
+      )
+    ).rejects.toThrow(/ERROR/);
+    expect(calls.deleted).toEqual(["prj_1"]);
+    expect(neon.calls.deleted).toEqual(["neon_1"]);
+  });
+
+  test("a reap that itself fails still rethrows the ORIGINAL error + emits", async () => {
+    const { client } = makeVercel(["ERROR"], { failDelete: true });
+    const events: DeployEvent[] = [];
+    await expect(
+      runDeploy(
+        { spec: baseSpec, buildId: "b", appId: "app_9", projectName: "superjam-app_9" },
+        {
+          ...fastDeps,
+          generate: async () => generatedApp(false),
+          vercel: client,
+          neon: noNeonNeeded,
+          onEvent: (e) => events.push(e),
+        }
+      )
+    ).rejects.toThrow(/Vercel deployment ERROR/); // not "vercel delete boom"
+    expect(events.some((e) => e.kind === "error" && /delete failed/.test(e.label))).toBe(true);
+  });
+
+  test("a generation failure created nothing → no reap", async () => {
+    const { client, calls } = makeVercel(["READY"]);
+    const neon = makeNeon();
+    await expect(
+      runDeploy(
+        { spec: baseSpec, buildId: "b", appId: "app_10", projectName: "superjam-app_10" },
+        {
+          ...fastDeps,
+          generate: async () => {
+            throw new Error("gen boom");
+          },
+          vercel: client,
+          neon: neon.client,
+        }
+      )
+    ).rejects.toThrow(/gen boom/);
+    expect(calls.deleted).toEqual([]);
+    expect(neon.calls.deleted).toEqual([]);
   });
 });

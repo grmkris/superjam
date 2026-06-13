@@ -42,10 +42,56 @@ export interface RunDeployArgs {
 const defaultSleep = (ms: number): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
 
+type Emit = (kind: DeployEvent["kind"], label: string) => void;
+
+/**
+ * Delete one project, swallowing + logging any failure. Returns the outcome so
+ * teardown (Phase 3) can report what leaked; the reaper ignores the return.
+ * Both clients' deleteProject already swallow 404, so re-running is safe.
+ */
+export const tryDelete = async (
+  label: string,
+  del: (() => Promise<void>) | undefined,
+  emit: Emit
+): Promise<"deleted" | "skipped" | "failed"> => {
+  if (!del) return "skipped";
+  try {
+    await del();
+    return "deleted";
+  } catch (e) {
+    emit("error", `${label} delete failed: ${String(e)}`);
+    return "failed";
+  }
+};
+
+/**
+ * Best-effort, idempotent reap of the projects a failed deploy half-created.
+ * NEVER throws — reap errors are swallowed so the ORIGINAL deploy error is what
+ * the caller rethrows (the build feed must show the true cause, not a cleanup
+ * artifact). Reaps by id (held in runDeploy's scope), not by name.
+ */
+const reapPartial = async (
+  deps: RunDeployDeps,
+  ids: { vercelProjectId?: string; neonProjectId?: string },
+  emit: Emit
+): Promise<void> => {
+  const vid = ids.vercelProjectId;
+  if (vid) {
+    await tryDelete(`vercel ${vid}`, () => deps.vercel.deleteProject(vid), emit);
+  }
+  const nid = ids.neonProjectId;
+  const neon = deps.neon;
+  if (nid && neon) {
+    await tryDelete(`neon ${nid}`, () => neon.deleteProject(nid), emit);
+  }
+};
+
 /**
  * Provision + deploy an app. Throws on generation / provisioning / deploy
- * failure (the caller marks the build failed); on a partial failure the caller
- * reaps the half-created Vercel/Neon projects by the `superjam-<appId>` name.
+ * failure (the caller marks the build failed). On a partial failure AFTER a
+ * Vercel/Neon project was created, reaps it (by id) before rethrowing — so a
+ * failed build never orphans a project (Neon free tier caps at 100, deploy doc
+ * §A.4). A generation failure created nothing, so it skips the reap.
  */
 export const runDeploy = async (
   args: RunDeployArgs,
@@ -54,60 +100,68 @@ export const runDeploy = async (
   const { spec, buildId, appId, projectName } = args;
   const now = deps.now ?? Date.now;
   const sleep = deps.sleep ?? defaultSleep;
-  const emit = (kind: DeployEvent["kind"], label: string): void =>
-    deps.onEvent?.({ kind, label });
+  const emit: Emit = (kind, label) => deps.onEvent?.({ kind, label });
   const started = now();
 
   emit("status", "generating");
   const app = await deps.generate(spec, { buildId, appId });
 
+  // Tracked across the try so the catch can reap whatever got created.
   let neonProjectId: string | undefined;
-  let databaseUrl: string | undefined;
-  if (app.needsData) {
-    if (!deps.neon) {
-      throw new Error("app declares data but no Neon client is configured");
+  let vercelProjectId: string | undefined;
+  try {
+    let databaseUrl: string | undefined;
+    if (app.needsData) {
+      if (!deps.neon) {
+        throw new Error("app declares data but no Neon client is configured");
+      }
+      emit("status", "provisioning database");
+      const project = await deps.neon.createProject(projectName);
+      neonProjectId = project.projectId;
+      databaseUrl = project.pooledDsn;
     }
-    emit("status", "provisioning database");
-    const project = await deps.neon.createProject(projectName);
-    neonProjectId = project.projectId;
-    databaseUrl = project.pooledDsn;
+
+    emit("status", "creating project");
+    const created = await deps.vercel.createProject(projectName);
+    vercelProjectId = created.projectId;
+    const vid = created.projectId;
+
+    // Env is baked at build time → set BEFORE deploy. Only the app's own
+    // DATABASE_URL is a secret; the SuperJam vars are public.
+    const env: VercelEnvVar[] = [
+      { key: "SUPERJAM_APP_ID", value: appId, type: "plain" },
+      { key: "SUPERJAM_JWKS_URL", value: deps.jwksUrl, type: "plain" },
+    ];
+    if (databaseUrl) {
+      env.push({ key: "DATABASE_URL", value: databaseUrl, type: "encrypted" });
+    }
+    emit("status", "setting env");
+    await deps.vercel.setEnv(vid, env);
+
+    emit("status", "deploying");
+    const deployment = await deps.vercel.deploy({
+      projectId: vid,
+      name: projectName,
+      files: app.files,
+      prebuilt: app.prebuilt,
+    });
+
+    await pollUntilReady(deployment.deploymentId, deps, sleep, now, emit);
+
+    const entryUrl = deps.vercel.productionUrl(vid, projectName);
+    emit("status", "ready");
+
+    return {
+      entryUrl,
+      manifest: app.manifest,
+      vercelProjectId: vid,
+      neonProjectId,
+      durationMs: now() - started,
+    };
+  } catch (err) {
+    await reapPartial(deps, { vercelProjectId, neonProjectId }, emit);
+    throw err;
   }
-
-  emit("status", "creating project");
-  const { projectId } = await deps.vercel.createProject(projectName);
-
-  // Env is baked at build time → set BEFORE deploy. Only the app's own
-  // DATABASE_URL is a secret; the SuperJam vars are public.
-  const env: VercelEnvVar[] = [
-    { key: "SUPERJAM_APP_ID", value: appId, type: "plain" },
-    { key: "SUPERJAM_JWKS_URL", value: deps.jwksUrl, type: "plain" },
-  ];
-  if (databaseUrl) {
-    env.push({ key: "DATABASE_URL", value: databaseUrl, type: "encrypted" });
-  }
-  emit("status", "setting env");
-  await deps.vercel.setEnv(projectId, env);
-
-  emit("status", "deploying");
-  const deployment = await deps.vercel.deploy({
-    projectId,
-    name: projectName,
-    files: app.files,
-    prebuilt: app.prebuilt,
-  });
-
-  await pollUntilReady(deployment.deploymentId, deps, sleep, now, emit);
-
-  const entryUrl = deps.vercel.productionUrl(projectId, projectName);
-  emit("status", "ready");
-
-  return {
-    entryUrl,
-    manifest: app.manifest,
-    vercelProjectId: projectId,
-    neonProjectId,
-    durationMs: now() - started,
-  };
 };
 
 const pollUntilReady = async (
