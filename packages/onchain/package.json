@@ -1,0 +1,22 @@
+{
+  "name": "@superjam/onchain",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./money": "./src/money.ts",
+    "./chains": "./src/chains.ts",
+    "./transfer-auth": "./src/transfer-auth.ts",
+    "./payment-intent": "./src/payment-intent.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@superjam/shared": "workspace:*",
+    "viem": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14"
+  }
+}
