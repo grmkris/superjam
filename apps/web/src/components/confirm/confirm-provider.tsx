@@ -26,7 +26,9 @@ import { ConfirmSheet, type ConfirmPhase } from "./confirm-sheet";
 
 const CAP = Number(TX_CAP_USDC);
 
-export type PayExecutor = (intent: ConfirmIntent) => Promise<{ txHash: string }>;
+export type PayExecutor = (
+  intent: ConfirmIntent
+) => Promise<{ txHash: string | null }>;
 
 interface ConfirmCtx {
   /** open the sheet and resolve when the user decides. Rejects (OverCapError)
@@ -45,7 +47,7 @@ export const useConfirm = (): ConfirmCtx => {
 interface Active {
   intent: ConfirmIntent;
   phase: ConfirmPhase;
-  txHash?: string;
+  txHash?: string | null;
   error?: string;
 }
 

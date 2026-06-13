@@ -13,7 +13,7 @@
 import type { EvmWalletAccount } from "@dynamic-labs-sdk/evm";
 import { createWalletClientForWalletAccount } from "@dynamic-labs-sdk/evm/viem";
 import { useWalletAccounts } from "@dynamic-labs-sdk/react-hooks";
-import type { AppId } from "@superjam/shared";
+import type { AppId, BuilderAgentId } from "@superjam/shared";
 import {
   PUBLIC_CHAIN,
   USDC,
@@ -35,8 +35,24 @@ export function useRelayExecutor(): PayExecutor {
 
   return useCallback<PayExecutor>(
     async (intent) => {
+      // Build fee → the x402 PRIVATE rail (§14). Settled server-side from the
+      // shielded balance (or free for a verified human hiring a human-backed
+      // builder) — no browser signing, no public wallet. Returns null when free.
+      if (intent.kind === "buildFee") {
+        if (!intent.builderId) {
+          throw new Error("Missing builder for the build fee");
+        }
+        const { txHash } = await client.builds.payBuildFee({
+          builderId: intent.builderId as BuilderAgentId,
+        });
+        return { txHash };
+      }
+
       if (!evmAccount) {
         throw new Error("Connect your wallet to pay");
+      }
+      if (!intent.to) {
+        throw new Error("Missing recipient");
       }
 
       // 1) recipient string → on-chain address (server-side lookup)

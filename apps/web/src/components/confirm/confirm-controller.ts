@@ -5,17 +5,20 @@
 // decision. This is the ONLY wallet surface — a jam can never draw its own.
 import type { TX_CAP_USDC } from "@superjam/shared";
 
-export type ConfirmKind = "tip" | "publish" | "stake" | "payFriend";
+export type ConfirmKind = "tip" | "publish" | "stake" | "payFriend" | "buildFee";
 
 export interface ConfirmIntent {
   kind: ConfirmKind;
-  /** recipient address (or ENS) the money goes to */
-  to: string;
+  /** recipient address (or ENS) the money goes to. Unused for "buildFee" (the
+   *  builder + amount are resolved server-side from `builderId`). */
+  to?: string;
   /** ENS name tag to show when known (e.g. tipjar.kris.superjam.fun) */
   toName?: string;
   /** plain USDC amount (not base units); capped at TX_CAP_USDC */
   amountUsdc: number;
   appId?: string;
+  /** the marketplace builder to hire — "buildFee" only (drives the x402 quote). */
+  builderId?: string;
   memo?: string;
   /** jam attribution for the sheet header */
   jam?: { name: string; iconEmoji: string };
@@ -23,7 +26,8 @@ export interface ConfirmIntent {
 
 export interface ConfirmResult {
   approved: boolean;
-  txHash?: string;
+  /** the settlement hash — null for a free build (no money moved). */
+  txHash?: string | null;
 }
 
 /** Thrown synchronously when an amount exceeds the single-tx cap — the sheet
