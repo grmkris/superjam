@@ -8,10 +8,12 @@
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
 import {
+  type AppSpec,
   type BuilderCapability,
   BuilderAgentId,
   BuilderCapabilityList,
   eligibleAgents,
+  requiredCapabilities,
   SLUG_REGEX,
 } from "@superjam/shared";
 import { ORPCError, os } from "@orpc/server";
@@ -180,3 +182,48 @@ export const findEligibleBuilders = async (
   });
   return eligibleAgents(rows, required);
 };
+
+/** The builder S's dispatch should send a build to, + the dispatch creds. */
+export interface SelectedBuilder {
+  agent: BuilderAgent;
+  endpointUrl: string;
+  /** The builder's secret dispatch token (server-side only — never to a client). */
+  token: string;
+}
+
+// Cheapest first (it's the user's money), then most-built (proven), then oldest.
+const byPreference = (a: BuilderAgent, b: BuilderAgent): number =>
+  Number(a.priceUsdc) - Number(b.priceUsdc) ||
+  b.buildsCount - a.buildsCount ||
+  a.createdAt.getTime() - b.createdAt.getTime();
+
+/**
+ * Pick the builder for a spec (the routing primitive S's `runBuild` calls): the
+ * spec's `requiredCapabilities` → the active, capability-matched agents → the
+ * requested `agentId` if it's eligible, else the preferred default. Returns null
+ * when nothing can deliver (caller decides: error, or fall back to the house
+ * builder). Pure DB read; no dispatch, no side effects.
+ */
+export const selectEligibleBuilder = async (
+  db: Database,
+  spec: AppSpec,
+  opts: { agentId?: BuilderAgentId } = {}
+): Promise<SelectedBuilder | null> => {
+  const eligible = await findEligibleBuilders(db, requiredCapabilities(spec));
+  if (eligible.length === 0) {
+    return null;
+  }
+  if (opts.agentId) {
+    const picked = eligible.find((a) => a.id === opts.agentId);
+    // An explicit pick that can't deliver is a hard miss — don't silently
+    // reroute the user's chosen (possibly paid) agent to someone else.
+    return picked ? toSelected(picked) : null;
+  }
+  return toSelected(eligible.toSorted(byPreference)[0]!);
+};
+
+const toSelected = (agent: BuilderAgent): SelectedBuilder => ({
+  agent,
+  endpointUrl: agent.endpointUrl,
+  token: agent.token,
+});

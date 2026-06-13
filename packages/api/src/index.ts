@@ -35,6 +35,11 @@ export {
 } from "./lib/agent-identity.ts";
 export { createAgentIdentity } from "./lib/agent-identity-impl.ts";
 export {
+  findEligibleBuilders,
+  selectEligibleBuilder,
+  type SelectedBuilder,
+} from "./routers/agents.ts";
+export {
   allocateExternalApp,
   type AllocateExternalAppInput,
   finalizeExternalApp,

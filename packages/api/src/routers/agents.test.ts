@@ -2,13 +2,39 @@ import { describe, expect, test } from "bun:test";
 import { call, ORPCError } from "@orpc/server";
 import { createPgliteDb } from "@superjam/db/pglite";
 import { createLogger } from "@superjam/logger";
-import type { BuilderCapability } from "@superjam/shared";
+import type { AppSpec, BuilderCapability } from "@superjam/shared";
 import type { AgentIdentity } from "../lib/agent-identity.ts";
 import { createTestAuth } from "../auth/test-auth.ts";
 import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
 import { createTestUser } from "../testing/factories.ts";
-import { agentsRouter, findEligibleBuilders } from "./agents.ts";
+import {
+  agentsRouter,
+  findEligibleBuilders,
+  selectEligibleBuilder,
+} from "./agents.ts";
+
+// Minimal AppSpec — requiredCapabilities only reads data/payments/ai/capabilities.
+const specWith = (over: Partial<AppSpec> = {}): AppSpec => ({
+  name: "Jam",
+  slug: "jam",
+  description: "",
+  iconEmoji: "🎮",
+  category: "game",
+  capabilities: [],
+  features: [],
+  data: { collections: [], counters: [], storage: [] },
+  ui: { layout: "single", sections: [] },
+  acceptance: [],
+  ...over,
+});
+const SPEC_NEEDS_DB = specWith({
+  data: {
+    collections: [{ name: "scores", doc: { v: "number" }, writtenWhen: "x" }],
+    counters: [],
+    storage: [],
+  },
+});
 
 const logger = createLogger({ level: "silent" });
 
@@ -199,5 +225,61 @@ describe("findEligibleBuilders (S's routing primitive)", () => {
 
     const needsContracts = await findEligibleBuilders(db, ["contracts:evm"]);
     expect(needsContracts).toHaveLength(0);
+  });
+});
+
+describe("selectEligibleBuilder (the build-dispatch pick)", () => {
+  // Register a full-stack builder + a cheaper frontend-only one.
+  const seed = async (h: Awaited<ReturnType<typeof harness>>) => {
+    const owner = await createTestUser(h.db, { worldVerified: true });
+    const token = await h.signIn(owner);
+    const full = await call(agentsRouter.register, REGISTER, { context: h.ctxFor(token) });
+    const fe = await call(
+      agentsRouter.register,
+      {
+        ...REGISTER,
+        slug: "fe-only",
+        priceUsdc: "0",
+        capabilities: ["frontend", "hosting:vercel"] as BuilderCapability[],
+      },
+      { context: h.ctxFor(token) }
+    );
+    return { full, fe };
+  };
+
+  test("a data spec routes only to a capable builder (frontend-only excluded)", async () => {
+    const h = await harness();
+    const { full } = await seed(h);
+    const chosen = await selectEligibleBuilder(h.db, SPEC_NEEDS_DB);
+    expect(chosen?.agent.id).toBe(full.id);
+    expect(chosen?.endpointUrl).toBe(REGISTER.endpointUrl);
+    expect(chosen?.token).toBe(REGISTER.token);
+  });
+
+  test("a static spec prefers the cheaper eligible builder", async () => {
+    const h = await harness();
+    const { fe } = await seed(h);
+    const chosen = await selectEligibleBuilder(h.db, specWith());
+    expect(chosen?.agent.id).toBe(fe.id); // fe is priceUsdc "0"
+  });
+
+  test("an explicit agentId is honored when eligible, refused when not", async () => {
+    const h = await harness();
+    const { full, fe } = await seed(h);
+    const ok = await selectEligibleBuilder(h.db, SPEC_NEEDS_DB, { agentId: full.id });
+    expect(ok?.agent.id).toBe(full.id);
+    // fe can't do database:neon → a hard miss, not a silent reroute
+    const miss = await selectEligibleBuilder(h.db, SPEC_NEEDS_DB, { agentId: fe.id });
+    expect(miss).toBeNull();
+  });
+
+  test("returns null when no active builder can deliver", async () => {
+    const h = await harness();
+    await seed(h);
+    const needsContracts = await selectEligibleBuilder(
+      h.db,
+      specWith({ capabilities: ["payments"] }) // → requires contracts:evm
+    );
+    expect(needsContracts).toBeNull();
   });
 });
