@@ -4,6 +4,7 @@ import { createPgliteDb } from "@superjam/db/pglite";
 import { schema } from "@superjam/db";
 import { createLogger } from "@superjam/logger";
 import type { AppSpec, RefineResult } from "@superjam/shared";
+import { nullOnchain, type Onchain, parseUsdc } from "@superjam/onchain";
 import { eq } from "drizzle-orm";
 
 // Fresh pglite + migrations per test — slow under concurrent load.
@@ -76,12 +77,13 @@ const harness = async () => {
   const { db } = await createPgliteDb();
   const auth = await createTestAuth();
   const rateLimiter = createRateLimiter();
-  const ctxFor = (token?: string) =>
+  const ctxFor = (token?: string, onchain?: Onchain) =>
     createContext({
       db,
       logger,
       auth: auth.verifier,
       rateLimiter,
+      onchain,
       headers: new Headers(token ? { authorization: `Bearer ${token}` } : {}),
     });
   return { db, auth, ctxFor };
@@ -493,12 +495,19 @@ describe("builds — marketplace routing (§14)", () => {
       where: eq(schema.builderAgent.id, agent.id),
     });
     expect(after?.buildsCount).toBe(1);
+
+    // §16: the minted app is linked to the agent that built it (review→reputation).
+    const builtApp = await db.query.app.findFirst({
+      where: eq(schema.app.id, allocated.id),
+    });
+    expect(builtApp?.builtByAgentId).toBe(agent.id);
   });
 
   test("create routes to the chosen eligible agent's endpoint + token", async () => {
     const { db, auth, ctxFor } = await harness();
     const aOwner = await createTestUser(db, { username: "houseowner" });
-    const agent = await seedAgent(db, aOwner.id);
+    // Free agent → routing is exercised without tripping the paid-to-agent gate.
+    const agent = await seedAgent(db, aOwner.id, { priceUsdc: "0" });
     const calls: Array<{ endpointUrl: string; token: string }> = [];
     const deployerFor: DeployerFor = (b) => {
       calls.push({ endpointUrl: b.endpointUrl, token: b.token });
@@ -531,5 +540,97 @@ describe("builds — marketplace routing (§14)", () => {
     // No agents seeded ⇒ selectEligibleBuilder returns null ⇒ house deployer.
     await call(router.create, { spec: SPEC }, { context: ctxFor(token) });
     expect(routed).toBe(false);
+  });
+
+  // --- paid-to-agent gate (§14): "I paid another human's AI" ---
+  const USER_WALLET = ("0x" + "b".repeat(40)) as `0x${string}`;
+  const paidOnchain = (from: `0x${string}` = USER_WALLET): Onchain => ({
+    ...nullOnchain,
+    verifyUsdcTransfer: async () => ({ from, value: parseUsdc("1") }),
+  });
+  const paidRouter = () =>
+    createBuildsRouter({ deploy: parkedDeploy, deployerFor: () => parkedDeploy });
+
+  test("a paid agent requires payment (PAYMENT_REQUIRED without a receipt)", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const u = await createTestUser(db, {
+      dynamicUserId: "dyn_pa1",
+      email: "pa1@test.io",
+      walletAddress: USER_WALLET,
+    });
+    const agent = await seedAgent(db, u.id); // default priceUsdc "1"
+    const token = await auth.sign({ dynamicUserId: "dyn_pa1", email: "pa1@test.io" });
+
+    await expect(
+      call(
+        paidRouter().create,
+        { spec: SPEC, agentId: agent.id },
+        { context: ctxFor(token) }
+      )
+    ).rejects.toThrow(/Pay 1 USDC/);
+  });
+
+  test("a paid agent: a verified receipt is recorded on the build", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const u = await createTestUser(db, {
+      dynamicUserId: "dyn_pa2",
+      email: "pa2@test.io",
+      walletAddress: USER_WALLET,
+    });
+    const agent = await seedAgent(db, u.id);
+    const token = await auth.sign({ dynamicUserId: "dyn_pa2", email: "pa2@test.io" });
+
+    const res = await call(
+      paidRouter().create,
+      { spec: SPEC, agentId: agent.id, payment: { txHash: "0xpaid1", chain: "arc" } },
+      { context: ctxFor(token, paidOnchain()) }
+    );
+    const b = await db.query.build.findFirst({
+      where: eq(schema.build.id, res.buildId),
+    });
+    expect(b?.paymentTxHash).toBe("0xpaid1");
+    expect(b?.agentId).toBe(agent.id);
+  });
+
+  test("a reused agent-payment receipt is rejected (replay guard)", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const u = await createTestUser(db, {
+      dynamicUserId: "dyn_pa3",
+      email: "pa3@test.io",
+      walletAddress: USER_WALLET,
+      worldVerified: true, // skip the trial-quota gate on the 2nd build
+    });
+    const agent = await seedAgent(db, u.id);
+    const token = await auth.sign({ dynamicUserId: "dyn_pa3", email: "pa3@test.io" });
+    const pay = {
+      spec: SPEC,
+      agentId: agent.id,
+      payment: { txHash: "0xdupe", chain: "arc" },
+    };
+
+    await call(paidRouter().create, pay, { context: ctxFor(token, paidOnchain()) });
+    await expect(
+      call(paidRouter().create, pay, { context: ctxFor(token, paidOnchain()) })
+    ).rejects.toThrow(/already used/);
+  });
+
+  test("a paid agent: payment from a different wallet is rejected", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const u = await createTestUser(db, {
+      dynamicUserId: "dyn_pa4",
+      email: "pa4@test.io",
+      walletAddress: USER_WALLET,
+    });
+    const agent = await seedAgent(db, u.id);
+    const token = await auth.sign({ dynamicUserId: "dyn_pa4", email: "pa4@test.io" });
+    const stranger = ("0x" + "c".repeat(40)) as `0x${string}`;
+
+    await expect(
+      call(
+        paidRouter().create,
+        { spec: SPEC, agentId: agent.id, payment: { txHash: "0xpaid4", chain: "arc" } },
+        { context: ctxFor(token, paidOnchain(stranger)) }
+      )
+    ).rejects.toThrow(/your own wallet/);
   });
 });

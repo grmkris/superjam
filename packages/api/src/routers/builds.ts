@@ -34,14 +34,18 @@ import {
 import { ORPCError } from "@orpc/server";
 import { count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { type Address, type Hex, isAddressEqual } from "viem";
 import type { Logger } from "@superjam/logger";
 import type { Onchain } from "@superjam/onchain";
+import { PUBLIC_CHAIN, parseUsdc } from "@superjam/onchain";
 import {
   type BuildDeployer,
   createRemoteDeployer,
 } from "../lib/builder-dispatch.ts";
+import { isUniqueViolation } from "../lib/db-errors.ts";
+import { tryOnchain } from "../lib/onchain-errors.ts";
 import { protectedProcedure } from "../orpc.ts";
-import { selectEligibleBuilder } from "./agents.ts";
+import { type SelectedBuilder, selectEligibleBuilder } from "./agents.ts";
 import { allocateExternalApp, finalizeExternalApp } from "./apps.ts";
 import type { RefineCatalogApp, RefineInput } from "@superjam/builder";
 import { refine as defaultRefine } from "@superjam/builder";
@@ -191,12 +195,18 @@ export const runBuild = async (
       })
       .where(eq(build.id, buildId));
 
-    // Credit the marketplace agent a build on successful dispatch (§14).
+    // Credit the marketplace agent a build + link the minted app to it
+    // (§14/§16) on successful dispatch. builtByAgentId is the basis for
+    // review→reputation; written independently of the best-effort finalize.
     if (routedAgentId) {
       await db
         .update(builderAgent)
         .set({ buildsCount: sql`${builderAgent.buildsCount} + 1` })
         .where(eq(builderAgent.id, routedAgentId));
+      await db
+        .update(app)
+        .set({ builtByAgentId: routedAgentId })
+        .where(eq(app.id, appId));
     }
 
     try {
@@ -287,8 +297,25 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
         })
       )
       .handler(async ({ context, input }) => {
-        // Trial quota: build #1 is free; past it you must be world-verified OR
-        // present a verified USDC receipt (§11/§14).
+        // Pick the marketplace builder up front (pure read): a PAID pick gates
+        // payment, and an explicit paid pick must be verified BEFORE we allocate
+        // anything. A routing hiccup is non-fatal — it falls back to the house
+        // builder (and a free house build skips the agent-payment gate below).
+        let selected: SelectedBuilder | null = null;
+        try {
+          selected = await selectEligibleBuilder(context.db, input.spec, {
+            agentId: input.agentId,
+          });
+        } catch (err) {
+          context.logger.warn(
+            { err: String(err), agentId: input.agentId },
+            "builder routing failed — falling back to the house builder"
+          );
+        }
+
+        // Trial quota (platform anti-spam): build #1 is free; past it you must
+        // be world-verified OR present a verified USDC receipt (§11). Orthogonal
+        // to the agent's price below — worldVerified skips THIS gate, not the fee.
         const prior = await userBuildCount(context.db, context.user.id);
         if (prior >= FREE_BUILDS && !context.user.worldVerified) {
           if (!input.payment) {
@@ -308,16 +335,59 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           }
         }
 
-        const [row] = await context.db
-          .insert(build)
-          .values({
-            userId: context.user.id,
-            prompt: input.prompt ?? input.spec.description,
-            spec: input.spec,
-            status: "queued",
-          })
-          .returning({ id: build.id });
-        const buildId = row!.id;
+        // Paid-to-agent gate (§14) — the "I paid another human's AI" moment. A
+        // chosen agent with a price must be paid in USDC to ITS wallet, proven by
+        // the receipt's Transfer log (≥ price, from the user's own wallet).
+        // Verified before dispatch; the txHash is recorded UNIQUE on the build.
+        const paidAgent =
+          selected && Number(selected.agent.priceUsdc) > 0 ? selected.agent : null;
+        if (paidAgent) {
+          if (!input.payment) {
+            throw new ORPCError("PAYMENT_REQUIRED", {
+              message: `Pay ${paidAgent.priceUsdc} USDC to build with ${paidAgent.name}.`,
+            });
+          }
+          if (!context.user.walletAddress) {
+            throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
+          }
+          const { from } = await tryOnchain(() =>
+            context.onchain.verifyUsdcTransfer({
+              hash: input.payment!.txHash as Hex,
+              chain: PUBLIC_CHAIN,
+              expectedTo: paidAgent.walletAddress as Address,
+              minAmount: parseUsdc(paidAgent.priceUsdc),
+            })
+          );
+          if (!isAddressEqual(from, context.user.walletAddress as Address)) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: "Pay the builder from your own wallet",
+            });
+          }
+        }
+
+        let buildId: BuildRow["id"];
+        try {
+          const [row] = await context.db
+            .insert(build)
+            .values({
+              userId: context.user.id,
+              prompt: input.prompt ?? input.spec.description,
+              spec: input.spec,
+              status: "queued",
+              agentId: selected?.agent.id ?? null,
+              paymentTxHash: paidAgent ? input.payment!.txHash : null,
+            })
+            .returning({ id: build.id });
+          buildId = row!.id;
+        } catch (err) {
+          // A reused agent-payment receipt trips the unique paymentTxHash index.
+          if (isUniqueViolation(err)) {
+            throw new ORPCError("CONFLICT", {
+              message: "This payment was already used",
+            });
+          }
+          throw err;
+        }
 
         // Allocate the app row up front → the REAL appId, baked into the deploy
         // as SUPERJAM_APP_ID so app.id == the minted token's aud (§1). Status
@@ -332,25 +402,7 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           .set({ appId: allocated.id })
           .where(eq(build.id, buildId));
 
-        // Route to the chosen/eligible marketplace agent (§14) if one can
-        // deliver this spec's capabilities; else the house builder. A routing
-        // hiccup never blocks the build — it just uses the house deployer.
-        let buildDeployer = deploy;
-        let routedAgentId: typeof input.agentId | null = null;
-        try {
-          const sel = await selectEligibleBuilder(context.db, input.spec, {
-            agentId: input.agentId,
-          });
-          if (sel) {
-            buildDeployer = deployerFor(sel);
-            routedAgentId = sel.agent.id;
-          }
-        } catch (err) {
-          context.logger.warn(
-            { err: String(err), buildId },
-            "builder routing failed — falling back to the house builder"
-          );
-        }
+        const buildDeployer = selected ? deployerFor(selected) : deploy;
 
         // Fire-and-forget; the driver never throws (it records failures on the
         // build row). The web feed polls build.events / status.
@@ -358,7 +410,12 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           context.db,
           context.logger,
           buildDeployer,
-          { buildId, appId: allocated.id, spec: input.spec, routedAgentId },
+          {
+            buildId,
+            appId: allocated.id,
+            spec: input.spec,
+            routedAgentId: selected?.agent.id ?? null,
+          },
           context.onchain
         );
 
