@@ -15,11 +15,16 @@ import {
 } from "@superjam/api";
 import { createDb, runMigrations } from "@superjam/db";
 import { createLogger } from "@superjam/logger";
+import { PUBLIC_CHAIN } from "@superjam/onchain";
 import { SERVICE_URLS } from "@superjam/shared";
 import { RPCHandler } from "@orpc/server/fetch";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createS3Store } from "./bucket.ts";
+import {
+  createDynamicServerWallet,
+  dynamicWalletEnv,
+} from "./dynamic-wallet.ts";
 import { env } from "./env.ts";
 import { createGeminiOracle } from "./oracle.ts";
 import { registerServeRoutes } from "./serve.ts";
@@ -50,8 +55,43 @@ const issuer = await createAppTokenIssuer({
 // rehearsal fills the SDK shapes, so payX402 degrades to PAYMENT_REQUIRED while
 // private tips/faucet are unaffected. A non-null transport ⇒ the Gateway leg is on.
 const unlinkTransport = loadLiveUnlinkTransport(env);
+// Agent signer: a Dynamic TSS-MPC server wallet when configured (Best Agentic
+// Build — no raw key), else the funded plain-key fallback. The MPC client auth
+// is async, so it's built here at boot and injected as a pre-made ServerWallet.
+// The same wallet signs the public rail (PUBLIC_CHAIN) and ENS mints (Base
+// Sepolia). Any failure degrades to the raw-key path so boot never breaks.
+const dynEnv = dynamicWalletEnv();
+let dynServerWallet: Awaited<ReturnType<typeof createDynamicServerWallet>> | undefined;
+let dynEnsWallet: typeof dynServerWallet;
+if (dynEnv) {
+  try {
+    dynServerWallet = await createDynamicServerWallet(
+      dynEnv,
+      PUBLIC_CHAIN,
+      PUBLIC_CHAIN === "arcTestnet" ? env.ARC_RPC_URL : env.BASE_SEPOLIA_RPC_URL,
+    );
+    dynEnsWallet = await createDynamicServerWallet(
+      dynEnv,
+      "baseSepolia",
+      env.BASE_SEPOLIA_RPC_URL,
+    );
+    logger.info(
+      { signer: dynServerWallet.address },
+      "agent signer: Dynamic TSS-MPC server wallet",
+    );
+  } catch (err) {
+    logger.error(
+      { err: String(err) },
+      "Dynamic server wallet init failed — falling back to raw key",
+    );
+    dynServerWallet = undefined;
+    dynEnsWallet = undefined;
+  }
+}
 const onchain =
   createOnchainFromConfig({
+    serverWallet: dynServerWallet,
+    ensWallet: dynEnsWallet,
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
     baseSepoliaRpcUrl: env.BASE_SEPOLIA_RPC_URL,
     arcRpcUrl: env.ARC_RPC_URL,

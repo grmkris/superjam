@@ -129,6 +129,11 @@ export interface OnchainConfig {
   /** The privileged signer key. Absent ⇒ null (boot stays green; payments
    *  return INTERNAL until configured). Swap for a Dynamic account to go TSS. */
   serverWalletPrivateKey?: string;
+  /** Pre-built signer (Dynamic TSS-MPC server wallet) — takes precedence over
+   *  the raw key when present (built async at boot in apps/server, §1). */
+  serverWallet?: ServerWallet;
+  /** Pre-built ENS signer on Base Sepolia — defaults to the Dynamic wallet. */
+  ensWallet?: ServerWallet;
   baseSepoliaRpcUrl?: string;
   arcRpcUrl?: string;
   unlink?: UnlinkConfig;
@@ -140,7 +145,7 @@ export interface OnchainConfig {
  *  (apps/server). Returns null when no signer key is set so the caller falls
  *  back to nullOnchain. Unlink stays degraded until a transport is wired (§23). */
 export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
-  if (!cfg.serverWalletPrivateKey) return null;
+  if (!cfg.serverWallet && !cfg.serverWalletPrivateKey) return null;
   // Public/provable rail = PUBLIC_CHAIN (Arc). Gas = USDC on Arc, so the server
   // wallet relays/sends paying USDC — no ETH/paymaster. RPC picked per chain.
   const publicRpc =
@@ -149,11 +154,13 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     chain: CHAINS[PUBLIC_CHAIN],
     transport: http(publicRpc),
   });
-  const serverWallet = createServerWalletFromKey({
-    privateKey: cfg.serverWalletPrivateKey as Hex,
-    rpcUrl: publicRpc,
-    chainKey: PUBLIC_CHAIN,
-  });
+  const serverWallet =
+    cfg.serverWallet ??
+    createServerWalletFromKey({
+      privateKey: cfg.serverWalletPrivateKey as Hex,
+      rpcUrl: publicRpc,
+      chainKey: PUBLIC_CHAIN,
+    });
   // Secondary client = the OTHER chain (Base Sepolia when public is Arc) — used
   // for cross-chain reads (the CCTP #2 source). Stored in the `arcClient` slot
   // (= "non-public client" via clientFor).
@@ -170,11 +177,12 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     ? createPublicClient({ chain: CHAINS.baseSepolia, transport: http(cfg.baseSepoliaRpcUrl) })
     : undefined;
   const ensWallet = cfg.ens
-    ? createServerWalletFromKey({
+    ? (cfg.ensWallet ??
+      createServerWalletFromKey({
         privateKey: cfg.serverWalletPrivateKey as Hex,
         rpcUrl: cfg.baseSepoliaRpcUrl,
         chainKey: "baseSepolia",
-      })
+      }))
     : undefined;
   return createOnchain({
     publicClient,
