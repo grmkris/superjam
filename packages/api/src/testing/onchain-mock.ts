@@ -9,6 +9,8 @@ export interface MockOnchain extends Onchain {
   sends: { to: Address; value: Usdc }[];
   /** Every fundViaCctp (Sepolia→Arc bridge) call, in order. */
   bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[];
+  /** Every unlink.payX402 (private→x402 build fee) call, in order. */
+  x402Pays: { url: string; amount: Usdc; fromUnlinkAddress: string }[];
   /** Override the next verifyUsdcTransfer result (or make it throw). */
   setVerify(fn: NonNullable<MockOnchainOptions["verify"]>): void;
 }
@@ -34,6 +36,7 @@ export const createMockOnchain = (
 ): MockOnchain => {
   const sends: { to: Address; value: Usdc }[] = [];
   const bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[] = [];
+  const x402Pays: { url: string; amount: Usdc; fromUnlinkAddress: string }[] = [];
   let verify =
     opts.verify ??
     (async () => {
@@ -45,6 +48,7 @@ export const createMockOnchain = (
       opts.serverAddress ?? "0x000000000000000000000000000000000000eeee",
     sends,
     bridges,
+    x402Pays,
     stakeSlash: null,
     agentBook: { lookupHuman: async () => null },
     setVerify(fn) {
@@ -54,7 +58,10 @@ export const createMockOnchain = (
       available: opts.unlinkAvailable ?? false,
       privateTransfer: async () => ({ hash: fakeHash() }),
       faucetPrivateTokens: async () => ({ hash: fakeHash() }),
-      payX402: async () => ({ hash: fakeHash() }),
+      payX402: async ({ url, amount, fromUnlinkAddress }) => {
+        x402Pays.push({ url, amount, fromUnlinkAddress });
+        return { hash: fakeHash() };
+      },
     },
     verifyUsdcTransfer: (params) =>
       verify({ expectedTo: params.expectedTo, minAmount: params.minAmount }),

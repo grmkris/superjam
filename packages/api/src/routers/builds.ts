@@ -13,10 +13,10 @@
 // the AppSpec to a builder (apps/builder, pivot §6: it DEPLOYS + returns an
 // entryUrl), then FINALIZES the app (attaches entryUrl + lists it).
 //
-// Two cross-lane seams are wired as DI deps that no-op/log until they land, so a
-// half-built environment still works and a finalize/ENS failure NEVER fails a
-// build (§11): `verifyPayment` (C's verifyUsdcTransfer) and the deploy dispatch
-// (the live builder, M5). `refine` + `deploy` are stubbed in tests.
+// The build fee is x402-only (§14): the paid-agent gate verifies the agent was
+// paid over x402 (`onchain.verifyUsdcTransfer`, expectedTo = the agent wallet);
+// the legacy EIP-3009 receipt path is gone. The deploy dispatch is a DI seam
+// (the live builder, M5); `refine` + `deploy` are stubbed in tests.
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
 import {
@@ -25,20 +25,24 @@ import {
   AppId,
   AppSpecSchema,
   BUILD_ATTACH_MAX,
+  BuildDraftId,
   BuildId,
+  BuildStepSchema,
   BuilderAgentId,
+  DraftStateSchema,
   FREE_BUILDS,
   LIST_MAX,
   REFINE_CALLS_PER_USER_DAY,
   type RefineResult,
+  TX_CAP_USDC,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
-import { count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import { type Address, type Hex, isAddressEqual } from "viem";
+import { type Address, type Hex } from "viem";
 import type { Logger } from "@superjam/logger";
 import type { Onchain } from "@superjam/onchain";
-import { PUBLIC_CHAIN, parseUsdc } from "@superjam/onchain";
+import { PUBLIC_CHAIN, formatUsdc, parseUsdc } from "@superjam/onchain";
 import {
   type BuildDeployer,
   createRemoteDeployer,
@@ -52,28 +56,13 @@ import { allocateExternalApp, finalizeExternalApp } from "./apps.ts";
 import type { RefineCatalogApp, RefineInput } from "@superjam/builder";
 import { refine as defaultRefine } from "@superjam/builder";
 
-const { app, build, builderAgent } = schema;
+const { app, build, builderAgent, buildDraft } = schema;
 
 type BuildRow = typeof build.$inferSelect;
 type UserRow = typeof schema.user.$inferSelect;
 
 /** The refine seam: production = Gemini; tests inject a canned result. */
 export type RefineFn = (input: RefineInput) => Promise<RefineResult>;
-
-/** A build payment proof (paying past the free-trial gate). */
-export interface BuildPayment {
-  txHash: string;
-  chain: string;
-}
-/**
- * The paid-build receipt verifier (C's verifyUsdcTransfer). Throws to reject.
- * Default no-ops + logs until C's verifier lands — a missing verifier must not
- * silently let unpaid builds through in production, so the default LOGS loudly.
- */
-export type BuildPaymentVerifier = (
-  payment: BuildPayment,
-  ctx: { userId: string; logger: Logger }
-) => Promise<void>;
 
 /** Build a deployer for a chosen marketplace agent's endpoint (§14). */
 export type DeployerFor = (builder: {
@@ -87,7 +76,6 @@ export interface BuildsRouterDeps {
   deploy?: BuildDeployer;
   /** Build a deployer for a routed marketplace agent. Tests inject a stub. */
   deployerFor?: DeployerFor;
-  verifyPayment?: BuildPaymentVerifier;
 }
 
 /** Default deployer: remote dispatch to BUILDER_URL (unset ⇒ build fails clean). */
@@ -100,13 +88,6 @@ const envRemoteDeployer = (): BuildDeployer => {
     };
   }
   return createRemoteDeployer({ url, token });
-};
-
-const noopPaymentVerifier: BuildPaymentVerifier = async (payment, ctx) => {
-  ctx.logger.warn(
-    { txHash: payment.txHash, chain: payment.chain },
-    "build payment verifier not wired — accepting receipt unverified (dev seam)"
-  );
 };
 
 /** Listed apps rendered into the similar-check prompt (capped, first-pass only). */
@@ -258,7 +239,6 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
   const deployerFor =
     deps.deployerFor ??
     ((b) => createRemoteDeployer({ url: b.endpointUrl, token: b.token }));
-  const verifyPayment = deps.verifyPayment ?? noopPaymentVerifier;
 
   return {
     refine: protectedProcedure
@@ -333,13 +313,22 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           remixOfAppId: AppId.optional(),
           /** The marketplace agent the wizard picked (§14). Absent ⇒ auto/house. */
           agentId: BuilderAgentId.optional(),
-          /** Receipt to pay past the free-trial gate. */
+          /** Proof the build fee was paid: the x402-private fee outcome
+           *  `{ via: "x402", txHash }` from `builds.payBuildFee` — `txHash: null`
+           *  ⇒ the World free build (verified human × human-backed builder).
+           *  Hiring is x402-only; the legacy EIP-3009 receipt path is gone. */
           payment: z
-            .object({ txHash: z.string().min(1), chain: z.string().min(1) })
+            .object({
+              via: z.literal("x402"),
+              txHash: z.string().min(1).nullable(),
+            })
             .optional(),
           /** Object-store keys of the user's reference attachments (§17) — all of
            *  them (images + docs) are presigned and handed to the builder agent. */
           attachmentKeys: z.array(z.string()).max(BUILD_ATTACH_MAX).optional(),
+          /** The resumable wizard draft this build was dispatched from — linked to
+           *  the build on success so it leaves the "pending" feed (§3c). */
+          draftId: BuildDraftId.optional(),
         })
       )
       .handler(async ({ context, input }) => {
@@ -359,55 +348,57 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           );
         }
 
+        // The build fee is x402-only: the `builds.payBuildFee` outcome
+        // (`txHash: null` ⇒ free). A chosen paid agent settles over x402.
+        const x402Pay = input.payment ?? null;
+
         // Trial quota (platform anti-spam): build #1 is free; past it you must
         // be world-verified OR present a verified USDC receipt (§11). Orthogonal
         // to the agent's price below — worldVerified skips THIS gate, not the fee.
         const prior = await userBuildCount(context.db, context.user.id);
         if (prior >= FREE_BUILDS && !context.user.worldVerified) {
-          if (!input.payment) {
+          // Past the free build, a non-verified user must present a real x402
+          // settlement (verified in the paid-agent gate below). A null/absent hash
+          // is an un-backed "free" claim — the free build requires worldVerified.
+          if (!x402Pay?.txHash) {
             throw new ORPCError("FORBIDDEN", {
               message: "Verify you're human (or pay) to keep building.",
-            });
-          }
-          try {
-            await verifyPayment(input.payment, {
-              userId: context.user.id,
-              logger: context.logger,
-            });
-          } catch (err) {
-            throw new ORPCError("PAYMENT_REQUIRED", {
-              message: err instanceof Error ? err.message : "Payment not verified.",
             });
           }
         }
 
         // Paid-to-agent gate (§14) — the "I paid another human's AI" moment. A
-        // chosen agent with a price must be paid in USDC to ITS wallet, proven by
-        // the receipt's Transfer log (≥ price, from the user's own wallet).
-        // Verified before dispatch; the txHash is recorded UNIQUE on the build.
+        // chosen agent with a price must be paid in USDC to ITS wallet. Verified
+        // before dispatch; the txHash is recorded UNIQUE on the build.
         const paidAgent =
           selected && Number(selected.agent.priceUsdc) > 0 ? selected.agent : null;
         if (paidAgent) {
-          if (!input.payment) {
+          if (!x402Pay) {
+            // No payment at all → must pay (or qualify for the free build, which
+            // comes through as an x402 outcome with a null hash from payBuildFee).
             throw new ORPCError("PAYMENT_REQUIRED", {
               message: `Pay ${paidAgent.priceUsdc} USDC to build with ${paidAgent.name}.`,
             });
           }
-          if (!context.user.walletAddress) {
-            throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
-          }
-          const { from } = await tryOnchain(() =>
-            context.onchain.verifyUsdcTransfer({
-              hash: input.payment!.txHash as Hex,
-              chain: PUBLIC_CHAIN,
-              expectedTo: paidAgent.walletAddress as Address,
-              minAmount: parseUsdc(paidAgent.priceUsdc),
-            })
-          );
-          if (!isAddressEqual(from, context.user.walletAddress as Address)) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "Pay the builder from your own wallet",
-            });
+          if (x402Pay.txHash === null) {
+            // Free build — only a verified human hiring a human-backed (AgentBook)
+            // builder. Re-checked server-side so a forged "free" claim can't pass.
+            if (!(context.user.worldVerified && paidAgent.agentbookRegistered)) {
+              throw new ORPCError("PAYMENT_REQUIRED", {
+                message: `Pay ${paidAgent.priceUsdc} USDC to build with ${paidAgent.name}.`,
+              });
+            }
+          } else {
+            // x402 settles from the Circle Gateway, not the user's wallet — verify
+            // the AGENT was paid (≥ price); DON'T assert from == the user's wallet.
+            await tryOnchain(() =>
+              context.onchain.verifyUsdcTransfer({
+                hash: x402Pay.txHash as Hex,
+                chain: PUBLIC_CHAIN,
+                expectedTo: paidAgent.walletAddress as Address,
+                minAmount: parseUsdc(paidAgent.priceUsdc),
+              })
+            );
           }
         }
 
@@ -421,7 +412,9 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
               spec: input.spec,
               status: "queued",
               agentId: selected?.agent.id ?? null,
-              paymentTxHash: paidAgent ? input.payment!.txHash : null,
+              // x402 free build ⇒ no hash; otherwise the settlement/receipt hash
+              // (the UNIQUE index guards replay for non-null hashes).
+              paymentTxHash: paidAgent ? (input.payment?.txHash ?? null) : null,
             })
             .returning({ id: build.id });
           buildId = row!.id;
@@ -447,6 +440,21 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           .update(build)
           .set({ appId: allocated.id })
           .where(eq(build.id, buildId));
+
+        // Link the source wizard draft to this build → it drops out of the
+        // "pending" feed (the build/app now represents it). Owner-scoped, best-effort.
+        if (input.draftId) {
+          await context.db
+            .update(buildDraft)
+            .set({ buildId })
+            .where(
+              and(
+                eq(buildDraft.id, input.draftId),
+                eq(buildDraft.userId, context.user.id)
+              )
+            )
+            .catch(() => {});
+        }
 
         const buildDeployer = selected ? deployerFor(selected) : deploy;
 
@@ -554,6 +562,200 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           name: r.manifest?.name ?? r.spec?.name ?? "Untitled jam",
           iconEmoji: r.manifest?.iconEmoji ?? r.spec?.iconEmoji ?? "✨",
         }));
+      }),
+
+    /** Quote hiring a builder (the confirm sheet reads this before Approve): the
+     *  builder + price, whether THIS call is free (a verified human hiring a
+     *  human-backed AgentBook builder), and the caller's shielded balance +
+     *  whether it covers the fee — which drives the top-up prompt (§14/§23). */
+    quoteBuilder: protectedProcedure
+      .input(z.object({ builderId: BuilderAgentId }))
+      .handler(async ({ context, input }) => {
+        const agent = await context.db.query.builderAgent.findFirst({
+          where: eq(builderAgent.id, input.builderId),
+        });
+        if (!agent) {
+          throw new ORPCError("NOT_FOUND", { message: "Builder not found" });
+        }
+        const price = parseUsdc(agent.priceUsdc);
+        const freeEligible = Boolean(
+          context.user.worldVerified && agent.agentbookRegistered
+        );
+        // Shielded (private-rail) balance — best-effort: any failure shows "—" and
+        // treats the balance as 0, so the sheet falls back to the top-up prompt.
+        let shielded = parseUsdc("0");
+        let shieldedUsdc: string | null = null;
+        try {
+          shielded = await context.unlink.balance(context.user.id);
+          shieldedUsdc = formatUsdc(shielded);
+        } catch (err) {
+          context.logger.debug(
+            { err: String(err) },
+            "quoteBuilder: shielded balance unavailable"
+          );
+        }
+        return {
+          builder: {
+            id: agent.id,
+            name: agent.name,
+            slug: agent.slug,
+            ensName: agent.ensName,
+            endpointUrl: agent.endpointUrl,
+            displayName: agent.ensName ?? `${agent.slug}.superjam.eth`,
+          },
+          priceUsdc: agent.priceUsdc,
+          free: {
+            eligible: freeEligible,
+            // The per-N free-trial limit lives at the builder's AgentKit endpoint;
+            // we only preview eligibility here (no count to surface yet).
+            usesLeft: null as number | null,
+            usesTotal: null as number | null,
+            reason: freeEligible ? ("worldid" as const) : null,
+          },
+          balance: {
+            shieldedUsdc,
+            sufficient: freeEligible || shielded >= price,
+          },
+        };
+      }),
+
+    /** Pay a builder's fee over the x402 PRIVATE rail (the confirm sheet's
+     *  Approve). Free for a verified human hiring a human-backed builder (no
+     *  settlement); otherwise withdraw-from-shielded → settle the builder's x402
+     *  endpoint via Circle Gateway. Returns the settlement hash (null when free).
+     *  Gated-live: an unconfigured rail surfaces as PAYMENT_REQUIRED (§3/§23). */
+    payBuildFee: protectedProcedure
+      .input(z.object({ builderId: BuilderAgentId }))
+      .handler(async ({ context, input }) => {
+        const agent = await context.db.query.builderAgent.findFirst({
+          where: eq(builderAgent.id, input.builderId),
+        });
+        if (!agent) {
+          throw new ORPCError("NOT_FOUND", { message: "Builder not found" });
+        }
+        const amount = parseUsdc(agent.priceUsdc);
+        if (amount > parseUsdc(TX_CAP_USDC)) {
+          throw new ORPCError("BAD_REQUEST", { message: "Over the build-fee cap" });
+        }
+        // Free build: a verified human hiring a human-backed (AgentBook) builder.
+        // No settlement — the AgentKit endpoint is the authoritative per-N limiter.
+        if (context.user.worldVerified && agent.agentbookRegistered) {
+          return { txHash: null as string | null, free: true };
+        }
+        if (!context.user.unlinkAddress) {
+          throw new ORPCError("PAYMENT_REQUIRED", {
+            message: "Private payments not provisioned",
+          });
+        }
+        const { hash } = await tryOnchain(() =>
+          context.onchain.unlink.payX402({
+            fromUnlinkAddress: context.user.unlinkAddress!,
+            url: agent.endpointUrl,
+            amount,
+          })
+        );
+        return { txHash: hash as string | null, free: false };
+      }),
+
+    // --- Resumable wizard drafts (§3c) — the make-flow persisted from prompt-start,
+    //     so a reload/redirect resumes instead of resetting. Owner-scoped. ---
+
+    /** Upsert the caller's wizard draft (client generates the typeid → stable URL).
+     *  Best-effort from the web (debounced, fire-and-forget). The owner guard on the
+     *  conflict update makes a foreign id a no-op. */
+    saveDraft: protectedProcedure
+      .input(
+        z.object({
+          draftId: BuildDraftId,
+          step: BuildStepSchema,
+          prompt: z.string().max(2000).default(""),
+          spec: AppSpecSchema.nullable().optional(),
+          state: DraftStateSchema.default({}),
+          buildId: BuildId.nullable().optional(),
+        })
+      )
+      .handler(async ({ context, input }) => {
+        await context.db
+          .insert(buildDraft)
+          .values({
+            id: input.draftId,
+            userId: context.user.id,
+            step: input.step,
+            prompt: input.prompt,
+            spec: input.spec ?? null,
+            state: input.state,
+            buildId: input.buildId ?? null,
+          })
+          .onConflictDoUpdate({
+            target: buildDraft.id,
+            set: {
+              step: input.step,
+              prompt: input.prompt,
+              spec: input.spec ?? null,
+              state: input.state,
+              ...(input.buildId ? { buildId: input.buildId } : {}),
+              updatedAt: new Date(),
+            },
+            setWhere: eq(buildDraft.userId, context.user.id),
+          });
+        return { ok: true as const };
+      }),
+
+    /** Hydrate a draft (cross-device resume). Null if missing or not the caller's. */
+    getDraft: protectedProcedure
+      .input(z.object({ draftId: BuildDraftId }))
+      .handler(async ({ context, input }) => {
+        const row = await context.db.query.buildDraft.findFirst({
+          where: and(
+            eq(buildDraft.id, input.draftId),
+            eq(buildDraft.userId, context.user.id)
+          ),
+        });
+        if (!row) return null;
+        return {
+          id: row.id,
+          step: row.step,
+          prompt: row.prompt,
+          spec: row.spec,
+          state: row.state,
+          buildId: row.buildId,
+          updatedAt: row.updatedAt,
+        };
+      }),
+
+    /** The caller's PENDING drafts (not yet dispatched) — the top of the /me feed. */
+    listDrafts: protectedProcedure.handler(async ({ context }) => {
+      const rows = await context.db.query.buildDraft.findMany({
+        where: and(
+          eq(buildDraft.userId, context.user.id),
+          isNull(buildDraft.buildId)
+        ),
+        orderBy: [desc(buildDraft.updatedAt)],
+        limit: 30,
+      });
+      return rows.map((r) => ({
+        id: r.id,
+        step: r.step,
+        prompt: r.prompt,
+        name: r.spec?.name ?? null,
+        iconEmoji: r.spec?.iconEmoji ?? null,
+        updatedAt: r.updatedAt,
+      }));
+    }),
+
+    /** Discard a draft. */
+    deleteDraft: protectedProcedure
+      .input(z.object({ draftId: BuildDraftId }))
+      .handler(async ({ context, input }) => {
+        await context.db
+          .delete(buildDraft)
+          .where(
+            and(
+              eq(buildDraft.id, input.draftId),
+              eq(buildDraft.userId, context.user.id)
+            )
+          );
+        return { ok: true as const };
       }),
   };
 };

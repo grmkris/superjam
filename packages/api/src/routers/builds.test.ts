@@ -13,13 +13,15 @@ import { createTestAuth } from "../auth/test-auth.ts";
 import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
 import { createTestApp, createTestUser } from "../testing/factories.ts";
+import { createMockOnchain } from "../testing/onchain-mock.ts";
+import type { UnlinkService } from "../services/unlink-service.ts";
+import type { Address, Hex } from "viem";
 import type { BuildDeployer } from "../lib/builder-dispatch.ts";
 import type { DeployResult } from "@superjam/builder/deploy";
 import { allocateExternalApp } from "./apps.ts";
 import {
   createBuildsRouter,
   runBuild,
-  type BuildPaymentVerifier,
   type DeployerFor,
   type RefineFn,
 } from "./builds.ts";
@@ -287,58 +289,6 @@ describe("builds.create — trial quota", () => {
     expect(res.buildId).toMatch(/^bld_/);
   });
 
-  test("a verified USDC receipt pays past the free quota", async () => {
-    const { db, auth, ctxFor } = await harness();
-    const u = await createTestUser(db, {
-      dynamicUserId: "dyn_p2",
-      email: "p2@test.io",
-      worldVerified: false,
-    });
-    await db
-      .insert(schema.build)
-      .values({ userId: u.id, prompt: "prior", spec: SPEC, status: "done" });
-
-    let verified: string | undefined;
-    const verifyPayment: BuildPaymentVerifier = async (payment) => {
-      verified = payment.txHash;
-    };
-    const router = createBuildsRouter({ deploy: parkedDeploy, verifyPayment });
-    const token = await auth.sign({ dynamicUserId: "dyn_p2", email: "p2@test.io" });
-
-    const res = await call(
-      router.create,
-      { spec: SPEC, payment: { txHash: "0xabc", chain: "arc-testnet" } },
-      { context: ctxFor(token) }
-    );
-    expect(verified).toBe("0xabc");
-    expect(res.buildId).toMatch(/^bld_/);
-  });
-
-  test("a rejected receipt yields PAYMENT_REQUIRED", async () => {
-    const { db, auth, ctxFor } = await harness();
-    const u = await createTestUser(db, {
-      dynamicUserId: "dyn_r",
-      email: "r@test.io",
-      worldVerified: false,
-    });
-    await db
-      .insert(schema.build)
-      .values({ userId: u.id, prompt: "prior", spec: SPEC, status: "done" });
-
-    const verifyPayment: BuildPaymentVerifier = async () => {
-      throw new Error("no matching transfer");
-    };
-    const router = createBuildsRouter({ deploy: parkedDeploy, verifyPayment });
-    const token = await auth.sign({ dynamicUserId: "dyn_r", email: "r@test.io" });
-
-    await expect(
-      call(
-        router.create,
-        { spec: SPEC, payment: { txHash: "0xbad", chain: "arc-testnet" } },
-        { context: ctxFor(token) }
-      )
-    ).rejects.toThrow(/transfer/);
-  });
 });
 
 describe("runBuild driver", () => {
@@ -582,7 +532,7 @@ describe("builds — marketplace routing (§14)", () => {
 
     const res = await call(
       paidRouter().create,
-      { spec: SPEC, agentId: agent.id, payment: { txHash: "0xpaid1", chain: "arc" } },
+      { spec: SPEC, agentId: agent.id, payment: { via: "x402", txHash: "0xpaid1" } },
       { context: ctxFor(token, paidOnchain()) }
     );
     const b = await db.query.build.findFirst({
@@ -605,7 +555,7 @@ describe("builds — marketplace routing (§14)", () => {
     const pay = {
       spec: SPEC,
       agentId: agent.id,
-      payment: { txHash: "0xdupe", chain: "arc" },
+      payment: { via: "x402" as const, txHash: "0xdupe" },
     };
 
     await call(paidRouter().create, pay, { context: ctxFor(token, paidOnchain()) });
@@ -614,23 +564,261 @@ describe("builds — marketplace routing (§14)", () => {
     ).rejects.toThrow(/already used/);
   });
 
-  test("a paid agent: payment from a different wallet is rejected", async () => {
-    const { db, auth, ctxFor } = await harness();
-    const u = await createTestUser(db, {
-      dynamicUserId: "dyn_pa4",
-      email: "pa4@test.io",
-      walletAddress: USER_WALLET,
-    });
-    const agent = await seedAgent(db, u.id);
-    const token = await auth.sign({ dynamicUserId: "dyn_pa4", email: "pa4@test.io" });
-    const stranger = ("0x" + "c".repeat(40)) as `0x${string}`;
+});
 
+// --- x402 build fee (§14): quote → pay over the PRIVATE rail, World free build ---
+describe("builds.quoteBuilder", () => {
+  // A UnlinkService whose shielded balance is a fixed amount (for sufficiency).
+  const HASHZERO = `0x${"0".repeat(64)}` as Hex;
+  const mkUnlink = (balanceUsdc: string): UnlinkService => ({
+    available: true,
+    enable: async (userId) => ({ unlinkAddress: `unlink1${userId}` }),
+    balance: async () => parseUsdc(balanceUsdc),
+    deposit: async () => HASHZERO,
+    transfer: async () => HASHZERO,
+    withdraw: async () => HASHZERO,
+    faucet: async () => HASHZERO,
+  });
+  const ctx = (
+    db: Awaited<ReturnType<typeof harness>>["db"],
+    auth: Awaited<ReturnType<typeof harness>>["auth"],
+    token: string,
+    unlink?: UnlinkService
+  ) =>
+    createContext({
+      db,
+      logger,
+      auth: auth.verifier,
+      rateLimiter: createRateLimiter(),
+      ...(unlink ? { unlink } : {}),
+      headers: new Headers({ authorization: `Bearer ${token}` }),
+    });
+
+  test("free for a verified human hiring a human-backed builder", async () => {
+    const { db, auth } = await harness();
+    const owner = await createTestUser(db);
+    const agent = await seedAgent(db, owner.id, {
+      priceUsdc: "2",
+      agentbookRegistered: true,
+      ensName: "abk.superjam.eth",
+    });
+    await createTestUser(db, {
+      dynamicUserId: "dyn_qa",
+      email: "qa@test.io",
+      worldVerified: true,
+    });
+    const token = await auth.sign({ dynamicUserId: "dyn_qa", email: "qa@test.io" });
+    const q = await call(
+      createBuildsRouter().quoteBuilder,
+      { builderId: agent.id },
+      { context: ctx(db, auth, token) }
+    );
+    expect(q.free.eligible).toBe(true);
+    expect(q.free.reason).toBe("worldid");
+    expect(q.balance.sufficient).toBe(true);
+    expect(q.builder.displayName).toBe("abk.superjam.eth");
+    expect(q.priceUsdc).toBe("2");
+  });
+
+  test("paid + insufficient surfaces the shielded balance and sufficient=false", async () => {
+    const { db, auth } = await harness();
+    const owner = await createTestUser(db);
+    const agent = await seedAgent(db, owner.id, {
+      priceUsdc: "2",
+      agentbookRegistered: true,
+    });
+    // not world-verified ⇒ not free; balance 0.50 < price ⇒ insufficient
+    await createTestUser(db, {
+      dynamicUserId: "dyn_qb",
+      email: "qb@test.io",
+      worldVerified: false,
+    });
+    const token = await auth.sign({ dynamicUserId: "dyn_qb", email: "qb@test.io" });
+    const q = await call(
+      createBuildsRouter().quoteBuilder,
+      { builderId: agent.id },
+      { context: ctx(db, auth, token, mkUnlink("0.50")) }
+    );
+    expect(q.free.eligible).toBe(false);
+    expect(q.balance.shieldedUsdc).toBe("0.5");
+    expect(q.balance.sufficient).toBe(false);
+  });
+
+  test("paid + sufficient when the shielded balance covers the fee", async () => {
+    const { db, auth } = await harness();
+    const owner = await createTestUser(db);
+    const agent = await seedAgent(db, owner.id, { priceUsdc: "2" });
+    await createTestUser(db, {
+      dynamicUserId: "dyn_qc",
+      email: "qc@test.io",
+      worldVerified: false,
+    });
+    const token = await auth.sign({ dynamicUserId: "dyn_qc", email: "qc@test.io" });
+    const q = await call(
+      createBuildsRouter().quoteBuilder,
+      { builderId: agent.id },
+      { context: ctx(db, auth, token, mkUnlink("5")) }
+    );
+    expect(q.free.eligible).toBe(false);
+    expect(q.balance.shieldedUsdc).toBe("5");
+    expect(q.balance.sufficient).toBe(true);
+  });
+});
+
+describe("builds.payBuildFee", () => {
+  test("free build settles nothing — no payX402 call", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const owner = await createTestUser(db);
+    const agent = await seedAgent(db, owner.id, {
+      priceUsdc: "2",
+      agentbookRegistered: true,
+    });
+    const onchain = createMockOnchain({ unlinkAvailable: true });
+    await createTestUser(db, {
+      dynamicUserId: "dyn_pf1",
+      email: "pf1@test.io",
+      worldVerified: true,
+      unlinkAddress: "unlink1free",
+    });
+    const token = await auth.sign({ dynamicUserId: "dyn_pf1", email: "pf1@test.io" });
+    const res = await call(
+      createBuildsRouter().payBuildFee,
+      { builderId: agent.id },
+      { context: ctxFor(token, onchain) }
+    );
+    expect(res).toEqual({ txHash: null, free: true });
+    expect(onchain.x402Pays).toHaveLength(0);
+  });
+
+  test("paid build settles via x402 against the builder's endpoint", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const owner = await createTestUser(db);
+    const agent = await seedAgent(db, owner.id, {
+      priceUsdc: "2",
+      agentbookRegistered: false, // not human-backed ⇒ not free
+      endpointUrl: "https://builder.example/x402",
+    });
+    const onchain = createMockOnchain({ unlinkAvailable: true });
+    await createTestUser(db, {
+      dynamicUserId: "dyn_pf2",
+      email: "pf2@test.io",
+      worldVerified: true,
+      unlinkAddress: "unlink1pay",
+    });
+    const token = await auth.sign({ dynamicUserId: "dyn_pf2", email: "pf2@test.io" });
+    const res = await call(
+      createBuildsRouter().payBuildFee,
+      { builderId: agent.id },
+      { context: ctxFor(token, onchain) }
+    );
+    expect(res.free).toBe(false);
+    expect(res.txHash).toMatch(/^0x/);
+    expect(onchain.x402Pays).toHaveLength(1);
+    expect(onchain.x402Pays[0]).toMatchObject({
+      url: "https://builder.example/x402",
+      fromUnlinkAddress: "unlink1pay",
+      amount: parseUsdc("2"),
+    });
+  });
+
+  test("not-free + no shielded account ⇒ PAYMENT_REQUIRED", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const owner = await createTestUser(db);
+    const agent = await seedAgent(db, owner.id, { priceUsdc: "2" });
+    const onchain = createMockOnchain({ unlinkAvailable: true });
+    await createTestUser(db, {
+      dynamicUserId: "dyn_pf3",
+      email: "pf3@test.io",
+      worldVerified: false, // no unlinkAddress
+    });
+    const token = await auth.sign({ dynamicUserId: "dyn_pf3", email: "pf3@test.io" });
     await expect(
       call(
-        paidRouter().create,
-        { spec: SPEC, agentId: agent.id, payment: { txHash: "0xpaid4", chain: "arc" } },
-        { context: ctxFor(token, paidOnchain(stranger)) }
+        createBuildsRouter().payBuildFee,
+        { builderId: agent.id },
+        { context: ctxFor(token, onchain) }
       )
-    ).rejects.toThrow(/your own wallet/);
+    ).rejects.toThrow(/not provisioned/);
+  });
+});
+
+describe("builds.create — x402 build fee gate", () => {
+  const x402Router = () =>
+    createBuildsRouter({ deploy: parkedDeploy, deployerFor: () => parkedDeploy });
+
+  test("free x402 (txHash null) builds for a verified human + human-backed agent", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const u = await createTestUser(db, {
+      dynamicUserId: "dyn_x1",
+      email: "x1@test.io",
+      worldVerified: true,
+    });
+    const agent = await seedAgent(db, u.id, {
+      priceUsdc: "2",
+      agentbookRegistered: true,
+    });
+    const token = await auth.sign({ dynamicUserId: "dyn_x1", email: "x1@test.io" });
+    const res = await call(
+      x402Router().create,
+      { spec: SPEC, agentId: agent.id, payment: { via: "x402", txHash: null } },
+      { context: ctxFor(token) }
+    );
+    expect(res.buildId).toMatch(/^bld_/);
+    const b = await db.query.build.findFirst({
+      where: eq(schema.build.id, res.buildId),
+    });
+    expect(b?.agentId).toBe(agent.id);
+    expect(b?.paymentTxHash).toBeNull(); // free ⇒ no hash
+  });
+
+  test("a free x402 claim is rejected when the builder isn't human-backed", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const u = await createTestUser(db, {
+      dynamicUserId: "dyn_x2",
+      email: "x2@test.io",
+      worldVerified: true, // clears the trial gate; isolates the paid-agent gate
+    });
+    const agent = await seedAgent(db, u.id, {
+      priceUsdc: "2",
+      agentbookRegistered: false,
+    });
+    const token = await auth.sign({ dynamicUserId: "dyn_x2", email: "x2@test.io" });
+    await expect(
+      call(
+        x402Router().create,
+        { spec: SPEC, agentId: agent.id, payment: { via: "x402", txHash: null } },
+        { context: ctxFor(token) }
+      )
+    ).rejects.toThrow(/Pay 2 USDC/);
+  });
+
+  test("a paid x402 receipt verifies the AGENT was paid, ignoring the payer wallet", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const u = await createTestUser(db, {
+      dynamicUserId: "dyn_x3",
+      email: "x3@test.io",
+      worldVerified: true,
+    });
+    const agent = await seedAgent(db, u.id, {
+      priceUsdc: "2",
+      agentbookRegistered: false,
+    });
+    const token = await auth.sign({ dynamicUserId: "dyn_x3", email: "x3@test.io" });
+    // x402 settles from the gateway, NOT the user — `from` differs and must NOT fail.
+    const onchain = createMockOnchain();
+    onchain.setVerify(async () => ({
+      from: ("0x" + "d".repeat(40)) as Address,
+      value: parseUsdc("2"),
+    }));
+    const res = await call(
+      x402Router().create,
+      { spec: SPEC, agentId: agent.id, payment: { via: "x402", txHash: "0xset" } },
+      { context: ctxFor(token, onchain) }
+    );
+    const b = await db.query.build.findFirst({
+      where: eq(schema.build.id, res.buildId),
+    });
+    expect(b?.paymentTxHash).toBe("0xset");
+    expect(b?.agentId).toBe(agent.id);
   });
 });
