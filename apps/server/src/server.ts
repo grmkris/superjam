@@ -13,10 +13,16 @@ import {
   loadLiveUnlinkTransport,
   nullOnchain,
 } from "@superjam/api";
-import { createDb, runMigrations } from "@superjam/db";
+import { createDb, runMigrations, schema } from "@superjam/db";
 import { createLogger } from "@superjam/logger";
-import { PUBLIC_CHAIN } from "@superjam/onchain";
+import {
+  OnchainError,
+  PUBLIC_CHAIN,
+  type UnlinkSdk,
+  createArcX402Signer,
+} from "@superjam/onchain";
 import { SERVICE_URLS } from "@superjam/shared";
+import { eq } from "drizzle-orm";
 import { RPCHandler } from "@orpc/server/fetch";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -53,13 +59,6 @@ const issuer = await createAppTokenIssuer({
   kid: env.APP_JWT_KID,
   issuer: SERVICE_URLS[env.APP_ENV].web,
 });
-// The chain adapter (§15/§16) — the single reused server-wallet signer. No
-// signer key ⇒ nullOnchain (boot stays green; payments return INTERNAL until
-// configured). Unlink stays degraded until its transport is wired (§23): the
-// live transport (Unlink withdraw → Circle Gateway pay) is null until the
-// rehearsal fills the SDK shapes, so payX402 degrades to PAYMENT_REQUIRED while
-// private tips/faucet are unaffected. A non-null transport ⇒ the Gateway leg is on.
-const unlinkTransport = loadLiveUnlinkTransport(env);
 // Agent signer: a Dynamic TSS-MPC server wallet when configured (Best Agentic
 // Build — no raw key), else the funded plain-key fallback. The MPC client auth
 // is async, so it's built here at boot and injected as a pre-made ServerWallet.
@@ -87,6 +86,69 @@ if (dynEnv) {
     dynServerWallet = undefined;
   }
 }
+// Per-user private-payments rail (§23): the server signs AS the user via Dynamic
+// delegated access (no per-tx popup). Live only when the delegation private key +
+// Unlink key + Dynamic env are all present; else createContext defaults to
+// nullUnlinkService (private payments return CHAIN_UNAVAILABLE until configured).
+const unlink =
+  dynEnv && env.DYNAMIC_DELEGATION_PRIVATE_KEY && env.UNLINK_API_KEY
+    ? createDelegatedUnlinkService({
+        environmentId: env.DYNAMIC_ENVIRONMENT_ID,
+        dynamicApiKey: dynEnv.authToken,
+        unlinkApiKey: env.UNLINK_API_KEY,
+        rpcUrl: env.ARC_RPC_URL,
+        faucetKey: env.ARC_PAYER_EOA_KEY,
+        loadCreds: (userId) => loadDelegationCreds(db, userId),
+      })
+    : undefined;
+
+// The Circle Gateway leg (§3/§23) — the private→x402 transport that lights up
+// `onchain.unlink.payX402` (consumed by builds.payBuildFee). GATED: live only when
+// the server wallet (the x402 signer), the per-user Unlink service, AND the Circle
+// key are all present; otherwise null ⇒ payX402 degrades to PAYMENT_REQUIRED and
+// nothing else is affected (the cut-first posture). The `UnlinkSdk` adapter bridges
+// the transport's address-keyed ops to the per-user service: it resolves
+// `fromUnlinkAddress → userId` and unshields to the SERVER WALLET, whose Circle
+// Gateway escrow then settles the agent's x402 resource (the private→public→x402 leg).
+const unlinkTransport = (() => {
+  if (!dynServerWallet?.account || !unlink) return loadLiveUnlinkTransport(env);
+  const signer = createArcX402Signer(dynServerWallet.account, env.ARC_RPC_URL);
+  const serverWalletAddress = dynServerWallet.address;
+  const userIdFor = async (unlinkAddress: string): Promise<string> => {
+    const row = await db.query.user.findFirst({
+      columns: { id: true },
+      where: eq(schema.user.unlinkAddress, unlinkAddress),
+    });
+    if (!row) {
+      throw new OnchainError(
+        "CHAIN_UNAVAILABLE",
+        "No SuperJam user owns that shielded account",
+      );
+    }
+    return row.id;
+  };
+  const adapter: UnlinkSdk = {
+    privateTransfer: async ({ fromUnlinkAddress, toUnlinkAddress, amount }) => ({
+      hash: await unlink.transfer(
+        await userIdFor(fromUnlinkAddress),
+        toUnlinkAddress,
+        amount,
+      ),
+    }),
+    faucetPrivateTokens: async ({ toUnlinkAddress, amount }) => ({
+      hash: await unlink.faucet(toUnlinkAddress, amount),
+    }),
+    withdraw: async ({ fromUnlinkAddress, amount }) => ({
+      hash: await unlink.withdraw(
+        await userIdFor(fromUnlinkAddress),
+        serverWalletAddress,
+        amount,
+      ),
+    }),
+  };
+  return loadLiveUnlinkTransport(env, { signer, unlink: adapter });
+})();
+
 const onchain =
   createOnchainFromConfig({
     serverWallet: dynServerWallet,
@@ -122,21 +184,6 @@ const onchain =
     worldchainRpcUrl: env.WORLDCHAIN_RPC_URL,
     agentBookAddress: env.AGENTBOOK_ADDRESS,
   }) ?? nullOnchain;
-// Per-user private-payments rail (§23): the server signs AS the user via Dynamic
-// delegated access (no per-tx popup). Live only when the delegation private key +
-// Unlink key + Dynamic env are all present; else createContext defaults to
-// nullUnlinkService (private payments return CHAIN_UNAVAILABLE until configured).
-const unlink =
-  dynEnv && env.DYNAMIC_DELEGATION_PRIVATE_KEY && env.UNLINK_API_KEY
-    ? createDelegatedUnlinkService({
-        environmentId: env.DYNAMIC_ENVIRONMENT_ID,
-        dynamicApiKey: dynEnv.authToken,
-        unlinkApiKey: env.UNLINK_API_KEY,
-        rpcUrl: env.ARC_RPC_URL,
-        faucetKey: env.ARC_PAYER_EOA_KEY,
-        loadCreds: (userId) => loadDelegationCreds(db, userId),
-      })
-    : undefined;
 // World ID 4.0 backend verifier (§14) — the human gate behind publish/reviews/
 // register-builder. Keyless (rpContext/verify reject) unless app_id + rp_id +
 // signing key are all set. WORLD_ENVIRONMENT=staging runs against the simulator.

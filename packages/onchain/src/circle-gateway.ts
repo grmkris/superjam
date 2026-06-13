@@ -4,9 +4,14 @@
 // `@circle-fin/x402-batching` call lives behind the injected `CircleGatewayTransport`
 // seam so this wrapper (URL/amount validation, error mapping) is testable offline;
 // the live transport is composed at the Thursday §23 rehearsal ("live docs win").
-import type { Hex } from "viem";
+import { type Account, type Hex, createPublicClient, http } from "viem";
+import { registerBatchScheme } from "@circle-fin/x402-batching/client";
 import { decodePaymentResponseHeader } from "@x402/core/http";
-import { ExactEvmScheme, type ClientEvmSigner } from "@x402/evm";
+import {
+  ExactEvmScheme,
+  type ClientEvmSigner,
+  toClientEvmSigner,
+} from "@x402/evm";
 import { wrapFetchWithPayment, x402Client } from "@x402/fetch";
 import { arcTestnet } from "./chains.ts";
 import { OnchainError } from "./errors.ts";
@@ -60,21 +65,52 @@ export const createCircleGateway = ({
 const ARC_X402_NETWORK = `eip155:${arcTestnet.id}` as const;
 
 /**
+ * Build the x402 client signer from the server wallet's viem `Account` (the
+ * Dynamic TSS-MPC account, or the funded fallback key). `toClientEvmSigner`
+ * wraps `address` + `signTypedData` into the `ClientEvmSigner` shape the Circle
+ * batching scheme signs with; the Arc `publicClient` is attached for the optional
+ * read/gas enrichment path. Apps call this so they never depend on `@x402/evm`
+ * directly (the dep stays inside @superjam/onchain).
+ */
+export const createArcX402Signer = (
+  account: Account,
+  rpcUrl?: string
+): ClientEvmSigner =>
+  toClientEvmSigner(
+    account as never,
+    createPublicClient({ chain: arcTestnet, transport: http(rpcUrl) }) as never
+  );
+
+/**
  * The LIVE Circle Gateway transport: an x402 client that pays an x402-protected
  * resource (the agent's build endpoint) on Arc and returns the on-chain settlement
  * hash. The payment authorization is signed by the injected `signer` — the Dynamic
  * SERVER WALLET (no raw payer key). The facilitator is the RESOURCE server's concern
  * (the agent), so the client side needs only the signer + scheme.
+ *
+ * Scheme = Circle Gateway **batching** (`@circle-fin/x402-batching/client`), not plain
+ * `exact`: the EIP-3009 authorization is signed against the GatewayWallet escrow
+ * contract (`extra.verifyingContract`, supplied by the resource server's enhanced
+ * PaymentRequirements) instead of the USDC token, so settlement draws from the payer's
+ * Gateway escrow balance. The Circle API key lives on the RESOURCE server (builder),
+ * never here — the client only signs. `ExactEvmScheme` is kept as the non-batching
+ * fallback so a resource server that doesn't advertise batching still settles.
  */
 export const createLiveCircleGatewayTransport = ({
   signer,
 }: {
   signer: ClientEvmSigner;
 }): CircleGatewayTransport => {
-  const client = new x402Client().register(
-    ARC_X402_NETWORK,
-    new ExactEvmScheme(signer)
-  );
+  // BatchEvmScheme + ExactEvmScheme share scheme id "exact"; registerBatchScheme
+  // installs a CompositeEvmScheme that dispatches to batching when the resource
+  // server advertises it and to plain-exact otherwise — one registration, no
+  // first-wins shadowing.
+  const client = new x402Client();
+  registerBatchScheme(client, {
+    signer,
+    networks: [ARC_X402_NETWORK],
+    fallbackScheme: new ExactEvmScheme(signer),
+  });
   const paidFetch = wrapFetchWithPayment(fetch, client);
   return {
     async pay({ url }) {
