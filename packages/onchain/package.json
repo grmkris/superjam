@@ -15,6 +15,7 @@
   "dependencies": {
     "@superjam/contracts": "workspace:*",
     "@superjam/shared": "workspace:*",
+    "@unlink-xyz/sdk": "0.3.0-canary.598",
     "viem": "catalog:",
     "zod": "catalog:"
   },

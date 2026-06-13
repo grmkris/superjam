@@ -63,18 +63,22 @@ export interface LiveUnlinkEnv {
  * unaffected (the gated, cut-first posture — §3/§20). The server only treats the
  * Gateway leg as configured when this returns non-null.
  *
- * TODO(§23 rehearsal — "live docs win", §0.4): with all keys present, install +
- * import `@unlink-xyz/sdk@canary` and `@circle-fin/x402-batching`, then:
- *   const unlink: UnlinkSdk = {                       // from the Unlink SDK
- *     privateTransfer, faucetPrivateTokens, withdraw,
- *   };
- *   const gwTransport: CircleGatewayTransport = { pay };  // x402-batching, paid by ARC_PAYER_EOA_KEY
- *   return createUnlinkTransport({
- *     unlink,
- *     gateway: createCircleGateway({ transport: gwTransport }),
- *   });
- * Until then we return null even with keys set — never ship an unverified
- * @canary request shape into the demo path.
+ * GROUNDED RECIPE (SDK installed: `@unlink-xyz/sdk@0.3.0-canary.598`; API surface
+ * confirmed). The server-side (custodial) wiring on `arc-testnet`:
+ *   import { createUnlinkClient, account } from "@unlink-xyz/sdk/client";
+ *   const acct = await account.fromEthereumSignature({ signer: serverWalletSigner });
+ *   const u = createUnlinkClient({ environment: "arc-testnet", account: acct });
+ *   const unlink: UnlinkSdk = {
+ *     privateTransfer: (a) => u.transfer({ to: a.toUnlinkAddress, amount: a.amount, token: USDC.arcTestnet.address }),
+ *     faucetPrivateTokens: (a) => u.faucet.requestPrivateTokens({ to: a.toUnlinkAddress, amount: a.amount }),
+ *     withdraw: (a) => u.withdraw({ to: a.fromUnlinkAddress, amount: a.amount }),
+ *   };  // exact param keys: see TransferParams/WithdrawParams/FaucetRequestPrivateTokensParams in dist/client.
+ *   return createUnlinkTransport({ unlink, gateway: createCircleGateway({ transport: gwTransport }) });
+ * The user-facing private tip is BROWSER-side (Opus P): account.fromMetaMask({
+ * provider: dynamicProvider }) → u.transfer(...). NEXT PASS: wire + LIVE-test a
+ * real private transfer on Arc (wallet holds 20 USDC + 20 EURC), then flip this
+ * from null. Returning null until that live test keeps the public fallback (never
+ * ship an unverified @canary shape into the demo path).
  */
 export const loadLiveUnlinkTransport = (env: LiveUnlinkEnv): UnlinkTransport | null => {
   const ready = Boolean(
