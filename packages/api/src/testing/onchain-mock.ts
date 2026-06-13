@@ -69,6 +69,12 @@ export const createMockOnchain = (
       txHash: fakeHash(),
     }),
     listFromEns: async () => [],
+    registerAgentIdentity: async (p) => ({
+      erc8004Id: `8004:${p.agentId}`,
+      txHash: fakeHash(),
+    }),
+    writeReputation: async () => fakeHash(),
+    readReputation: async () => ({ count: 0, average: 0 }),
   };
   return mock;
 };

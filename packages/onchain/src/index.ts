@@ -14,6 +14,7 @@ import {
 } from "viem";
 import { CHAINS, type ChainKey, PUBLIC_CHAIN, USDC } from "./chains.ts";
 import { type EnsConfig, createEns } from "./ens.ts";
+import { type Erc8004Config, createErc8004 } from "./erc8004.ts";
 import { OnchainError } from "./errors.ts";
 import { type Usdc } from "./money.ts";
 import {
@@ -49,6 +50,9 @@ export interface OnchainDeps {
    *  public rail. Falls back to publicClient/serverWallet when unset. */
   ensClient?: PublicClient;
   ensWallet?: ServerWallet;
+  /** ERC-8004 reference registries (§16). Absent ⇒ 8004 ops degrade (never fail
+   *  a register/review). Signs through the same Base-Sepolia ens client+wallet. */
+  erc8004?: Erc8004Config;
 }
 
 export interface RelayParams {
@@ -65,6 +69,7 @@ export const createOnchain = ({
   ens,
   ensClient,
   ensWallet,
+  erc8004,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
     // publicClient is built for PUBLIC_CHAIN (Arc). A secondary `arcClient` slot
@@ -86,6 +91,19 @@ export const createOnchain = ({
       throw new OnchainError("ENS_WRITE_FAILED", "ENS registry not configured");
     }
     return ensAdapter;
+  };
+
+  // ERC-8004 also lives on Base Sepolia (canonical reference registries) — reuse
+  // the dedicated ENS client+signer. Absent config ⇒ ops throw so callers degrade
+  // (a register/feedback failure never fails the agent register / the review).
+  const erc8004Adapter = erc8004
+    ? createErc8004(ensClient ?? publicClient, ensWallet ?? serverWallet, erc8004)
+    : null;
+  const requireErc8004 = () => {
+    if (!erc8004Adapter) {
+      throw new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 registry not configured");
+    }
+    return erc8004Adapter;
   };
 
   return {
@@ -121,6 +139,18 @@ export const createOnchain = ({
       requireEns().mintApp(params),
     /** The chain-sourced catalog (backs the feed, §16). */
     listFromEns: () => requireEns().listFromEns(),
+
+    // --- ERC-8004 (§14/§16) — agent identity + reputation. Degrade-safe. ---
+    /** Mint the agent's ERC-8004 identity NFT (→ the builder's wallet). */
+    registerAgentIdentity: (
+      params: Parameters<NonNullable<typeof erc8004Adapter>["registerAgentIdentity"]>[0]
+    ) => requireErc8004().registerAgentIdentity(params),
+    /** Record a verified review as ERC-8004 feedback. */
+    writeReputation: (
+      params: Parameters<NonNullable<typeof erc8004Adapter>["writeReputation"]>[0]
+    ) => requireErc8004().writeReputation(params),
+    /** Aggregate the platform-written feedback for an agent (profile). */
+    readReputation: (erc8004Id: string) => requireErc8004().readReputation(erc8004Id),
   };
 };
 
@@ -141,6 +171,8 @@ export interface OnchainConfig {
   unlink?: UnlinkConfig;
   /** ENS L2Registry (§16). Absent ⇒ ENS ops degrade (never fail a build). */
   ens?: EnsConfig;
+  /** ERC-8004 reference registries (§16). Absent ⇒ 8004 ops degrade. */
+  erc8004?: Erc8004Config;
 }
 
 /** Compose a live Onchain from env-style config — the composition-root wiring
@@ -174,12 +206,14 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
   const arcClient = secondaryRpc
     ? createPublicClient({ chain: secondaryChain, transport: http(secondaryRpc) })
     : undefined;
-  // ENS/Durin lives on Base Sepolia regardless of PUBLIC_CHAIN — build a dedicated
-  // Base Sepolia client + signer for it (same key, Base Sepolia chain).
-  const ensClient = cfg.ens
+  // ENS/Durin AND the ERC-8004 registries live on Base Sepolia regardless of
+  // PUBLIC_CHAIN — build a dedicated Base Sepolia client + signer for them (same
+  // key, Base Sepolia chain) whenever either is configured.
+  const needsBaseSepolia = Boolean(cfg.ens || cfg.erc8004);
+  const ensClient = needsBaseSepolia
     ? createPublicClient({ chain: CHAINS.baseSepolia, transport: http(cfg.baseSepoliaRpcUrl) })
     : undefined;
-  const ensWallet = cfg.ens
+  const ensWallet = needsBaseSepolia
     ? (cfg.ensWallet ??
       createServerWalletFromKey({
         privateKey: cfg.serverWalletPrivateKey as Hex,
@@ -195,6 +229,7 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     ens: cfg.ens,
     ensClient,
     ensWallet,
+    erc8004: cfg.erc8004,
   });
 };
 
@@ -219,6 +254,12 @@ export const nullOnchain: Onchain = {
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
   listFromEns: () =>
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
+  registerAgentIdentity: () =>
+    Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
+  writeReputation: () =>
+    Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
+  readReputation: () =>
+    Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
 };
 
 // --- public surface (the cross-lane seams) ---
@@ -233,5 +274,6 @@ export * from "./circle-gateway.ts";
 export * from "./unlink-transport.ts";
 export * from "./cctp.ts";
 export * from "./ens.ts";
+export * from "./erc8004.ts";
 export * from "./verify.ts";
 export * from "./errors.ts";

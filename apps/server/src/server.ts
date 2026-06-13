@@ -110,6 +110,12 @@ const onchain =
             parentName: "superjam.eth", // §16 ship path (Sepolia parent)
           }
         : undefined,
+    // ERC-8004 (§14/§16): the canonical reference IdentityRegistry, set via
+    // ERC8004_REGISTRY (Base Sepolia). ReputationRegistry defaults to the paired
+    // canonical address in the binding. Absent ⇒ 8004 ops degrade (never fail).
+    erc8004: env.ERC8004_REGISTRY
+      ? { identityRegistry: env.ERC8004_REGISTRY as `0x${string}` }
+      : undefined,
   }) ?? nullOnchain;
 // World ID backend verifier (§14) — the human gate behind publish/reviews/
 // register-builder. Keyless (verify rejects) unless WORLD_APP_ID is set.
