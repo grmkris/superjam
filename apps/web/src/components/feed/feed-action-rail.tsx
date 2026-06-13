@@ -20,17 +20,18 @@ function RailButton({
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center gap-1 bg-transparent border-0 p-0"
+      aria-label={label}
+      className="focus-ring flex flex-col items-center gap-1 bg-transparent border-0 p-0"
     >
       <span
         className={cx(
-          "flex items-center justify-center w-[50px] h-[50px] rounded-full border-2 border-ink shadow-sticker sticker-press text-[22px]",
+          "flex items-center justify-center size-[50px] rounded-full border-2 border-ink shadow-sticker sticker-press text-[22px]",
           active ? "bg-pink" : "bg-card"
         )}
       >
         {emoji}
       </span>
-      <span className="text-xs font-extrabold text-white [text-shadow:0_1px_0_#221A33]">
+      <span className="text-tiny font-extrabold text-white [text-shadow:0_1px_0_var(--color-ink)]">
         {label}
       </span>
     </button>

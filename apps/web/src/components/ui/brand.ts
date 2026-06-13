@@ -1,14 +1,17 @@
-// SuperJam naming (DESIGN_BRIEF §6 family-tree identity). Every user is
-// `name.superjam.fun`; every jam hangs under its maker as
-// `slug.maker.superjam.fun`. (The mockups show `.eth` as a placeholder — the
-// live root is superjam.fun.)
-export const ROOT = "superjam.fun";
+// SuperJam naming. ENSv2-native, flat: every user is `name.superjam.eth` and
+// every jam is `slug.superjam.eth` — one resolvable namespace under superjam.eth
+// (resolves in standard ENS tooling: viem/ethers/app.ens.domains).
+export const ROOT = "superjam.eth";
 
 export const userEns = (username: string): string => `${username}.${ROOT}`;
 
-export const jamEns = (slug: string, ownerUsername: string): string =>
-  `${slug}.${ownerUsername}.${ROOT}`;
+export const jamEns = (slug: string): string => `${slug}.${ROOT}`;
 
-/** Basescan link for an address/tx (DESIGN_BRIEF §3b — name tags ↗ to chain). */
+/** ENS-app link for a name — names resolve in standard tooling, so the name tag
+ *  ↗ goes to the ENS manager (Sepolia), not a block explorer. */
+export const ensApp = (name: string): string =>
+  `https://sepolia.app.ens.domains/${encodeURIComponent(name)}`;
+
+/** Block-explorer link for a tx hash / address (Base Sepolia rail). */
 export const basescan = (idOrTx: string): string =>
   `https://basescan.org/search?q=${encodeURIComponent(idOrTx)}`;

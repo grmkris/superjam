@@ -69,7 +69,7 @@ export function JamFeedCard({
     return (
       <section className={cx("relative h-full snap-start flex flex-col", ACCENT_BG[jam.accent])}>
         <div className="flex items-center gap-2.5 px-4 pt-5 pb-2">
-          <span className="inline-flex items-center gap-2 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-[13.5px] font-bold">
+          <span className="inline-flex items-center gap-2 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-bold">
             <span>{jam.iconEmoji}</span>
             <span>{jam.name}</span>
             <Handle username={jam.maker.username} verified={jam.maker.verified} muted />
@@ -77,7 +77,7 @@ export function JamFeedCard({
           <button
             onClick={() => setPlay(false)}
             aria-label="Close jam"
-            className="ml-auto flex items-center justify-center w-[38px] h-[38px] rounded-full bg-card border-2 border-ink text-[15px] font-extrabold sticker-press"
+            className="focus-ring ml-auto flex items-center justify-center size-[38px] rounded-full bg-card border-2 border-ink text-body font-extrabold sticker-press"
           >
             ✕
           </button>
@@ -99,34 +99,34 @@ export function JamFeedCard({
       <EmojiToken emoji={jam.iconEmoji} color="yellow" size={140} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
 
       <div className="flex flex-col items-center gap-1.5">
-        <div className={cx("text-[32px] font-extrabold [text-shadow:0_3px_0_#221A33]", ACCENT_TITLE[jam.accent])}>
+        <div className={cx("text-h1 font-extrabold ink-drop", ACCENT_TITLE[jam.accent])}>
           {jam.name}
         </div>
-        <span className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-[13.5px] font-bold">
+        <span className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-bold">
           <EmojiToken emoji="🦊" color="green" size={20} />
           <Handle username={jam.maker.username} verified={jam.maker.verified} />
         </span>
         {jam.remixOf && (
-          <span className="inline-flex items-center gap-1 bg-card/90 border-2 border-ink rounded-full px-2.5 py-1 text-[10.5px] font-extrabold">
+          <span className="inline-flex items-center gap-1 bg-card/90 border-2 border-ink rounded-full px-2.5 py-1 text-tiny font-extrabold">
             🔁 remix of {jam.remixOf.name} <span className="text-blue">↗</span>
           </span>
         )}
       </div>
 
-      <div className="max-w-[280px] bg-card/95 border-2 border-ink rounded-2xl shadow-sticker px-4 py-2.5 text-center text-[14.5px] font-semibold leading-snug">
+      <div className="max-w-[280px] bg-card/95 border-2 border-ink rounded-2xl shadow-sticker px-4 py-2.5 text-center text-body font-semibold leading-snug">
         “{jam.tagline}”
       </div>
 
       <button
         onClick={onPlay}
-        className="inline-flex items-center gap-2 bg-pink text-white border-[2.5px] border-ink rounded-full px-9 py-3.5 text-lg font-extrabold shadow-sticker-lg sticker-press"
+        className="focus-ring inline-flex items-center gap-2 bg-pink text-white border-[2.5px] border-ink rounded-full px-9 py-3.5 text-lg font-extrabold shadow-sticker-lg sticker-press"
       >
         ▸ Play now
       </button>
 
       {jam.friendsPlayed > 0 && (
-        <div className="flex items-center gap-1.5 text-[13px] font-bold text-white [text-shadow:0_1px_0_#221A33]">
-          <span className="w-2 h-2 rounded-full bg-green border-[1.5px] border-ink" />
+        <div className="flex items-center gap-1.5 text-small font-bold text-white [text-shadow:0_1px_0_var(--color-ink)]">
+          <span className="size-2 rounded-full bg-green border-[1.5px] border-ink" />
           {jam.friendsPlayed} friends played today
         </div>
       )}
@@ -152,7 +152,7 @@ export function JamFeedCard({
         >
           <EmojiToken emoji={next.iconEmoji} color="cream" size={40} rounded="toy" />
           <span className="flex flex-col">
-            <span className="font-extrabold text-[15px] text-ink">
+            <span className="font-extrabold text-body text-ink">
               {next.name}{" "}
               <span className="font-semibold text-green-deep">· @{next.maker.username} ✓</span>
             </span>

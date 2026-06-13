@@ -45,7 +45,7 @@ export function NameTag({
           HOLE_COLOR[state]
         )}
       />
-      <span className="font-mono text-[11px] font-bold truncate">
+      <span className="font-mono text-tiny font-bold truncate">
         {label}
         {rest && <span className="text-muted font-medium">{rest}</span>}
       </span>

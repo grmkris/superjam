@@ -27,6 +27,23 @@
   --font-display: "Baloo 2", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 
+  /* type scale — the only sizes the product should use. Weight stays explicit
+     at call sites (font-semibold/extrabold) since it varies per context. */
+  --text-tiny: 11px;
+  --text-tiny--line-height: 14px;
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-body: 15px;
+  --text-body--line-height: 1.35;
+  --text-h3: 20px;
+  --text-h3--line-height: 1.2;
+  --text-h2: 26px;
+  --text-h2--line-height: 1.15;
+  --text-h1: 30px;
+  --text-h1--line-height: 1.1;
+  --text-hero: 44px; /* /me + confirm balance amount */
+  --text-hero--line-height: 1;
+
   /* toy-like radii */
   --radius-toy: 16px;
   --radius-toy-lg: 22px;
@@ -36,6 +53,9 @@
   --shadow-sticker: 0 3px 0 var(--color-ink);
   --shadow-sticker-md: 0 4px 0 var(--color-ink);
   --shadow-sticker-lg: 0 5px 0 var(--color-ink);
+
+  /* hard ink text-shadow — the headline "drop" (was hardcoded #221A33) */
+  --shadow-text-ink: 0 3px 0 var(--color-ink);
 }
 
 @layer base {
@@ -74,6 +94,52 @@
     transform: translateY(2px);
     box-shadow: var(--shadow-sticker-sm);
   }
+
+  /* The one padding rhythm every product screen uses (replaces the per-page
+     `px-5 pt-5 pb-6` strings). Bottom respects the iOS home-indicator inset. */
+  .screen {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem; /* gap-4 — the default screen rhythm */
+    min-height: 100%;
+    padding: 1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+    background: var(--color-cream);
+  }
+
+  /* Headline "drop" shadow — token, not a hardcoded hex. */
+  .ink-drop {
+    text-shadow: var(--shadow-text-ink);
+  }
+
+  /* Keyboard focus ring in the ink color (pointer taps stay clean). */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
+
+/* Bottom-sheet slide-up — shared by every ToyboxSheet (was inline per sheet). */
+@keyframes slideup {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fadein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Full-bleed viewer surface for the mini-app iframe route (no chrome). */
+.app-bleed {
+  height: 100dvh;
+  margin: 0;
 }
 
 /* The app lives in a phone-width column, centered on desktop with paper around. */
@@ -89,5 +155,69 @@
 @media (min-width: 480px) {
   .app-shell {
     border-inline: 2px solid var(--color-ink);
+  }
+}
+
+/* ── Motion (polish pass) ──────────────────────────────────────────────────
+   Route entrance reuses the existing `fadein` keyframe (applied as
+   motion-safe:animate-[fadein…] on <main>). Adds a list `rise` cascade and a
+   springy `pop` for emphasis moments. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@layer components {
+  /* Springy emphasis — Reveal "is live!", "sent ✓", celebratory bits. */
+  .animate-pop {
+    animation: pop 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  /* Staggered list cascade — add `stagger` to a flex/grid list container. */
+  .stagger > * {
+    animation: rise 0.32s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+  .stagger > *:nth-child(2) {
+    animation-delay: 0.04s;
+  }
+  .stagger > *:nth-child(3) {
+    animation-delay: 0.08s;
+  }
+  .stagger > *:nth-child(4) {
+    animation-delay: 0.12s;
+  }
+  .stagger > *:nth-child(5) {
+    animation-delay: 0.16s;
+  }
+  .stagger > *:nth-child(6) {
+    animation-delay: 0.2s;
+  }
+  .stagger > *:nth-child(n + 7) {
+    animation-delay: 0.24s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop,
+  .stagger > * {
+    animation: none !important;
   }
 }

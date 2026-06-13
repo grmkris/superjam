@@ -140,7 +140,7 @@ export function WorldGate({
 
       <div className="text-sm font-semibold text-muted">~30 seconds, one time</div>
       <div className="text-xs font-medium text-muted max-w-[280px]">{blurb}</div>
-      {error && <div className="text-pink text-[13px] font-bold">{error}</div>}
+      {error && <div className="text-pink text-small font-bold">{error}</div>}
     </div>
   );
 }

@@ -6,11 +6,14 @@
 // terminals, or "AI/agent" talk anywhere a user can see.
 import type { AppSpec, BuildId, RefineResult, Similar } from "@superjam/shared";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useConfirm } from "../../components/confirm/confirm-provider";
 import { jamEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
+import { Badge } from "../../components/ui/badge";
+import { Input, Textarea } from "../../components/ui/field";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { VerifiedBadge } from "../../components/verified-badge";
 import { usePlatformClient } from "../../components/use-platform-client";
@@ -178,7 +181,7 @@ function MakeFlow() {
   };
 
   return (
-    <div className="flex flex-col gap-4 px-5 pt-5 pb-6 bg-cream min-h-full">
+    <div className="screen">
       <Header username={username} />
 
       {step === "home" && (
@@ -258,13 +261,13 @@ function Header({ username }: { username: string }) {
   return (
     <div className="flex items-center gap-2.5">
       <EmojiToken emoji="⚡" color="yellow" size={32} tilt={-6} />
-      <div className="font-extrabold text-lg">superjam</div>
-      <a
+      <div className="font-extrabold text-h3">superjam</div>
+      <Link
         href="/me"
-        className="ml-auto bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-[13px] font-semibold no-underline text-ink"
+        className="focus-ring ml-auto bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-semibold no-underline text-ink"
       >
         @{username} ▾
-      </a>
+      </Link>
     </div>
   );
 }
@@ -291,12 +294,12 @@ function HomeBeat({
   return (
     <div className="flex flex-1 flex-col justify-center gap-4">
       {remix && (
-        <div className="bg-yellow border-2 border-ink rounded-toy px-3 py-2 text-[13px] font-bold">
+        <div className="bg-yellow border-2 border-ink rounded-toy px-3 py-2 text-small font-bold">
           🔁 Based on <span className="underline">{remix}</span> — say your changes
         </div>
       )}
       <div className="flex flex-col gap-1 mt-1">
-        <div className="text-[28px] font-extrabold leading-tight">
+        <div className="text-h1 font-extrabold">
           {remix ? "Your changes" : "Dream up"}
           {!remix && (
             <>
@@ -304,18 +307,18 @@ function HomeBeat({
             </>
           )}
         </div>
-        <div className="text-[14.5px] font-medium text-muted">
+        <div className="text-body font-medium text-muted">
           Say it in a sentence — we'll make it real.
         </div>
       </div>
-      <textarea
+      <Textarea
         value={idea}
         onChange={(e) => setIdea(e.target.value)}
         rows={3}
         placeholder="what should it do?"
-        className="bg-card border-2 border-ink rounded-toy p-4 text-[15px] font-medium leading-relaxed placeholder:text-muted outline-none focus:border-pink shadow-sticker resize-none"
+        className="leading-relaxed shadow-sticker"
       />
-      {err && <div className="text-pink text-[13px] font-bold">{err}</div>}
+      {err && <div className="text-pink text-small font-bold">{err}</div>}
       {isLoggedIn ? (
         <StickerButton color="pink" size="lg" block onClick={onGo} disabled={busy || !idea.trim()}>
           {busy ? "thinking…" : "Let's go! →"}
@@ -334,7 +337,7 @@ function HomeBeat({
             <button
               key={ex}
               onClick={() => setIdea(ex)}
-              className="bg-cream border-2 border-ink rounded-full px-3 py-1.5 text-xs font-semibold text-muted sticker-press"
+              className="focus-ring bg-cream border-2 border-ink rounded-full px-3 py-1.5 text-small font-semibold text-muted sticker-press"
             >
               {ex}
             </button>
@@ -373,42 +376,42 @@ function FollowupsBeat({
     <>
       <div className="flex items-start gap-2">
         <EmojiToken emoji="⚡" color="yellow" size={30} tilt={-6} />
-        <div className="bg-card border-2 border-ink rounded-2xl rounded-tl-sm px-3.5 py-3 text-sm font-semibold shadow-sticker">
+        <div className="bg-card border-2 border-ink rounded-2xl rounded-tl-sm px-3.5 py-3 text-small font-semibold shadow-sticker">
           Ooh, fun! Two quick things before I draw up the plan:
         </div>
       </div>
 
       {similar.length > 0 && (
         <StickerCard color="cream" className="p-3 flex flex-col gap-2">
-          <div className="text-[11px] font-extrabold uppercase tracking-wide text-muted">
+          <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             similar jams already exist
           </div>
           {similar.slice(0, 3).map((s) => (
             <button
               key={s.slug}
               onClick={() => onOpenSimilar(s)}
-              className="flex items-center gap-2 text-left text-[13px] font-semibold"
+              className="focus-ring flex items-center gap-2 text-left text-small font-semibold"
             >
               <span>🧩</span>
               <span className="font-bold">{s.slug}</span>
               <span className="text-muted">— {s.reason}</span>
-              <span className="ml-auto text-blue text-xs font-extrabold">Open ›</span>
+              <span className="ml-auto text-blue text-tiny font-extrabold">Open ›</span>
             </button>
           ))}
         </StickerCard>
       )}
 
-      <div className="flex flex-col gap-3.5 pl-9">
+      <div className="flex flex-col gap-3 pl-9">
         {questions.map((q, i) => (
           <div key={i} className="flex flex-col gap-2">
-            <div className="text-[15px] font-semibold">{q.q}</div>
+            <div className="text-body font-semibold">{q.q}</div>
             <div className="flex flex-wrap gap-2">
               {q.options.map((o) => (
                 <button
                   key={o}
                   onClick={() => setPick(i, o)}
                   className={cx(
-                    "border-2 border-ink rounded-full px-4 py-2 text-sm sticker-press",
+                    "focus-ring border-2 border-ink rounded-full px-4 py-2 text-small sticker-press",
                     picks[i] === o
                       ? "bg-yellow font-bold shadow-sticker-sm"
                       : "bg-card font-semibold"
@@ -423,23 +426,23 @@ function FollowupsBeat({
       </div>
 
       <div className="flex flex-col gap-2 mt-1">
-        <div className="text-[12px] font-extrabold uppercase tracking-wide text-muted">
+        <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
           your comments
         </div>
         {comments.map((c, i) => (
           <div
             key={i}
-            className="flex items-center gap-2 bg-card border-2 border-ink rounded-xl px-3 py-2 text-[13px] font-semibold"
+            className="flex items-center gap-2 bg-card border-2 border-ink rounded-xl px-3 py-2 text-small font-semibold"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-pink border-[1.5px] border-ink shrink-0" />
+            <span className="size-1.5 rounded-full bg-pink border-[1.5px] border-ink shrink-0" />
             <span className="min-w-0 break-words">{c}</span>
-            <button onClick={() => removeComment(i)} className="ml-auto text-muted font-bold">
+            <button onClick={() => removeComment(i)} className="focus-ring ml-auto text-muted font-bold" aria-label="Remove comment">
               ✕
             </button>
           </div>
         ))}
         <div className="flex gap-2">
-          <input
+          <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -449,7 +452,7 @@ function FollowupsBeat({
               }
             }}
             placeholder="add a line…"
-            className="flex-1 bg-card border-2 border-ink rounded-full px-4 py-2.5 text-[13.5px] font-semibold placeholder:text-muted outline-none focus:border-pink"
+            className="flex-1 rounded-full text-small"
           />
           <button
             onClick={() => {
@@ -458,7 +461,8 @@ function FollowupsBeat({
                 setDraft("");
               }
             }}
-            className="w-12 h-12 bg-card border-2 border-ink rounded-full text-xl font-extrabold sticker-press"
+            className="focus-ring size-12 shrink-0 bg-card border-2 border-ink rounded-full text-xl font-extrabold sticker-press"
+            aria-label="Add comment"
           >
             +
           </button>
@@ -491,8 +495,8 @@ function PlanBeat({
   return (
     <>
       <div className="flex flex-col gap-0.5">
-        <div className="text-[26px] font-extrabold leading-tight">Here's the plan!</div>
-        <div className="text-sm font-medium text-muted">
+        <div className="text-h2 font-extrabold">Here's the plan!</div>
+        <div className="text-small font-medium text-muted">
           tweak anything — the plan keeps up
         </div>
       </div>
@@ -501,8 +505,8 @@ function PlanBeat({
         <div className="flex items-center gap-3">
           <EmojiToken emoji={spec.iconEmoji} color="yellow" size={56} rounded="toy" tilt={-5} />
           <div className="flex flex-col min-w-0">
-            <div className="font-extrabold text-xl truncate">{spec.name}</div>
-            <div className="text-[13px] font-medium text-muted leading-snug">
+            <div className="font-extrabold text-h3 truncate">{spec.name}</div>
+            <div className="text-small font-medium text-muted leading-snug">
               {spec.description}
             </div>
           </div>
@@ -510,25 +514,23 @@ function PlanBeat({
 
         {/* ENS address row */}
         <div className="flex items-center gap-1.5 bg-cream border-2 border-ink rounded-l-md rounded-r-full pl-2.5 pr-2.5 py-1.5">
-          <span className="w-[7px] h-[7px] rounded-full bg-yellow border-[1.5px] border-ink shrink-0" />
-          <span className="font-mono text-[12px] font-bold truncate">
+          <span className="size-[7px] rounded-full bg-yellow border-[1.5px] border-ink shrink-0" />
+          <span className="font-mono text-small font-bold truncate">
             {spec.slug}
             <span className="text-muted font-medium">.{username}.superjam.fun</span>
           </span>
-          <span className="ml-auto flex items-center gap-1 bg-green border-[1.5px] border-ink rounded-full px-2 py-0.5 text-[10.5px] font-extrabold">
-            ✓ free
-          </span>
+          <Badge color="green" className="ml-auto border-[1.5px] px-2">✓ free</Badge>
         </div>
 
         <div className="h-0.5 bg-ink/10 rounded" />
 
         <div className="flex flex-col gap-2.5">
-          <div className="text-[12px] font-extrabold uppercase tracking-wide text-muted">
+          <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             What's inside
           </div>
           {spec.features.slice(0, 5).map((f, i) => (
-            <div key={i} className="flex items-center gap-2.5 text-sm font-semibold">
-              <span className="w-6 h-6 rounded-lg bg-cream border-2 border-ink flex items-center justify-center text-xs shrink-0">
+            <div key={i} className="flex items-center gap-2.5 text-small font-semibold">
+              <span className="size-6 rounded-lg bg-cream border-2 border-ink flex items-center justify-center text-tiny shrink-0">
                 {["🪙", "💬", "🏆", "🔔", "✨"][i % 5]}
               </span>
               <span className="min-w-0">{f}</span>
@@ -540,13 +542,13 @@ function PlanBeat({
       {/* refine exchange */}
       {exchange.map((e, i) => (
         <div key={i} className="flex flex-col gap-1.5">
-          <div className="self-end max-w-[78%] bg-pink text-white border-2 border-ink rounded-2xl rounded-br-sm px-3.5 py-2 text-[13px] font-semibold shadow-sticker-sm">
+          <div className="self-end max-w-[78%] bg-pink text-white border-2 border-ink rounded-2xl rounded-br-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
             {e.you}
           </div>
           {e.back && (
             <div className="flex items-end gap-2">
               <EmojiToken emoji="⚡" color="yellow" size={26} tilt={-6} />
-              <div className="bg-card border-2 border-ink rounded-2xl rounded-bl-sm px-3.5 py-2 text-[13px] font-semibold shadow-sticker-sm">
+              <div className="bg-card border-2 border-ink rounded-2xl rounded-bl-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
                 {e.back}
               </div>
             </div>
@@ -555,7 +557,7 @@ function PlanBeat({
       ))}
 
       <div className="flex gap-2">
-        <input
+        <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -565,7 +567,7 @@ function PlanBeat({
             }
           }}
           placeholder="✏️ change anything — just say it"
-          className="flex-1 bg-card border-2 border-ink rounded-full px-4 py-3 text-[13.5px] font-semibold placeholder:text-muted outline-none focus:border-pink"
+          className="flex-1 rounded-full text-small"
         />
         <button
           onClick={() => {
@@ -574,7 +576,8 @@ function PlanBeat({
               setDraft("");
             }
           }}
-          className="w-12 h-12 bg-yellow border-2 border-ink rounded-full text-lg font-extrabold sticker-press"
+          className="focus-ring size-12 shrink-0 bg-yellow border-2 border-ink rounded-full text-lg font-extrabold sticker-press"
+          aria-label="Send change"
         >
           ↑
         </button>
@@ -599,8 +602,8 @@ function BuilderBeat({
   return (
     <>
       <div className="flex flex-col gap-0.5">
-        <div className="text-[26px] font-extrabold leading-tight">Who makes it?</div>
-        <div className="text-sm font-medium text-muted">
+        <div className="text-h2 font-extrabold">Who makes it?</div>
+        <div className="text-small font-medium text-muted">
           the house builder's free — or pick a human-backed pro
         </div>
       </div>
@@ -611,16 +614,16 @@ function BuilderBeat({
             <StickerCard key={b.id} className="p-4 flex items-center gap-3">
               <EmojiToken emoji={free ? "🏠" : "🛠️"} color={free ? "green" : "blue"} size={48} rounded="toy" />
               <div className="flex flex-col min-w-0 gap-0.5">
-                <div className="font-extrabold text-[15.5px] truncate">{b.name}</div>
+                <div className="font-extrabold text-body truncate">{b.name}</div>
                 {b.owner ? (
-                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted">
+                  <span className="inline-flex items-center gap-1.5 text-small font-semibold text-muted">
                     by @{b.owner.username}
                     {b.owner.worldVerified && <VerifiedBadge />}
                   </span>
                 ) : (
-                  <span className="text-[12px] font-semibold text-muted">the house builder</span>
+                  <span className="text-small font-semibold text-muted">the house builder</span>
                 )}
-                <div className="text-[12px] font-semibold text-muted">
+                <div className="text-small font-semibold text-muted">
                   {b.buildsCount.toLocaleString()} jams built
                 </div>
               </div>
@@ -629,7 +632,7 @@ function BuilderBeat({
                   <button
                     onClick={() => onInfo(b.id)}
                     aria-label="builder profile"
-                    className="text-blue font-extrabold text-[16px] px-1"
+                    className="focus-ring text-blue font-extrabold text-h3 px-1"
                   >
                     ⓘ
                   </button>
@@ -637,7 +640,7 @@ function BuilderBeat({
                 <button
                   onClick={() => onPick(b)}
                   className={cx(
-                    "border-2 border-ink rounded-full px-4 py-2 text-sm font-extrabold shadow-sticker-sm sticker-press",
+                    "focus-ring border-2 border-ink rounded-full px-4 py-2 text-small font-extrabold shadow-sticker-sm sticker-press",
                     free ? "bg-green text-ink" : "bg-pink text-white"
                   )}
                 >
@@ -725,8 +728,8 @@ function WorkshopBeat({
     return (
       <div className="flex flex-col items-center gap-4 py-10 text-center">
         <EmojiToken emoji="😖" color="pink" size={72} rounded="toy" />
-        <div className="text-xl font-extrabold">couldn't finish this jam</div>
-        <div className="text-sm font-semibold text-muted max-w-[260px]">
+        <div className="text-h3 font-extrabold">couldn't finish this jam</div>
+        <div className="text-small font-semibold text-muted max-w-[260px]">
           the workshop hit a snag — give it another go.
         </div>
         <StickerButton color="pink" size="lg" onClick={() => location.assign("/build")}>
@@ -739,8 +742,8 @@ function WorkshopBeat({
   return (
     <div className="flex flex-col items-center gap-4 py-4">
       <EmojiToken emoji={spec.iconEmoji} color="yellow" size={84} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
-      <div className="text-xl font-extrabold">Making your jam…</div>
-      <div className="font-mono text-[12px] text-muted">
+      <div className="text-h3 font-extrabold">Making your jam…</div>
+      <div className="font-mono text-small text-muted">
         {spec.slug}.{username}.superjam.fun
       </div>
       <div className="w-full flex flex-col gap-2.5 mt-1">
@@ -748,13 +751,13 @@ function WorkshopBeat({
           <div
             key={s}
             className={cx(
-              "flex items-center gap-2.5 text-sm font-bold",
+              "flex items-center gap-2.5 text-small font-bold",
               i < done ? "text-ink" : i === done ? "text-ink" : "text-muted opacity-50"
             )}
           >
             <span
               className={cx(
-                "w-5 h-5 rounded-full border-2 border-ink flex items-center justify-center text-[10px]",
+                "size-5 rounded-full border-2 border-ink flex items-center justify-center text-tiny",
                 i < done ? "bg-green" : "bg-card"
               )}
             >
@@ -786,25 +789,25 @@ function RevealBeat({
   slug: string;
   onPlay: () => void;
 }) {
-  const ens = jamEns(slug, username);
+  const ens = jamEns(slug);
   const link = `superjam.fun/${username}/${slug}`;
   const copy = () => navigator.clipboard?.writeText(`https://${link}`).catch(() => {});
   return (
     <div className="flex flex-col items-center gap-4 py-4 text-center">
       <div className="text-4xl">🎉</div>
       <EmojiToken emoji={spec.iconEmoji} color="yellow" size={96} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
-      <div className="text-2xl font-extrabold">{spec.name} is live!</div>
+      <div className="text-h2 font-extrabold">{spec.name} is live!</div>
       <div className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-l-md rounded-r-full pl-2.5 pr-3 py-1.5">
-        <span className="w-[7px] h-[7px] rounded-full bg-yellow border-[1.5px] border-ink" />
-        <span className="font-mono text-[12px] font-bold">
+        <span className="size-[7px] rounded-full bg-yellow border-[1.5px] border-ink" />
+        <span className="font-mono text-small font-bold">
           {slug}
           <span className="text-muted font-medium">.{username}.superjam.fun</span>
         </span>
-        <span className="text-[10px] font-extrabold text-green-ink">✓</span>
+        <span className="text-tiny font-extrabold text-green-ink">✓</span>
       </div>
       <button
         onClick={copy}
-        className="text-[12.5px] font-mono font-semibold text-muted underline"
+        className="focus-ring text-small font-mono font-semibold text-muted underline"
         title="copy deep link"
       >
         {link} 📋

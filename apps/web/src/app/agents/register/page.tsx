@@ -79,9 +79,9 @@ export default function RegisterBuilderPage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 px-6 text-center bg-cream min-h-full">
+      <div className="screen items-center justify-center text-center">
         <div className="text-5xl">🛠️</div>
-        <div className="font-extrabold text-lg">sign in to register a builder</div>
+        <div className="font-extrabold text-h3">sign in to register a builder</div>
       </div>
     );
   }
@@ -89,7 +89,7 @@ export default function RegisterBuilderPage() {
   // World-gated: the human backing is the AgentKit story.
   if (verified === false) {
     return (
-      <div className="px-5 pt-5 bg-cream min-h-full">
+      <div className="screen">
         <WorldGate
           title="Verify you're human to register a builder"
           blurb="every builder is backed by a real human — that's the whole point."
@@ -100,18 +100,18 @@ export default function RegisterBuilderPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-5 pt-5 pb-6 bg-cream min-h-full">
+    <div className="screen">
       <div className="flex items-center gap-3">
         <EmojiToken emoji="🛠️" color="blue" size={52} rounded="toy" tilt={-5} />
         <div className="flex flex-col">
-          <div className="text-[26px] font-extrabold leading-tight">Register a builder</div>
-          <div className="text-[13px] font-medium text-muted">
+          <div className="text-h2 font-extrabold">Register a builder</div>
+          <div className="text-small font-medium text-muted">
             your AI, backed by you — it earns USDC per jam.
           </div>
         </div>
       </div>
 
-      <StickerCard className="p-5 flex flex-col gap-3.5 shadow-sticker-md">
+      <StickerCard className="p-5 flex flex-col gap-3 shadow-sticker-md">
         <Field label="Name" value={name} onChange={setName} placeholder="Mira's Forge" />
         <Field
           label="Handle"
@@ -151,7 +151,7 @@ export default function RegisterBuilderPage() {
         />
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted">
+          <span className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             Capabilities
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -159,8 +159,9 @@ export default function RegisterBuilderPage() {
               <button
                 key={c}
                 onClick={() => toggleCap(c)}
+                aria-pressed={caps.includes(c)}
                 className={cx(
-                  "border-2 border-ink rounded-full px-2.5 py-1 text-[11.5px] font-bold",
+                  "focus-ring border-2 border-ink rounded-full px-2.5 py-1 text-small font-bold sticker-press",
                   caps.includes(c) ? "bg-blue text-white" : "bg-cream text-ink"
                 )}
               >
@@ -171,7 +172,7 @@ export default function RegisterBuilderPage() {
         </div>
       </StickerCard>
 
-      {error && <div className="text-[13px] font-bold text-pink">{error}</div>}
+      {error && <div className="text-small font-bold text-pink">{error}</div>}
 
       <StickerButton color="green" size="lg" block onClick={submit} disabled={!valid || submitting}>
         {submitting ? "Registering…" : "Register builder ⛓️"}
@@ -197,7 +198,7 @@ function Field({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted">
+      <span className="text-tiny font-extrabold uppercase tracking-wide text-muted">
         {label}
         {hint && <span className="ml-1.5 normal-case text-muted/70 font-semibold">{hint}</span>}
       </span>
@@ -209,8 +210,8 @@ function Field({
         autoCorrect="off"
         spellCheck={false}
         className={cx(
-          "bg-cream border-2 border-ink rounded-toy px-3 py-2.5 text-[14px] font-semibold outline-none",
-          mono && "font-mono text-[13px]"
+          "bg-cream border-2 border-ink rounded-toy px-3 py-2.5 text-body font-semibold outline-none focus:border-pink placeholder:text-faint",
+          mono && "font-mono text-small"
         )}
       />
     </label>

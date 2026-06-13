@@ -13,6 +13,10 @@ import { PayFriendSheet } from "../../components/chat/pay-friend-sheet";
 import { userEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
+import { Badge, Dot } from "../../components/ui/badge";
+import { EmptyState } from "../../components/ui/empty-state";
+import { Input } from "../../components/ui/field";
+import { ToyboxTabs } from "../../components/ui/tabs";
 import { VerifiedBadge } from "../../components/verified-badge";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
@@ -32,22 +36,16 @@ function ago(d: string | number | Date): string {
 export default function InboxPage() {
   const [tab, setTab] = useState<Tab>("notifications");
   return (
-    <div className="flex flex-col gap-3 px-5 pt-5 pb-6 bg-cream min-h-full">
-      <div className="text-[26px] font-extrabold">Inbox</div>
-      <div className="flex bg-card border-2 border-ink rounded-full p-1 gap-1">
-        {(["notifications", "friends"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={cx(
-              "flex-1 rounded-full py-2 text-[13.5px] capitalize",
-              tab === t ? "bg-ink text-cream font-extrabold" : "text-muted font-semibold"
-            )}
-          >
-            {t === "notifications" ? "🔔 Notifications" : "👋 Friends"}
-          </button>
-        ))}
-      </div>
+    <div className="screen gap-3">
+      <div className="text-h2 font-extrabold">Inbox</div>
+      <ToyboxTabs
+        value={tab}
+        onValueChange={setTab}
+        options={[
+          { value: "notifications", label: "🔔 Notifications" },
+          { value: "friends", label: "👋 Friends" },
+        ]}
+      />
       {tab === "notifications" ? <Notifications /> : <Friends />}
     </div>
   );
@@ -94,13 +92,9 @@ function Notifications() {
     return <div className="flex-1 grid place-items-center text-muted font-semibold">loading…</div>;
   if (rows.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <div className="text-5xl">📭</div>
-        <div className="font-extrabold text-lg">no mail yet</div>
-        <div className="text-muted font-semibold text-sm">
-          jams you play can challenge you
-        </div>
-      </div>
+      <EmptyState emoji="📭" title="no mail yet" emojiColor="pink" className="flex-1">
+        jams you play can challenge you
+      </EmptyState>
     );
   }
 
@@ -108,7 +102,7 @@ function Notifications() {
   return (
     <div className="flex flex-col gap-2.5">
       {anyUnread && (
-        <button onClick={markAll} className="self-end text-[13px] font-bold text-pink">
+        <button onClick={markAll} className="focus-ring self-end text-small font-bold text-pink">
           Mark all read
         </button>
       )}
@@ -118,24 +112,26 @@ function Notifications() {
           color={n.read ? "white" : "cream"}
           className={cx("p-3.5 flex items-center gap-3", !n.read && "border-pink")}
         >
-          {!n.read && <span className="w-2 h-2 rounded-full bg-pink border border-ink shrink-0" />}
+          {!n.read && <Dot className="border border-ink shrink-0" />}
           <div className="flex flex-col min-w-0 gap-0.5">
-            <div className="flex items-center gap-1.5 text-[13px]">
+            <div className="flex items-center gap-1.5 text-small">
               <span className="font-extrabold">@{n.from.username}</span>
               <VerifiedBadge />
               <span className="text-muted font-semibold">· via {n.appName}</span>
             </div>
-            <div className="text-[13.5px] font-semibold leading-snug">{n.text}</div>
+            <div className="text-small font-semibold leading-snug">{n.text}</div>
           </div>
           <div className="ml-auto flex flex-col items-end gap-1.5">
-            <span className="text-[11px] font-semibold text-muted">{ago(n.createdAt)}</span>
+            <span className="text-tiny font-semibold text-muted">{ago(n.createdAt)}</span>
             {n.link && (
-              <button
+              <StickerButton
+                color="blue"
+                size="sm"
                 onClick={() => router.push(n.link!)}
-                className="bg-blue text-white border-2 border-ink rounded-full px-3 py-1 text-xs font-extrabold shadow-sticker-sm sticker-press"
+                className="rounded-full"
               >
                 Open
-              </button>
+              </StickerButton>
             )}
           </div>
         </StickerCard>
@@ -205,12 +201,12 @@ function Friends() {
   return (
     <div className="flex flex-1 flex-col gap-2.5">
       <div className="flex gap-2">
-        <input
+        <Input
           value={handle}
           onChange={(e) => setHandle(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
           placeholder="add a friend by @name…"
-          className="flex-1 bg-card border-2 border-ink rounded-full px-4 py-2.5 text-[13.5px] font-semibold placeholder:text-muted outline-none focus:border-pink"
+          className="flex-1 rounded-full text-small"
         />
         <StickerButton color="green" size="md" onClick={add} disabled={adding || !handle.trim()}>
           + Add
@@ -218,11 +214,9 @@ function Friends() {
       </div>
 
       {friends.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-          <div className="text-5xl">👋</div>
-          <div className="font-extrabold text-lg">no crew yet</div>
-          <div className="text-muted font-semibold text-sm">add a friend to share jams + challenge</div>
-        </div>
+        <EmptyState emoji="👋" title="no crew yet" emojiColor="green" className="flex-1">
+          add a friend to share jams + challenge
+        </EmptyState>
       ) : (
         friends.map((f) => (
           <button key={f.id} onClick={() => setOpen(f)} className="text-left">
@@ -233,11 +227,9 @@ function Friends() {
                 {f.worldVerified && <VerifiedBadge />}
               </div>
               {unread[f.username] ? (
-                <span className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-pink border-2 border-ink text-white text-[11px] font-extrabold">
-                  {unread[f.username]}
-                </span>
+                <Badge className="ml-auto">{unread[f.username]}</Badge>
               ) : (
-                <span className="ml-auto font-mono text-[11px] text-muted truncate max-w-[40%]">
+                <span className="ml-auto font-mono text-tiny text-muted truncate max-w-[40%]">
                   {f.ensName ?? userEns(f.username)}
                 </span>
               )}
@@ -336,7 +328,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center gap-2">
-        <button onClick={onBack} className="text-[18px] font-bold text-muted">‹</button>
+        <button onClick={onBack} className="focus-ring text-h3 font-bold text-muted" aria-label="Back">‹</button>
         <EmojiToken emoji="🙂" color="green" size={32} />
         <span className="font-extrabold">@{friend.username}</span>
         {friend.worldVerified && <VerifiedBadge />}
@@ -346,7 +338,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
         {msgs.map((m) => (
           <div key={m.id} className={cx("max-w-[82%]", m.fromMe ? "self-end" : "self-start")}>
             {m.kind === "tip" ? (
-              <div className="flex items-center gap-2 bg-green border-2 border-ink rounded-2xl px-3.5 py-2 text-sm font-extrabold shadow-sticker-sm">
+              <div className="flex items-center gap-2 bg-green border-2 border-ink rounded-2xl px-3.5 py-2 text-small font-extrabold shadow-sticker-sm">
                 💸 {m.fromMe ? "sent" : "got"} {m.amountUsdc} USDC
               </div>
             ) : m.kind === "card" && m.card ? (
@@ -359,7 +351,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
             ) : (
               <div
                 className={cx(
-                  "border-2 border-ink rounded-2xl px-3.5 py-2 text-[13.5px] font-semibold shadow-sticker-sm",
+                  "border-2 border-ink rounded-2xl px-3.5 py-2 text-small font-semibold shadow-sticker-sm",
                   m.fromMe ? "bg-pink text-white rounded-br-sm" : "bg-card rounded-bl-sm"
                 )}
               >
@@ -371,27 +363,27 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
         <div ref={endRef} />
       </div>
 
-      <div className="flex gap-2 items-center sticky bottom-0 bg-cream pb-1">
+      <div className="flex gap-2 items-center sticky bottom-0 bg-cream pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
         <button
           onClick={() => setPaying(true)}
-          className="w-11 h-11 bg-green border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          className="focus-ring size-11 bg-green border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Pay a friend"
         >
           💸
         </button>
         <button
           onClick={() => setPicking(true)}
-          className="w-11 h-11 bg-yellow border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          className="focus-ring size-11 bg-yellow border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Share a jam"
         >
           🎮
         </button>
-        <input
+        <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
           placeholder="message…"
-          className="flex-1 bg-card border-2 border-ink rounded-full px-4 py-3 text-[13.5px] font-semibold placeholder:text-muted outline-none focus:border-pink min-w-0"
+          className="flex-1 rounded-full text-small min-w-0"
         />
       </div>
 

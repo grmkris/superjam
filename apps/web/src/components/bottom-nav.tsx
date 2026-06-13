@@ -28,7 +28,7 @@ export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const unread = useUnreadCount(pathname);
   return (
-    <nav className="flex border-t-2 border-ink bg-card px-2 pt-2 pb-3 shrink-0">
+    <nav className="flex border-t-2 border-ink bg-card px-2 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shrink-0">
       {TABS.map((tab) => {
         const active = tab.match(pathname);
         return (
@@ -39,15 +39,15 @@ export function BottomNav() {
           >
             <span
               className={cx(
-                "text-xl leading-none",
-                !active && "grayscale opacity-50"
+                "text-xl leading-none transition-transform",
+                active ? "scale-110" : "grayscale opacity-50"
               )}
             >
               {tab.emoji}
             </span>
             <span
               className={cx(
-                "text-[11.5px]",
+                "text-tiny",
                 active ? "font-extrabold text-pink" : "font-semibold text-muted"
               )}
             >

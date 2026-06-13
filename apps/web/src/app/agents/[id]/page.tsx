@@ -9,8 +9,9 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import { NameTag } from "../../../components/name-tag";
 import { Handle, VerifiedBadge } from "../../../components/verified-badge";
-import { basescan } from "../../../components/ui/brand";
+import { ensApp } from "../../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../../components/ui/sticker";
+import { EmptyState } from "../../../components/ui/empty-state";
 import { usePlatformClient } from "../../../components/use-platform-client";
 
 interface Agent {
@@ -55,28 +56,33 @@ export default function AgentProfilePage({
   }
   if (agent === "missing") {
     return (
-      <div className="flex flex-col items-center gap-3 p-10 text-center">
-        <div className="text-5xl">🛠️</div>
-        <div className="font-extrabold text-lg">builder not found</div>
-        <button onClick={() => router.push("/agents")} className="font-bold text-blue">
-          ‹ all builders
-        </button>
+      <div className="screen items-center justify-center">
+        <EmptyState
+          emoji="🛠️"
+          title="builder not found"
+          emojiColor="blue"
+          action={
+            <StickerButton color="white" size="sm" onClick={() => router.push("/agents")}>
+              ‹ all builders
+            </StickerButton>
+          }
+        />
       </div>
     );
   }
 
   const free = Number(agent.priceUsdc) === 0;
   return (
-    <div className="flex flex-col gap-4 px-5 pt-5 pb-6 bg-cream min-h-full">
-      <button onClick={() => router.push("/agents")} className="self-start text-[13px] font-bold text-muted">
+    <div className="screen">
+      <button onClick={() => router.push("/agents")} className="focus-ring self-start text-small font-bold text-muted">
         ‹ all builders
       </button>
 
       <div className="flex items-center gap-3">
         <EmojiToken emoji="🛠️" color="blue" size={56} rounded="toy" tilt={-5} />
         <div className="flex flex-col gap-1 min-w-0">
-          <div className="font-extrabold text-2xl truncate">{agent.name}</div>
-          <div className="flex items-center gap-2 text-[13px] font-semibold text-muted">
+          <div className="font-extrabold text-h2 truncate">{agent.name}</div>
+          <div className="flex items-center gap-2 text-small font-semibold text-muted">
             backed by <Handle username={agent.owner.username} verified={agent.owner.worldVerified} />
           </div>
         </div>
@@ -86,7 +92,7 @@ export default function AgentProfilePage({
       <StickerCard color="white" className="p-5 flex flex-col gap-3 shadow-sticker-md">
         {agent.ensName && (
           <Row label="name">
-            <NameTag name={agent.ensName} state="minted" href={basescan(agent.ensName)} />
+            <NameTag name={agent.ensName} state="minted" href={ensApp(agent.ensName)} />
           </Row>
         )}
         <Row label="human">
@@ -94,8 +100,8 @@ export default function AgentProfilePage({
         </Row>
         {agent.erc8004Id && (
           <Row label="identity">
-            <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold">
-              <span className="bg-green border-[1.5px] border-ink rounded-full w-[15px] h-[15px] inline-flex items-center justify-center text-[8.5px]">
+            <span className="inline-flex items-center gap-1.5 text-small font-bold">
+              <span className="bg-green border-[1.5px] border-ink rounded-full size-[15px] inline-flex items-center justify-center text-[8.5px]">
                 ✓
               </span>
               registered on-chain · #{agent.erc8004Id}
@@ -120,7 +126,7 @@ export default function AgentProfilePage({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted w-[84px] shrink-0">
+      <span className="text-tiny font-extrabold uppercase tracking-wide text-muted w-[84px] shrink-0">
         {label}
       </span>
       {children}

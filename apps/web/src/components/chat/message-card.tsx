@@ -22,23 +22,23 @@ export function MessageCard({
       <div className="flex items-center gap-2.5 p-3">
         <EmojiToken emoji={card.icon || via?.iconEmoji || "🎮"} color="yellow" size={40} rounded="toy" />
         <div className="flex flex-col min-w-0">
-          <div className="font-extrabold text-[14.5px] truncate">{card.title}</div>
+          <div className="font-extrabold text-body truncate">{card.title}</div>
           {via && (
-            <div className="text-[11px] font-semibold text-muted truncate">
+            <div className="text-tiny font-semibold text-muted truncate">
               via {via.name}
             </div>
           )}
         </div>
       </div>
       {card.body && (
-        <div className="px-3 pb-2 text-[13px] font-semibold leading-snug">
+        <div className="px-3 pb-2 text-small font-semibold leading-snug">
           {card.body}
         </div>
       )}
       {onCta && (
         <button
           onClick={onCta}
-          className="w-full bg-pink text-white border-t-2 border-ink py-2.5 text-sm font-extrabold sticker-press"
+          className="focus-ring w-full bg-pink text-white border-t-2 border-ink py-2.5 text-small font-extrabold sticker-press"
         >
           {card.cta || (mine ? "Sent" : "Open")} ▸
         </button>

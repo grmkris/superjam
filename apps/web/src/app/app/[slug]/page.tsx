@@ -24,7 +24,7 @@ export default async function AppViewerPage({
   }
 
   return (
-    <main style={{ height: "100dvh", margin: 0 }}>
+    <main className="app-bleed">
       <AppHost app={app} />
     </main>
   );

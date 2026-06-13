@@ -11,9 +11,11 @@ import { NameTag } from "../../../components/name-tag";
 import { FriendPicker } from "../../../components/chat/friend-picker";
 import { VerifiedBadge } from "../../../components/verified-badge";
 import { WorldGate } from "../../../components/world-gate";
-import { basescan } from "../../../components/ui/brand";
+import { ensApp } from "../../../components/ui/brand";
 import { cx } from "../../../components/ui/cx";
-import { EmojiToken, StickerButton, StickerCard } from "../../../components/ui/sticker";
+import { EmojiToken, Pill, StickerButton, StickerCard } from "../../../components/ui/sticker";
+import { Input } from "../../../components/ui/field";
+import { EmptyState } from "../../../components/ui/empty-state";
 import { type FeedJam, loadFeed } from "../../../components/feed/jam";
 import { usePlatformClient } from "../../../components/use-platform-client";
 import { useHostAuth } from "../../../lib/use-host-auth";
@@ -129,12 +131,16 @@ export default function JamPage({
   }
   if (jam === "missing") {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 p-10 text-center min-h-full">
-        <div className="text-5xl">🧸</div>
-        <div className="font-extrabold text-lg">this jam wandered off</div>
-        <button onClick={() => router.push("/")} className="font-bold text-pink">
-          ‹ back to Discover
-        </button>
+      <div className="screen items-center justify-center">
+        <EmptyState
+          emoji="🧸"
+          title="this jam wandered off"
+          action={
+            <StickerButton color="white" size="sm" onClick={() => router.push("/")}>
+              ‹ back to Discover
+            </StickerButton>
+          }
+        />
       </div>
     );
   }
@@ -145,13 +151,13 @@ export default function JamPage({
       : null;
 
   return (
-    <div className="flex flex-col gap-3 px-5 pt-5 pb-6 bg-cream min-h-full">
+    <div className="screen gap-3">
       <div className="flex items-center gap-2.5">
-        <button onClick={() => router.push("/")} className="text-[15px] font-bold text-muted">
+        <button onClick={() => router.push("/")} className="focus-ring text-body font-bold text-muted">
           ‹ Discover
         </button>
         {avg && (
-          <span className="ml-auto text-xs font-bold text-muted">
+          <span className="ml-auto text-tiny font-bold text-muted">
             ★ {avg} · {reviews.length} humans
           </span>
         )}
@@ -161,27 +167,29 @@ export default function JamPage({
       <StickerCard className="p-4 flex items-center gap-3 shadow-sticker-md">
         <EmojiToken emoji={jam.iconEmoji} color="blue" size={56} rounded="toy" />
         <div className="flex flex-col gap-0.5 min-w-0">
-          <div className="font-extrabold text-lg truncate">{jam.name}</div>
-          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-muted">
+          <div className="font-extrabold text-h3 truncate">{jam.name}</div>
+          <div className="flex items-center gap-1.5 text-small font-semibold text-muted">
             by @{jam.maker.username}{" "}
             {jam.maker.verified && <VerifiedBadge variant="pill" />}
           </div>
         </div>
-        <button
+        <StickerButton
+          color="pink"
+          size="sm"
           onClick={() => router.push(`/app/${jam.slug}`)}
-          className="ml-auto bg-pink text-white border-2 border-ink rounded-full px-5 py-2 text-sm font-extrabold shadow-sticker-sm sticker-press"
+          className="ml-auto rounded-full px-5"
         >
           Play
-        </button>
+        </StickerButton>
       </StickerCard>
 
       {/* chain facts */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        {jam.ensName && <NameTag name={jam.ensName} href={basescan(jam.ensName)} />}
+        {jam.ensName && <NameTag name={jam.ensName} href={ensApp(jam.ensName)} />}
         {jam.remixOf && (
-          <span className="bg-card border-2 border-ink rounded-full px-2.5 py-1 text-[10.5px] font-extrabold">
+          <Pill className="text-tiny">
             🔁 remix of {jam.remixOf.name} <span className="text-blue">↗</span>
-          </span>
+          </Pill>
         )}
       </div>
 
@@ -196,7 +204,7 @@ export default function JamPage({
       </div>
 
       <div className="flex bg-card border-2 border-ink rounded-full p-1">
-        <div className="flex-1 rounded-full py-2 text-center text-[13.5px] font-extrabold bg-ink text-cream">
+        <div className="flex-1 rounded-full py-2 text-center text-small font-extrabold bg-ink text-cream">
           ★ Reviews · {reviews.length}
         </div>
       </div>
@@ -233,7 +241,7 @@ export default function JamPage({
                 key={n}
                 onClick={() => setDraftRating(n)}
                 className={cx(
-                  "text-2xl leading-none",
+                  "focus-ring text-2xl leading-none",
                   n <= draftRating ? "opacity-100" : "opacity-30"
                 )}
                 aria-label={`${n} stars`}
@@ -243,12 +251,12 @@ export default function JamPage({
             ))}
           </div>
           <div className="flex gap-2">
-            <input
+            <Input
               value={draftText}
               onChange={(e) => setDraftText(e.target.value)}
               maxLength={280}
               placeholder="say something…"
-              className="flex-1 bg-card border-2 border-ink rounded-full px-4 py-3 text-[13.5px] font-semibold placeholder:text-muted outline-none focus:border-pink"
+              className="flex-1 rounded-full text-small"
             />
             <StickerButton
               color="yellow"
@@ -260,14 +268,14 @@ export default function JamPage({
             </StickerButton>
           </div>
           {verified ? (
-            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-muted">
+            <div className="flex items-center justify-center gap-1.5 text-tiny font-bold text-muted">
               <VerifiedBadge />
               prove you're human once with World ID — no bots in here
             </div>
           ) : (
             <button
               onClick={() => setGate(true)}
-              className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-blue sticker-press"
+              className="focus-ring flex items-center justify-center gap-1.5 text-tiny font-extrabold text-blue sticker-press"
             >
               <VerifiedBadge />
               Verify with World ID to review →
@@ -292,18 +300,18 @@ function ReviewCard({ r, tilt }: { r: Review; tilt: number }) {
     <StickerCard color="white" className="p-3.5 flex flex-col gap-1.5" tilt={tilt}>
       <div className="flex items-center gap-2">
         <EmojiToken emoji="🙂" color="green" size={30} />
-        <span className="font-extrabold text-sm">@{r.username}</span>
+        <span className="font-extrabold text-small">@{r.username}</span>
         {r.worldVerified && <VerifiedBadge variant="pill" />}
-        <span className="ml-auto text-[11.5px] font-semibold text-muted">
+        <span className="ml-auto text-tiny font-semibold text-muted">
           {ago(r.createdAt)}
         </span>
       </div>
-      <div className="text-amber-ink text-sm font-extrabold tracking-wide">
+      <div className="text-amber-ink text-small font-extrabold tracking-wide">
         {"★".repeat(r.rating)}
         <span className="text-muted/40">{"★".repeat(5 - r.rating)}</span>
       </div>
       {r.text && (
-        <div className="text-[13.5px] font-semibold leading-snug">{r.text}</div>
+        <div className="text-small font-semibold leading-snug">{r.text}</div>
       )}
     </StickerCard>
   );

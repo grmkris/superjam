@@ -7,8 +7,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NameTag } from "../../components/name-tag";
 import { Handle } from "../../components/verified-badge";
-import { basescan } from "../../components/ui/brand";
+import { ensApp } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
+import { Badge } from "../../components/ui/badge";
+import { EmptyState } from "../../components/ui/empty-state";
 import { usePlatformClient } from "../../components/use-platform-client";
 
 interface AgentCard {
@@ -44,10 +46,10 @@ export default function AgentsPage() {
   }, [client]);
 
   return (
-    <div className="flex flex-col gap-4 px-5 pt-5 pb-6 bg-cream min-h-full">
+    <div className="screen">
       <div className="flex flex-col gap-1">
-        <div className="text-[30px] font-extrabold leading-tight">Builders</div>
-        <div className="text-[14px] font-medium text-muted">
+        <div className="text-h1 font-extrabold">Builders</div>
+        <div className="text-body font-medium text-muted">
           AI builders, each backed by a real human ✓ — pick one to make your jam.
         </div>
       </div>
@@ -55,13 +57,9 @@ export default function AgentsPage() {
       {agents === null ? (
         <div className="p-6 text-muted font-semibold">loading…</div>
       ) : agents.length === 0 ? (
-        <StickerCard color="cream" className="p-6 flex flex-col items-center gap-2 text-center">
-          <div className="text-4xl">🛠️</div>
-          <div className="font-extrabold">No builders yet</div>
-          <div className="text-[13px] font-semibold text-muted">
-            Register your AI as a builder — it earns USDC per jam.
-          </div>
-        </StickerCard>
+        <EmptyState emoji="🛠️" title="No builders yet">
+          Register your AI as a builder — it earns USDC per jam.
+        </EmptyState>
       ) : (
         <div className="flex flex-col gap-3">
           {agents.map((a) => {
@@ -75,27 +73,26 @@ export default function AgentsPage() {
               <StickerCard className="p-4 flex items-center gap-3 sticker-press w-full">
                 <EmojiToken emoji="🛠️" color="blue" size={48} rounded="toy" />
                 <div className="flex flex-col min-w-0 gap-0.5">
-                  <div className="font-extrabold text-[15.5px] truncate">{a.name}</div>
+                  <div className="font-extrabold text-body truncate">{a.name}</div>
                   <Handle
                     username={a.owner.username}
                     verified={a.owner.worldVerified}
                     muted
-                    className="text-[12px]"
+                    className="text-small"
                   />
                   {a.ensName && (
-                    <NameTag name={a.ensName} state="minted" href={basescan(a.ensName)} />
+                    <NameTag name={a.ensName} state="minted" href={ensApp(a.ensName)} />
                   )}
-                  <div className="text-[12px] font-semibold text-muted">
+                  <div className="text-small font-semibold text-muted">
                     {a.buildsCount.toLocaleString()} jams built
                   </div>
                 </div>
-                <span
-                  className={`ml-auto self-start border-2 border-ink rounded-full px-3 py-1 text-[13px] font-extrabold ${
-                    free ? "bg-green text-ink" : "bg-pink text-white"
-                  }`}
+                <Badge
+                  color={free ? "green" : "pink"}
+                  className="ml-auto self-start px-3 py-1 text-small"
                 >
                   {free ? "Free" : `${a.priceUsdc} USDC`}
-                </span>
+                </Badge>
               </StickerCard>
               </button>
             );

@@ -4,6 +4,8 @@
 // jam / challenge to (from the feed or a jam page). Sends via chat.shareJam and
 // shows a quick "sent ✓" before closing.
 import { useEffect, useState } from "react";
+import { ToyboxSheet } from "../ui/sheet";
+import { Skeleton } from "../ui/skeleton";
 import { EmojiToken, StickerButton, StickerCard } from "../ui/sticker";
 import { VerifiedBadge } from "../verified-badge";
 import { usePlatformClient } from "../use-platform-client";
@@ -48,38 +50,45 @@ export function FriendPicker({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <button aria-label="Dismiss" onClick={onClose} className="absolute inset-0 bg-ink/40" />
-      <div className="relative w-full max-w-[460px] bg-cream border-t-2 border-ink rounded-t-toy-lg px-5 pt-4 pb-8 flex flex-col gap-3 max-h-[70dvh] overflow-y-auto text-ink">
-        <div className="text-lg font-extrabold">
-          {title ?? (challenge ? "⚔ Challenge a friend" : "Send to a friend")}
-        </div>
-        {friends === null ? (
-          <div className="text-muted font-semibold py-4">loading…</div>
-        ) : friends.length === 0 ? (
-          <div className="text-muted font-semibold py-4 text-center">
-            add a friend first (Inbox → Friends)
-          </div>
-        ) : (
-          friends.map((f) => (
-            <StickerCard key={f.id} className="p-3 flex items-center gap-3">
-              <EmojiToken emoji="🙂" color="green" size={36} />
-              <span className="font-extrabold">@{f.username}</span>
-              {f.worldVerified && <VerifiedBadge />}
-              <button
-                onClick={() => send(f.username)}
-                disabled={sentTo === f.username}
-                className="ml-auto bg-pink text-white border-2 border-ink rounded-full px-4 py-1.5 text-xs font-extrabold shadow-sticker-sm sticker-press"
-              >
-                {sentTo === f.username ? "sent ✓" : challenge ? "Challenge" : "Send"}
-              </button>
-            </StickerCard>
-          ))
-        )}
-        <StickerButton color="white" size="md" block onClick={onClose}>
-          Cancel
-        </StickerButton>
+    <ToyboxSheet
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title={title ?? (challenge ? "Challenge a friend" : "Send to a friend")}
+    >
+      <div className="text-h3 font-extrabold">
+        {title ?? (challenge ? "⚔ Challenge a friend" : "Send to a friend")}
       </div>
-    </div>
+      {friends === null ? (
+        <div className="flex flex-col gap-2.5 py-1">
+          <Skeleton className="h-14" />
+          <Skeleton className="h-14" />
+          <Skeleton className="h-14" />
+        </div>
+      ) : friends.length === 0 ? (
+        <div className="text-muted font-semibold py-4 text-center">
+          add a friend first (Inbox → Friends)
+        </div>
+      ) : (
+        friends.map((f) => (
+          <StickerCard key={f.id} className="p-3 flex items-center gap-3">
+            <EmojiToken emoji="🙂" color="green" size={36} />
+            <span className="font-extrabold">@{f.username}</span>
+            {f.worldVerified && <VerifiedBadge />}
+            <button
+              onClick={() => send(f.username)}
+              disabled={sentTo === f.username}
+              className="focus-ring ml-auto bg-pink text-white border-2 border-ink rounded-full px-4 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+            >
+              {sentTo === f.username ? "sent ✓" : challenge ? "Challenge" : "Send"}
+            </button>
+          </StickerCard>
+        ))
+      )}
+      <StickerButton color="white" size="md" block onClick={onClose}>
+        Cancel
+      </StickerButton>
+    </ToyboxSheet>
   );
 }

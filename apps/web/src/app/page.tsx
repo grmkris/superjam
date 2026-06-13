@@ -9,6 +9,8 @@ import { useEffect, useState } from "react";
 import { JamFeedCard } from "../components/feed/jam-feed-card";
 import { type FeedJam, type FeedTab, loadFeed } from "../components/feed/jam";
 import { cx } from "../components/ui/cx";
+import { Skeleton } from "../components/ui/skeleton";
+import { StickerButton } from "../components/ui/sticker";
 import { usePlatformClient } from "../components/use-platform-client";
 
 const TABS: { key: FeedTab; label: string }[] = [
@@ -44,8 +46,9 @@ export default function DiscoverPage() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
+              aria-pressed={tab === t.key}
               className={cx(
-                "flex-1 text-center border-2 border-ink rounded-full px-4 py-1.5 text-[13.5px]",
+                "focus-ring flex-1 text-center border-2 border-ink rounded-full px-4 py-1.5 text-small",
                 tab === t.key
                   ? "bg-ink text-cream font-bold"
                   : "bg-white/85 text-ink font-semibold"
@@ -80,12 +83,14 @@ export default function DiscoverPage() {
 }
 
 function FeedSkeleton() {
+  // Toybox Skeleton, restyled white-translucent to read on the blue bleed.
+  const wash = "bg-white/30 border-2 border-ink/40";
   return (
     <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
-      <div className="w-[140px] h-[140px] rounded-toy-lg bg-white/30 border-2 border-ink/40 animate-pulse" />
-      <div className="w-40 h-7 rounded-full bg-white/30 border-2 border-ink/40 animate-pulse" />
-      <div className="w-64 h-12 rounded-2xl bg-white/30 border-2 border-ink/40 animate-pulse" />
-      <div className="w-36 h-12 rounded-full bg-white/30 border-2 border-ink/40 animate-pulse" />
+      <Skeleton className={cx("size-[140px] rounded-toy-lg", wash)} />
+      <Skeleton className={cx("w-40 h-7 rounded-full", wash)} />
+      <Skeleton className={cx("w-64 h-12 rounded-2xl", wash)} />
+      <Skeleton className={cx("w-36 h-12 rounded-full", wash)} />
     </div>
   );
 }
@@ -94,16 +99,18 @@ function EmptyFeed({ onMake }: { onMake: () => void }) {
   return (
     <div className="h-full flex flex-col items-center justify-center gap-4 px-8 text-center">
       <div className="text-6xl">🧸</div>
-      <div className="text-2xl font-extrabold text-white [text-shadow:0_3px_0_#221A33]">
+      <div className="text-h2 font-extrabold text-white ink-drop">
         nothing here yet
       </div>
       <div className="text-white/90 font-semibold">make the first jam ✨</div>
-      <button
+      <StickerButton
+        color="pink"
+        size="lg"
         onClick={onMake}
-        className="inline-flex items-center gap-2 bg-pink text-white border-[2.5px] border-ink rounded-full px-8 py-3.5 text-lg font-extrabold shadow-sticker-lg sticker-press"
+        className="rounded-full px-8 shadow-sticker-lg"
       >
         ⚡ Make a jam
-      </button>
+      </StickerButton>
     </div>
   );
 }

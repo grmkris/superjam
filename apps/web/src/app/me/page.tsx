@@ -9,8 +9,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NameTag } from "../../components/name-tag";
 import { VerifiedBadge } from "../../components/verified-badge";
-import { basescan, userEns } from "../../components/ui/brand";
+import { ensApp, userEns } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
+import { Skeleton } from "../../components/ui/skeleton";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { VerifySheet } from "../../components/verify-sheet";
 import { useHostAuth } from "../../lib/use-host-auth";
@@ -67,9 +68,9 @@ export default function ProfilePage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 px-6 text-center bg-cream min-h-full">
+      <div className="screen items-center justify-center text-center">
         <div className="text-5xl">🙂</div>
-        <div className="font-extrabold text-xl">sign in to see your profile</div>
+        <div className="font-extrabold text-h3">sign in to see your profile</div>
         <StickerButton color="pink" size="lg" onClick={() => setShowAuthFlow(true)}>
           Hop in →
         </StickerButton>
@@ -78,36 +79,40 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-5 pt-5 pb-6 bg-cream min-h-full">
+    <div className="screen">
       {/* identity */}
       <div className="flex items-center gap-3">
         <EmojiToken emoji="🙂" color="green" size={56} rounded="toy" tilt={-5} />
         <div className="flex flex-col gap-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="font-extrabold text-xl">@{me?.username ?? "you"}</span>
+            <span className="font-extrabold text-h3">@{me?.username ?? "you"}</span>
             {me?.worldVerified && <VerifiedBadge variant="pill" />}
           </div>
           <NameTag
             name={me?.ensName ?? userEns(me?.username ?? "you")}
             state={me?.ensName ? "minted" : "pending"}
-            href={me?.ensName ? basescan(me.ensName) : undefined}
+            href={me?.ensName ? ensApp(me.ensName) : undefined}
           />
         </div>
       </div>
 
       {/* wallet block — USDC balance as the hero number */}
       <StickerCard color="white" className="p-5 flex flex-col gap-1 shadow-sticker-md">
-        <div className="text-[11px] font-extrabold uppercase tracking-wide text-muted">
+        <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
           your balance
         </div>
-        <div className="text-[44px] font-extrabold leading-none">
-          {balance === "loading" ? "…" : (balance ?? "0.00")}{" "}
-          <span className="text-2xl text-muted">USDC</span>
-        </div>
+        {balance === "loading" ? (
+          <Skeleton className="mt-1 h-11 w-44" />
+        ) : (
+          <div className="text-hero font-extrabold">
+            {balance ?? "0.00"}{" "}
+            <span className="text-2xl text-muted">USDC</span>
+          </div>
+        )}
         {me?.walletAddress && (
           <button
             onClick={() => navigator.clipboard?.writeText(me.walletAddress!).catch(() => {})}
-            className="self-start mt-1 font-mono text-[12px] font-semibold text-muted"
+            className="focus-ring self-start mt-1 font-mono text-small font-semibold text-muted"
           >
             {short(me.walletAddress)} 📋
           </button>
@@ -118,35 +123,37 @@ export default function ProfilePage() {
       <StickerCard color={me?.worldVerified ? "white" : "cream"} className="p-4 flex items-center gap-3">
         <EmojiToken emoji="🌍" color={me?.worldVerified ? "green" : "yellow"} size={40} rounded="toy" />
         <div className="flex flex-col">
-          <div className="font-extrabold text-[15px]">
+          <div className="font-extrabold text-body">
             {me?.worldVerified ? "Verified human ✓" : "Not verified yet"}
           </div>
-          <div className="text-[12px] font-semibold text-muted">
+          <div className="text-small font-semibold text-muted">
             {me?.worldVerified ? "World ID · one human, one account" : "verify to publish, review & build"}
           </div>
         </div>
         {!me?.worldVerified && (
-          <button
+          <StickerButton
+            color="green"
+            size="sm"
             onClick={() => setVerifying(true)}
-            className="ml-auto bg-green text-ink border-2 border-ink rounded-full px-3.5 py-2 text-sm font-extrabold shadow-sticker-sm sticker-press"
+            className="ml-auto rounded-full"
           >
             Verify
-          </button>
+          </StickerButton>
         )}
       </StickerCard>
 
       {/* registered builders */}
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline">
-          <div className="text-[13px] font-extrabold uppercase tracking-wide text-muted">
+          <div className="text-small font-extrabold uppercase tracking-wide text-muted">
             your builders
           </div>
-          <span className="ml-auto text-[12px] font-bold text-muted">{builders.length}</span>
+          <span className="ml-auto text-small font-bold text-muted">{builders.length}</span>
         </div>
         {builders.length === 0 ? (
           <button
             onClick={() => router.push("/agents/register")}
-            className="self-start text-[13px] font-bold text-blue"
+            className="focus-ring self-start text-small font-bold text-blue"
           >
             register one →
           </button>
@@ -155,12 +162,12 @@ export default function ProfilePage() {
             <StickerCard key={b.id} className="p-3.5 flex items-center gap-3">
               <EmojiToken emoji="🛠️" color="blue" size={40} rounded="toy" />
               <div className="flex flex-col min-w-0">
-                <div className="font-extrabold text-[15px] truncate">{b.name}</div>
-                <div className="text-[12px] font-semibold text-muted">
+                <div className="font-extrabold text-body truncate">{b.name}</div>
+                <div className="text-small font-semibold text-muted">
                   {b.buildsCount.toLocaleString()} jams built
                 </div>
               </div>
-              {b.ensName && <NameTag name={b.ensName} href={basescan(b.ensName)} className="ml-auto" />}
+              {b.ensName && <NameTag name={b.ensName} href={ensApp(b.ensName)} className="ml-auto" />}
             </StickerCard>
           ))
         )}

@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ROOT, userEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
+import { Badge } from "../../components/ui/badge";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { usePlatformClient } from "../../components/use-platform-client";
@@ -128,7 +129,7 @@ export default function WelcomePage() {
       <span className="pointer-events-none absolute top-64 left-12 text-sm rotate-[8deg]">✨</span>
       <span className="pointer-events-none absolute bottom-40 right-10 text-lg rotate-[-8deg]">🏷️</span>
 
-      <div className="relative flex flex-1 flex-col justify-center gap-6 px-7 py-16">
+      <div className="relative flex flex-1 flex-col justify-center gap-6 px-5 py-16">
         {step === "email" ? (
           <EmailBeat
             email={email}
@@ -167,15 +168,15 @@ function EmailBeat({
       <div className="flex flex-col items-center gap-2.5">
         <EmojiToken emoji="⚡" color="yellow" size={84} tilt={-6} className="shadow-sticker-lg" />
         <div className="flex flex-col items-center gap-0.5">
-          <div className="text-3xl font-extrabold">superjam</div>
-          <div className="text-pink text-[15px] font-semibold">
+          <div className="text-h1 font-extrabold">superjam</div>
+          <div className="text-pink text-body font-semibold">
             make a jam. share the jam.
           </div>
         </div>
       </div>
 
       <StickerCard className="p-5 flex flex-col gap-3 shadow-sticker-lg" tilt={0}>
-        <div className="text-center text-[14.5px] font-bold">
+        <div className="text-center text-body font-bold">
           Hop in — just your email
         </div>
         <form
@@ -189,16 +190,17 @@ function EmailBeat({
             type="email"
             inputMode="email"
             autoComplete="email"
+            aria-label="Email address"
             placeholder="your email…"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="bg-cream border-2 border-ink rounded-toy px-4 py-3.5 text-[15px] font-semibold placeholder:text-muted outline-none focus:border-pink"
+            className="bg-cream border-2 border-ink rounded-toy px-4 py-3.5 text-body font-semibold placeholder:text-muted outline-none focus:border-pink"
           />
           <StickerButton type="submit" color="pink" size="lg" block disabled={!ready}>
             Continue →
           </StickerButton>
         </form>
-        <div className="text-center text-xs font-medium text-muted leading-snug px-1">
+        <div className="text-center text-tiny font-medium text-muted leading-snug px-1">
           a wallet appears with it — nothing to install, no seed phrase, no
           extension.
         </div>
@@ -227,10 +229,10 @@ function ClaimBeat({
     <>
       <div className="flex flex-col items-center gap-2">
         <EmojiToken emoji="🙂" color="green" size={72} rounded="toy" tilt={-6} />
-        <div className="text-[30px] font-extrabold leading-tight text-center">
+        <div className="text-h1 font-extrabold text-center">
           Claim your name
         </div>
-        <div className="text-[14.5px] font-medium text-muted text-center">
+        <div className="text-body font-medium text-muted text-center">
           it's yours on the chain — forever
         </div>
       </div>
@@ -253,11 +255,12 @@ function ClaimBeat({
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
+            aria-label="Your name"
             placeholder="your-name"
-            className="font-mono text-[14.5px] font-bold bg-transparent outline-none w-[7.5ch] min-w-0"
+            className="font-mono text-body font-bold bg-transparent outline-none w-[7.5ch] min-w-0"
           />
           <span className="inline-block w-0.5 h-4 bg-pink" />
-          <span className="font-mono text-[14.5px] font-medium text-muted">
+          <span className="font-mono text-body font-medium text-muted">
             .{ROOT}
           </span>
           <span className="ml-auto">{availChip(state)}</span>
@@ -265,26 +268,26 @@ function ClaimBeat({
 
         {/* every jam hangs under it */}
         <div className="bg-cream border-2 border-ink rounded-xl px-3 py-2.5 flex flex-col gap-2">
-          <div className="text-[11px] font-extrabold uppercase tracking-wide text-muted">
+          <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             Every jam you make hangs under it
           </div>
           {previews.map((p, i) => (
             <div key={p} className="flex items-center gap-1.5">
               <span
                 className={cx(
-                  "w-1.5 h-1.5 rounded-full border-[1.5px] border-ink shrink-0",
+                  "size-1.5 rounded-full border-[1.5px] border-ink shrink-0",
                   i === 0 ? "bg-yellow" : "bg-blue"
                 )}
               />
-              <span className="font-mono text-[12px] font-semibold">
+              <span className="font-mono text-small font-semibold">
                 {p}
                 <span className="text-muted">.{fullEns}</span>
               </span>
             </div>
           ))}
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full border-[1.5px] border-dashed border-muted bg-card shrink-0" />
-            <span className="font-mono text-[12px] font-semibold text-muted">
+            <span className="size-1.5 rounded-full border-[1.5px] border-dashed border-muted bg-card shrink-0" />
+            <span className="font-mono text-small font-semibold text-muted">
               your-next-jam.{fullEns}
             </span>
           </div>
@@ -307,20 +310,12 @@ function ClaimBeat({
 function availChip(state: NameState) {
   switch (state) {
     case "available":
-      return (
-        <span className="inline-flex items-center gap-1 bg-green border-2 border-ink rounded-full px-2.5 py-0.5 text-[11px] font-extrabold">
-          ✓ free
-        </span>
-      );
+      return <Badge color="green">✓ free</Badge>;
     case "taken":
-      return (
-        <span className="inline-flex items-center gap-1 bg-pink text-white border-2 border-ink rounded-full px-2.5 py-0.5 text-[11px] font-extrabold">
-          taken
-        </span>
-      );
+      return <Badge color="pink">taken</Badge>;
     case "invalid":
       return (
-        <span className="text-[11px] font-bold text-pink">a–z, 0–9, –</span>
+        <span className="text-tiny font-bold text-pink">a–z, 0–9, –</span>
       );
     default:
       return null;
