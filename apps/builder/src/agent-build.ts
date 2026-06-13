@@ -19,7 +19,7 @@ import {
   type HookJSONOutput,
 } from "@anthropic-ai/claude-agent-sdk";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import type { AppSpec } from "@superjam/shared";
@@ -30,6 +30,16 @@ import { loadRecipes } from "./recipes.ts";
 // Per-build caps on generated assets (cost + deploy size guard).
 const IMAGE_BUDGET = 8;
 const VOICE_BUDGET = 4;
+
+// Where build workspaces live. PERSISTED (not tmp, not deleted) so a shipped
+// jam's source survives for fixing/redeploying — losing it under tmpdir is why
+// earlier demo apps became unfixable. Override with BUILD_WORKSPACE_ROOT.
+const workspaceRoot = (): string =>
+  process.env.BUILD_WORKSPACE_ROOT ?? join(homedir(), "superjam-builds");
+
+// Heavy, regenerable dirs we strip from a finished workspace so the persisted
+// copy stays a lightweight SOURCE archive (a build can `npm i` to restore them).
+const HEAVY_DIRS = ["node_modules", ".next", ".vercel", ".git"];
 
 /**
  * In-process MCP server giving the agent build-time asset generation: generate_image
@@ -197,8 +207,15 @@ From the working directory run the Vercel CLI. Use the project name given in the
 - Data app: \`vercel deploy --yes --prod --env DATABASE_URL=<pooled-dsn> --build-env DATABASE_URL=<pooled-dsn>\`
 The public production URL is https://<project>.vercel.app. Verify the deploy succeeded before reporting done.
 
+## Onchain games (ONLY when the spec's skills include "onchain")
+The workspace has a \`contracts/\` Foundry project (self-contained — no OpenZeppelin / installs). The flow:
+1. Edit \`contracts/src/Game.sol\` (keep the contract name \`Game\`) to fit the game. RULES: keep it operator-gated — every state-changing fn is \`onlyOperator\` and takes \`address player\` as its FIRST argument (the platform stamps the real player; the app passes only the trailing args). \`constructor(address operator_)\` sets the operator. Reads are open \`view\` fns. Stay dependency-free (write any token/NFT logic inline; do NOT import). See the onchain recipe for worked coinflip/dice/tic-tac-toe/token/NFT contracts.
+2. Deploy: \`bash contracts/deploy.sh\` — it compiles + deploys to Arc and prints \`{"address":"0x…","abi":[…]}\` as one JSON line (env ARC_DEPLOYER_KEY + ARC_OPERATOR_ADDRESS are set on the box).
+3. Create \`lib/contract.ts\` exporting \`CONTRACT_ADDRESS\` + \`CONTRACT_ABI\` (handy reference; the app reaches the chain through the SDK, not viem).
+4. Play via the SDK — GASLESS, server-relayed: \`await sdk.onchain.write({ fn: "move", args: [...] })\` → \`{hash}\` (player auto-stamped; NEVER pass an address as the first arg) and \`await sdk.onchain.read({ fn: "stateOf", args: [addr] })\` (view; big numbers return as decimal strings — \`BigInt(x)\`). Gate value-ish actions on \`ctx.user.worldVerified\`.
+
 ## Reporting
-You MUST stream progress and exactly ONE terminal result via the callback in the task. The build is only recorded when you POST \`done\` (with the live URL + the projects you created) or \`failed\`.
+You MUST stream progress and exactly ONE terminal result via the callback in the task. The build is only recorded when you POST \`done\` (with the live URL + the projects you created) or \`failed\`. For an onchain game, include the deployed \`contractAddress\` + \`contractAbi\` in the \`done\` payload (write the JSON body to a file and \`curl … -d @done.json\` — the ABI is too big for an inline \`-d\` string) so the platform wires sdk.onchain to your contract.
 
 Below: the authoritative SuperJam SDK reference, then the archetype recipes that match this spec — imitate the closest one.`;
 
@@ -229,7 +246,14 @@ On success (the production URL + the projects you created):
   curl -s -X POST ${url} -H "Authorization: Bearer ${args.reportToken}" -H "Content-Type: application/json" -d '{"kind":"done","entryUrl":"https://${project}.vercel.app","vercelProject":"${project}","neonProjectId":"<neon project id, or omit if no DB>"}'
 On unrecoverable failure:
   curl -s -X POST ${url} -H "Authorization: Bearer ${args.reportToken}" -H "Content-Type: application/json" -d '{"kind":"failed","error":"<what went wrong>"}'
-
+${
+  args.spec.skills?.includes("onchain")
+    ? `Onchain game — build the done body in a file (the ABI is too big to inline) and POST it:
+  jq -nc --arg u "https://${project}.vercel.app" --arg p "${project}" --arg a "$CONTRACT_ADDR" --argjson abi "$CONTRACT_ABI" '{kind:"done",entryUrl:$u,vercelProject:$p,contractAddress:$a,contractAbi:$abi}' > done.json
+  curl -s -X POST ${url} -H "Authorization: Bearer ${args.reportToken}" -H "Content-Type: application/json" -d @done.json
+`
+    : ""
+}
 Send the final done/failed exactly once, last.`;
 };
 
@@ -240,7 +264,10 @@ Send the final done/failed exactly once, last.`;
  * queue marks the build failed if no terminal report landed).
  */
 export const runAgentBuild = async (args: AgentBuildArgs): Promise<void> => {
-  const ws = await mkdtemp(join(tmpdir(), "sj-build-"));
+  const root = workspaceRoot();
+  await mkdir(root, { recursive: true });
+  // Findable by slug, collision-free (buildId is unique, but mkdtemp guarantees it).
+  const ws = await mkdtemp(join(root, `${args.spec.slug}-`));
   try {
     const base = generateApp(args.spec, {
       buildId: args.buildId,
@@ -287,6 +314,12 @@ export const runAgentBuild = async (args: AgentBuildArgs): Promise<void> => {
       // drain — the result is delivered by the agent's /report callbacks.
     }
   } finally {
-    await rm(ws, { recursive: true, force: true });
+    // Keep the SOURCE (do not delete ws); just strip the heavy regenerable dirs
+    // so the persisted workspace stays small. The app's source remains editable
+    // + redeployable at this path.
+    await Promise.all(
+      HEAVY_DIRS.map((d) => rm(join(ws, d), { recursive: true, force: true }))
+    );
+    console.log(`[build] workspace persisted: ${ws}`);
   }
 };
