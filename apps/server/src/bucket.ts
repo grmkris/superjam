@@ -9,6 +9,9 @@ export interface BlobStore {
   get(key: string): Promise<Uint8Array | null>;
   put(key: string, data: Uint8Array | string, contentType: string): Promise<void>;
   list(prefix: string): Promise<string[]>;
+  /** A time-limited public GET URL for `key` — handed to the builder agent so it
+   *  can fetch user attachments off the box. Throws if the store isn't configured. */
+  presignGet(key: string, expiresInSec: number): string;
 }
 
 export const createS3Store = (env: ServerEnv): BlobStore => {
@@ -58,6 +61,13 @@ export const createS3Store = (env: ServerEnv): BlobStore => {
       const res = await c.list({ prefix, maxKeys: 1000 });
       return (res.contents ?? []).map((o) => o.key);
     },
+    presignGet(key, expiresInSec) {
+      const c = getClient();
+      if (!c) {
+        throw new Error("bucket not configured");
+      }
+      return c.presign(key, { method: "GET", expiresIn: expiresInSec });
+    },
   };
 };
 
@@ -76,5 +86,6 @@ export const createMemoryStore = (): BlobStore => {
     },
     list: (prefix) =>
       Promise.resolve([...map.keys()].filter((k) => k.startsWith(prefix))),
+    presignGet: (key) => `memory://${key}`,
   };
 };

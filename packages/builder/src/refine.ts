@@ -45,6 +45,12 @@ export interface RefineInput {
    * platform skips it on adjust re-refines and remixes for wizard latency).
    */
   catalog?: RefineCatalogApp[];
+  /**
+   * Reference images the user attached to the build prompt (data URLs or http
+   * URLs). Fed to Gemini as vision so the spec reflects a sketch/mockup. Non-image
+   * attachments (CSV/PDF) are NOT sent here — they go to the builder agent.
+   */
+  images?: string[];
 }
 
 /**
@@ -55,6 +61,7 @@ export interface RefineInput {
 export type RefineGenerator = (args: {
   system: string;
   prompt: string;
+  images?: string[];
 }) => Promise<RefineResult>;
 
 const SYSTEM = `You are SuperJam's app-idea refiner. The user wants a small,
@@ -156,15 +163,32 @@ export const filterSimilar = (
   return { ...result, similar: kept.length ? kept : undefined };
 };
 
+// data URL passes through; an http(s) URL becomes a URL the AI SDK fetches.
+const toImageData = (s: string): string | URL =>
+  s.startsWith("data:") ? s : new URL(s);
+
 const geminiGenerator =
   (model: LanguageModel): RefineGenerator =>
-  async ({ system, prompt }) => {
-    const { object } = await generateObject({
-      model,
-      schema: RefineResultSchema,
-      system,
-      prompt,
-    });
+  async ({ system, prompt, images }) => {
+    // With reference images, send a multimodal user message; otherwise the plain
+    // prompt string (cheaper, unchanged behaviour).
+    const common = { model, schema: RefineResultSchema, system } as const;
+    if (images?.length) {
+      const { object } = await generateObject({
+        ...common,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              ...images.map((img) => ({ type: "image" as const, image: toImageData(img) })),
+            ],
+          },
+        ],
+      });
+      return object;
+    }
+    const { object } = await generateObject({ ...common, prompt });
     return object;
   };
 
@@ -179,6 +203,6 @@ export const refine = async (
   const generate =
     deps.generate ?? geminiGenerator(deps.model ?? google(DEFAULT_REFINE_MODEL));
   const { system, prompt } = buildPrompt(input);
-  const result = await generate({ system, prompt });
+  const result = await generate({ system, prompt, images: input.images });
   return filterSimilar(result, input.catalog);
 };

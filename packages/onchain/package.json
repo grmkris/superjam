@@ -14,9 +14,13 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@circle-fin/x402-batching": "3.0.4",
     "@superjam/contracts": "workspace:*",
     "@superjam/shared": "workspace:*",
     "@unlink-xyz/sdk": "0.3.0-canary.598",
+    "@x402/core": "2.15.0",
+    "@x402/evm": "2.15.0",
+    "@x402/fetch": "2.15.0",
     "viem": "catalog:",
     "zod": "catalog:"
   },

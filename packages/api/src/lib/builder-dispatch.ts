@@ -5,6 +5,7 @@
 // not bundles. A `BuildDeployer` is the seam the build driver depends on; tests
 // inject a stub so no live builder is needed.
 import type {
+  DeployEvent,
   DeployResult,
   TeardownArgs,
   TeardownResult,
@@ -19,6 +20,13 @@ export interface DeployRequest {
   /** The routed agent's coding model (Opus vs Sonnet) — the builder forwards it to
    *  its agent (`runAgentBuild` already accepts `model`). Absent ⇒ builder default. */
   model?: string | null;
+  /** Presigned GET URLs for user-attached reference files (images/CSV/Excel/PDF).
+   *  Time-limited + public so the off-box builder agent can fetch them (§17). */
+  attachmentUrls?: string[];
+  /** Called on each poll with the builder's latest step events, so the caller can
+   *  persist them to build.events (live timeline + history). In-process only —
+   *  NOT serialized to the builder (the POST body picks data fields explicitly). */
+  onProgress?: (events: DeployEvent[]) => void;
 }
 
 export type BuildDeployer = (req: DeployRequest) => Promise<DeployResult>;
@@ -42,6 +50,8 @@ interface BuilderStatus {
   status: "running" | "done" | "failed";
   result?: DeployResult;
   error?: string;
+  /** The builder's step timeline so far (mirrored into build.events). */
+  events?: DeployEvent[];
 }
 
 const defaultSleep = (ms: number): Promise<void> =>
@@ -59,11 +69,11 @@ export const createRemoteDeployer = (
     "content-type": "application/json",
   };
 
-  return async ({ spec, buildId, appId, model }) => {
+  return async ({ spec, buildId, appId, model, attachmentUrls, onProgress }) => {
     const accept = await doFetch(`${base}/builds`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ spec, buildId, appId, model }),
+      body: JSON.stringify({ spec, buildId, appId, model, attachmentUrls }),
     });
     if (accept.status === 429) {
       // Builder busy — surface so the platform FIFO holds + retries.
@@ -83,6 +93,9 @@ export const createRemoteDeployer = (
         continue;
       }
       const body = (await res.json()) as BuilderStatus;
+      // Mirror the builder's step timeline into the caller (→ build.events) so the
+      // live workshop + history read real progress from the DB.
+      if (body.events?.length) onProgress?.(body.events);
       if (body.status === "done" && body.result) return body.result;
       if (body.status === "failed") {
         throw new Error(body.error ?? "build failed");

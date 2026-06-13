@@ -3,6 +3,7 @@
 // session user. Every call validates the app (exists, not delisted) first.
 import {
   AppId,
+  ATTACH_MAX_MB,
   DmCardSchema,
   KEY_MAX_LEN,
   LIST_MAX,
@@ -12,6 +13,11 @@ import {
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { requireApp } from "../lib/app-context.ts";
+import {
+  decodeBase64,
+  sniffImageMime,
+  storeAttachment,
+} from "../lib/attachments.ts";
 import { protectedProcedure } from "../orpc.ts";
 import { createAiBridge } from "./bridge-ai.ts";
 import { createChatService } from "../services/chat-service.ts";
@@ -316,12 +322,44 @@ const social = {
     }),
 };
 
+// sdk.files.upload — a sandboxed jam uploads a blob (e.g. a canvas drawing for the
+// AI judge). The SDK strips the data-URL prefix, so we sniff the image type from
+// magic bytes. Returns { id: key, url: presigned-GET } — the url feeds sdk.ai.chat
+// images or is shown to the user.
+const files = {
+  upload: protectedProcedure
+    .input(
+      z.object({
+        appId: AppId,
+        dataBase64: z.string().min(1).max(Math.ceil(ATTACH_MAX_MB * 1024 * 1024 * 1.4)),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      await requireApp(context.db, input.appId);
+      const bytes = decodeBase64(input.dataBase64);
+      const mime = sniffImageMime(bytes);
+      if (!mime) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Unsupported upload — only PNG/JPEG/GIF/WebP images are accepted here.",
+        });
+      }
+      const stored = await storeAttachment(context.objectStore, {
+        owner: context.user.id,
+        fileName: "upload",
+        mime,
+        bytes,
+      });
+      return { id: stored.key, url: stored.url };
+    }),
+};
+
 export const bridgeRouter = {
   storage,
   data,
   counter,
   messages,
   social,
+  files,
   pot: potBridge,
   payments: paymentsBridge,
   ai: createAiBridge(),

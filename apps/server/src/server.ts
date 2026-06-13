@@ -173,8 +173,10 @@ app.get("/.well-known/jwks.json", (c) => {
   return c.json(issuer.jwks());
 });
 
-// Bundle serving (§17): /a/:slug/* from S3 with the _plays bump.
-registerServeRoutes(app, { db, store: createS3Store(env), logger });
+// Bundle serving (§17): /a/:slug/* from S3 with the _plays bump. The same store
+// backs attachment uploads + presigned-GET delivery to the builder agent.
+const objectStore = createS3Store(env);
+registerServeRoutes(app, { db, store: objectStore, logger });
 
 // Dynamic delegation webhook (§23) — receives wallet.delegation.created/revoked,
 // decrypts + stores the per-user MPC share so the server can sign privately on the
@@ -201,6 +203,7 @@ app.use("/rpc/*", async (c, next) => {
       oracle,
       unlink,
       world,
+      objectStore,
       treasuryAddress,
       headers: c.req.raw.headers,
     }),

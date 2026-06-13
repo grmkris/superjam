@@ -57,6 +57,13 @@
       "when": 1781380715600,
       "tag": "0007_clean_vertigo",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781384402771,
+      "tag": "0008_nervous_hellcat",
+      "breakpoints": true
     }
   ]
 }

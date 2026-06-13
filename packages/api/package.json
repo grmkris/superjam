@@ -17,7 +17,7 @@
     "@superjam/logger": "workspace:*",
     "@superjam/onchain": "workspace:*",
     "@superjam/shared": "workspace:*",
-    "@ai-sdk/anthropic": "catalog:",
+    "@ai-sdk/google": "catalog:",
     "@orpc/client": "catalog:",
     "@orpc/server": "catalog:",
     "@worldcoin/idkit-server": "catalog:",

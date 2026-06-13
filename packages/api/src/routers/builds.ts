@@ -24,6 +24,7 @@ import {
   type AppSpec,
   AppId,
   AppSpecSchema,
+  BUILD_ATTACH_MAX,
   BuildId,
   BuilderAgentId,
   FREE_BUILDS,
@@ -32,7 +33,7 @@ import {
   type RefineResult,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
-import { count, eq, sql } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Address, type Hex, isAddressEqual } from "viem";
 import type { Logger } from "@superjam/logger";
@@ -42,6 +43,7 @@ import {
   type BuildDeployer,
   createRemoteDeployer,
 } from "../lib/builder-dispatch.ts";
+import { isImageKey, presignAll } from "../lib/attachments.ts";
 import { isUniqueViolation } from "../lib/db-errors.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
 import { protectedProcedure } from "../orpc.ts";
@@ -179,14 +181,35 @@ export const runBuild = async (
     routedAgentId?: BuilderAgentId | null;
     /** The routed agent's coding model — forwarded to the builder per build. */
     model?: string | null;
+    /** Presigned GET URLs for the user's reference attachments (§17) — forwarded
+     *  to the builder agent's prompt so it can fetch images/CSV/Excel/PDF. */
+    attachmentUrls?: string[];
   },
   /** Passed to finalize for the best-effort ENS mint (§16). Omitted in tests. */
   onchain?: Onchain
 ): Promise<void> => {
-  const { buildId, appId, spec, routedAgentId, model } = args;
+  const { buildId, appId, spec, routedAgentId, model, attachmentUrls } = args;
   try {
     await db.update(build).set({ status: "generating" }).where(eq(build.id, buildId));
-    const result = await deploy({ spec, buildId, appId, model });
+    const result = await deploy({
+      spec,
+      buildId,
+      appId,
+      model,
+      attachmentUrls,
+      // Mirror the builder's live step timeline into build.events as it runs, so
+      // the workshop + history read real progress from the DB. Best-effort: a
+      // persist hiccup never fails the build.
+      onProgress: (events) => {
+        void (async () => {
+          try {
+            await db.update(build).set({ events }).where(eq(build.id, buildId));
+          } catch (err) {
+            logger.debug({ err: String(err), buildId }, "build event persist skipped");
+          }
+        })();
+      },
+    });
 
     await db
       .update(build)
@@ -247,6 +270,9 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             .max(8)
             .optional(),
           remixOfAppId: AppId.optional(),
+          /** Object-store keys of attachments uploaded via uploads.create. Image
+           *  ones feed Gemini vision; docs are ignored here (they reach the builder). */
+          attachmentKeys: z.array(z.string()).max(BUILD_ATTACH_MAX).optional(),
         })
       )
       .handler(async ({ context, input }): Promise<RefineResult> => {
@@ -266,12 +292,20 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           ? await loadBaseSpec(context.db, input.remixOfAppId)
           : undefined;
 
+        // Pass image attachments to Gemini as vision (presigned URLs — the AI SDK
+        // fetches them). Non-image docs are ignored here; they reach the builder.
+        const imageUrls = presignAll(
+          context.objectStore,
+          (input.attachmentKeys ?? []).filter(isImageKey)
+        );
+
         try {
           return await runRefine({
             prompt: input.prompt,
             answers: input.answers,
             baseSpec,
             catalog,
+            images: imageUrls.length ? imageUrls : undefined,
           });
         } catch (err) {
           // A refiner failure isn't the user's fault — give the unit back.
@@ -296,6 +330,9 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           payment: z
             .object({ txHash: z.string().min(1), chain: z.string().min(1) })
             .optional(),
+          /** Object-store keys of the user's reference attachments (§17) — all of
+           *  them (images + docs) are presigned and handed to the builder agent. */
+          attachmentKeys: z.array(z.string()).max(BUILD_ATTACH_MAX).optional(),
         })
       )
       .handler(async ({ context, input }) => {
@@ -408,6 +445,12 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
 
         // Fire-and-forget; the driver never throws (it records failures on the
         // build row). The web feed polls build.events / status.
+        // Presign ALL attachments (images + docs) for the builder agent to fetch.
+        const attachmentUrls = presignAll(
+          context.objectStore,
+          input.attachmentKeys ?? []
+        );
+
         void runBuild(
           context.db,
           context.logger,
@@ -418,6 +461,7 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             spec: input.spec,
             routedAgentId: selected?.agent.id ?? null,
             model: selected?.agent.model ?? null,
+            attachmentUrls: attachmentUrls.length ? attachmentUrls : undefined,
           },
           context.onchain
         );
@@ -460,6 +504,49 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           slug,
           appStatus,
         };
+      }),
+
+    // The caller's past builds, newest first — powers the /build history list.
+    // Per-build step timelines are read on demand via `status` (build.events).
+    list: protectedProcedure
+      .input(
+        z
+          .object({ limit: z.number().int().min(1).max(LIST_MAX).default(20) })
+          .optional()
+      )
+      .handler(async ({ context, input }) => {
+        const rows = await context.db
+          .select({
+            id: build.id,
+            prompt: build.prompt,
+            status: build.status,
+            error: build.error,
+            durationMs: build.durationMs,
+            createdAt: build.createdAt,
+            appId: build.appId,
+            slug: app.slug,
+            appStatus: app.status,
+            manifest: build.manifest,
+            spec: build.spec,
+          })
+          .from(build)
+          .leftJoin(app, eq(app.id, build.appId))
+          .where(eq(build.userId, context.user.id))
+          .orderBy(desc(build.createdAt))
+          .limit(input?.limit ?? 20);
+        return rows.map((r) => ({
+          id: r.id,
+          prompt: r.prompt,
+          status: r.status,
+          error: r.error,
+          durationMs: r.durationMs,
+          createdAt: r.createdAt,
+          appId: r.appId,
+          slug: r.slug,
+          appStatus: r.appStatus,
+          name: r.manifest?.name ?? r.spec?.name ?? "Untitled jam",
+          iconEmoji: r.manifest?.iconEmoji ?? r.spec?.iconEmoji ?? "✨",
+        }));
       }),
   };
 };

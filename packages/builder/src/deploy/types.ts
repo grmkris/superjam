@@ -84,6 +84,9 @@ export interface DeployResult {
 }
 
 export interface DeployEvent {
+  /** Unix-ms timestamp the step occurred — persisted into build.events so past
+   *  builds keep real per-step timings (matches the platform's BuildEvent shape). */
+  t: number;
   kind: "status" | "error";
   label: string;
 }

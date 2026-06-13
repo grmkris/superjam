@@ -23,6 +23,8 @@ export interface BuildRunnerDeps {
     buildId: string;
     appId: string;
     reportToken: string;
+    /** Presigned GET URLs for user reference attachments (§17). */
+    attachmentUrls?: string[];
   }) => Promise<void>;
   maxConcurrent?: number;
   /** Injected clock (durationMs); defaults to Date.now. */
@@ -69,6 +71,8 @@ export interface StartArgs {
   spec: AppSpec;
   buildId: string;
   appId: string;
+  /** Presigned GET URLs for user reference attachments (§17), forwarded to the agent. */
+  attachmentUrls?: string[];
 }
 
 export interface BuildRunner {
@@ -104,7 +108,7 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
   return {
     atCapacity: () => active >= max,
 
-    start({ spec, buildId, appId }): BuildState {
+    start({ spec, buildId, appId, attachmentUrls }): BuildState {
       const reportToken = mintToken();
       const state: BuildState = { buildId, status: "running", events: [], reportToken };
       builds.set(buildId, state);
@@ -112,14 +116,14 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
       active += 1;
 
       const job = deps
-        .runBuild({ spec, buildId, appId, reportToken })
+        .runBuild({ spec, buildId, appId, reportToken, attachmentUrls })
         .then(() => {
           // The agent process ended. A `done`/`failed` report should have set the
           // terminal status; if it's still running, the agent never signalled.
           if (state.status === "running") {
             state.status = "failed";
             state.error = "agent ended without reporting a result";
-            state.events.push({ kind: "error", label: state.error });
+            state.events.push({ t: now(), kind: "error", label: state.error });
           }
         })
         .catch((err: unknown) => {
@@ -128,7 +132,7 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
           if (state.status === "running") {
             state.status = "failed";
             state.error = err instanceof Error ? err.message : String(err);
-            state.events.push({ kind: "error", label: state.error });
+            state.events.push({ t: now(), kind: "error", label: state.error });
           }
         })
         .finally(() => {
@@ -147,7 +151,7 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
       if (state.status !== "running") return "ok";
 
       if (report.kind === "status") {
-        state.events.push({ kind: "status", label: report.label });
+        state.events.push({ t: now(), kind: "status", label: report.label });
       } else if (report.kind === "done") {
         const c = ctx.get(buildId);
         state.status = "done";
@@ -161,7 +165,7 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
       } else {
         state.status = "failed";
         state.error = report.error;
-        state.events.push({ kind: "error", label: report.error });
+        state.events.push({ t: now(), kind: "error", label: report.error });
       }
       return "ok";
     },

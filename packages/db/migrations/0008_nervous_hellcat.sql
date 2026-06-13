@@ -1,0 +1,1 @@
+ALTER TABLE "builder_agent" ADD COLUMN "model" text;

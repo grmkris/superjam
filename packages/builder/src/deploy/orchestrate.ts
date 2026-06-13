@@ -95,7 +95,7 @@ export const runDeploy = async (
 ): Promise<DeployResult> => {
   const { spec, buildId, appId, projectName } = args;
   const now = deps.now ?? Date.now;
-  const emit: Emit = (kind, label) => deps.onEvent?.({ kind, label });
+  const emit: Emit = (kind, label) => deps.onEvent?.({ t: Date.now(), kind, label });
   const started = now();
 
   emit("status", "generating");
@@ -168,7 +168,7 @@ export const teardownApp = async (
   args: TeardownArgs,
   deps: TeardownDeps
 ): Promise<TeardownResult> => {
-  const emit: Emit = (kind, label) => deps.onEvent?.({ kind, label });
+  const emit: Emit = (kind, label) => deps.onEvent?.({ t: Date.now(), kind, label });
   const vp = args.vercelProject;
   const nid = args.neonProjectId;
   const neon = deps.neon;

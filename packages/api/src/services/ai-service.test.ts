@@ -1,74 +1,88 @@
 import { describe, expect, test } from "bun:test";
 import {
   type AiRunner,
-  buildAnswer,
   createAiService,
+  toModelMessages,
 } from "./ai-service.ts";
 
-describe("buildAnswer", () => {
-  test("text mode asks for no schema", () => {
-    const { schema } = buildAnswer({ mode: "text", prompt: "hi" });
-    expect(schema).toBeUndefined();
-  });
-  test("json mode steers with the shape hint", () => {
-    const { system, schema } = buildAnswer({
-      mode: "json",
-      prompt: "x",
-      shapeHint: "{ score: number }",
+describe("toModelMessages", () => {
+  test("merges system turns into the system string", () => {
+    const { system, messages } = toModelMessages({
+      messages: [
+        { role: "system", content: "be terse" },
+        { role: "user", content: "hi" },
+      ],
     });
-    expect(schema).toBeDefined();
-    expect(system).toContain("{ score: number }");
+    expect(system).toContain("be terse");
+    expect(messages).toEqual([{ role: "user", content: "hi" }]);
   });
-  test("tools mode lists the declared functions", () => {
-    const { system } = buildAnswer({
-      mode: "tools",
-      prompt: "x",
-      tools: [{ name: "spin", description: "spin it", params: { times: "number" } }],
+
+  test("json mode adds a JSON-only instruction", () => {
+    const { system } = toModelMessages({
+      messages: [{ role: "user", content: "x" }],
+      json: true,
     });
-    expect(system).toContain("spin: spin it");
+    expect(system).toContain("VALID JSON");
+  });
+
+  test("images ride as vision parts on the last user turn", () => {
+    const { messages } = toModelMessages({
+      messages: [{ role: "user", content: "judge this" }],
+      images: ["data:image/png;base64,AAAA"],
+    });
+    expect(messages).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "judge this" },
+          { type: "image", image: "data:image/png;base64,AAAA" },
+        ],
+      },
+    ]);
+  });
+
+  test("http image urls become URL objects the AI SDK fetches", () => {
+    const { messages } = toModelMessages({
+      messages: [{ role: "user", content: "x" }],
+      images: ["https://cdn.example.com/a.png"],
+    });
+    const content = messages[0]!.content as Array<{ type: string; image?: unknown }>;
+    const img = content.find((p) => p.type === "image");
+    expect(img?.image).toBeInstanceOf(URL);
+  });
+
+  test("synthesizes a user turn when only system messages are given", () => {
+    const { messages } = toModelMessages({
+      messages: [{ role: "system", content: "do the thing" }],
+    });
+    expect(messages.some((m) => m.role === "user")).toBe(true);
   });
 });
 
 describe("createAiService", () => {
-  test("text mode returns the model text", async () => {
+  const req = (content: string) =>
+    ({ messages: [{ role: "user" as const, content }] });
+
+  test("returns the model text", async () => {
     const runner: AiRunner = async () => ({ text: "hello there" });
     const svc = createAiService({ runner });
-    const out = await svc.run("app_1", { mode: "text", prompt: "hi" });
+    const out = await svc.run("app_1", req("hi"));
     expect(out).toEqual({ text: "hello there" });
   });
 
-  test("json mode unwraps a stringified payload", async () => {
-    const runner: AiRunner = async () => ({ object: { json: '{"a":1}' } });
+  test("passes the mapped system + messages to the runner", async () => {
+    let seen: { system?: string; messages: unknown } | null = null;
+    const runner: AiRunner = async (args) => {
+      seen = args;
+      return { text: "ok" };
+    };
     const svc = createAiService({ runner });
-    const out = await svc.run("app_1", { mode: "json", prompt: "x" });
-    expect(out).toEqual({ json: { a: 1 } });
-  });
-
-  test("tools mode normalizes toolCalls and keeps text", async () => {
-    const runner: AiRunner = async () => ({
-      object: { text: "spinning", toolCalls: [{ name: "spin", args: { times: 3 } }] },
+    await svc.run("app_1", {
+      messages: [{ role: "user", content: "score it" }],
+      images: ["data:image/png;base64,ZZ"],
     });
-    const svc = createAiService({ runner });
-    const out = await svc.run("app_1", {
-      mode: "tools",
-      prompt: "spin 3x",
-      tools: [{ name: "spin", description: "d", params: { times: "number" } }],
-    });
-    expect(out).toEqual({ text: "spinning", toolCalls: [{ name: "spin", args: { times: 3 } }] });
-  });
-
-  test("rejects a tool call with a wrong-typed arg", async () => {
-    const runner: AiRunner = async () => ({
-      object: { toolCalls: [{ name: "spin", args: { times: "lots" } }] },
-    });
-    const svc = createAiService({ runner });
-    await expect(
-      svc.run("app_1", {
-        mode: "tools",
-        prompt: "x",
-        tools: [{ name: "spin", description: "d", params: { times: "number" } }],
-      })
-    ).rejects.toThrow(/must be number/);
+    expect(seen!.system).toContain("SuperJam");
+    expect(JSON.stringify(seen!.messages)).toContain("image");
   });
 
   test("exact-match cache: identical request runs the model once", async () => {
@@ -78,14 +92,14 @@ describe("createAiService", () => {
       return { text: "cached!" };
     };
     const svc = createAiService({ runner });
-    const req = { mode: "text" as const, prompt: "same" };
+    const r = req("same");
 
-    expect(svc.cached("app_1", req)).toBeUndefined();
-    const a = await svc.run("app_1", req);
-    const b = await svc.run("app_1", req);
+    expect(svc.cached("app_1", r)).toBeUndefined();
+    const a = await svc.run("app_1", r);
+    const b = await svc.run("app_1", r);
     expect(a).toEqual(b);
     expect(calls).toBe(1);
-    expect(svc.cached("app_1", req)).toEqual({ text: "cached!" });
+    expect(svc.cached("app_1", r)).toEqual({ text: "cached!" });
   });
 
   test("cache is scoped per app", async () => {
@@ -95,9 +109,9 @@ describe("createAiService", () => {
       return { text: `r${calls}` };
     };
     const svc = createAiService({ runner });
-    const req = { mode: "text" as const, prompt: "p" };
-    await svc.run("app_1", req);
-    await svc.run("app_2", req);
+    const r = req("p");
+    await svc.run("app_1", r);
+    await svc.run("app_2", r);
     expect(calls).toBe(2);
   });
 });

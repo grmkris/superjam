@@ -30,6 +30,8 @@ const BuildRequest = z.object({
   buildId: z.string().min(1),
   // Pre-generated app id → injected as SUPERJAM_APP_ID (JWT aud) before deploy.
   appId: z.string().min(1),
+  // Presigned GET URLs for user reference attachments (§17) — fetched by the agent.
+  attachmentUrls: z.array(z.string().url()).max(8).optional(),
 });
 
 const TeardownRequest = z.object({
@@ -94,8 +96,8 @@ export const createBuilderApp = (deps: BuilderAppDeps): Hono => {
     if (deps.runner.atCapacity()) {
       return c.json({ error: "at capacity" }, 429);
     }
-    const { spec, buildId, appId } = parsed.data;
-    deps.runner.start({ spec, buildId, appId });
+    const { spec, buildId, appId, attachmentUrls } = parsed.data;
+    deps.runner.start({ spec, buildId, appId, attachmentUrls });
     return c.json({ buildId, status: "running" }, 202);
   });
 

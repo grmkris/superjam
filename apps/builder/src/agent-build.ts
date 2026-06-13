@@ -125,6 +125,9 @@ export interface AgentBuildArgs {
   /** Coding model; defaults to a strong available one. */
   model?: string;
   maxTurns?: number;
+  /** Presigned GET URLs for user-attached reference files (images/CSV/Excel/PDF, §17).
+   *  Time-limited + public — the agent fetches them for context. */
+  attachmentUrls?: string[];
 }
 
 /** Block any tool WRITE whose path escapes the workspace (Bash is intentionally free). */
@@ -199,6 +202,16 @@ You MUST stream progress and exactly ONE terminal result via the callback in the
 
 Below: the authoritative SuperJam SDK reference, then the archetype recipes that match this spec — imitate the closest one.`;
 
+const renderAttachments = (urls?: string[]): string => {
+  if (!urls?.length) return "";
+  return `\n## Reference attachments (user-provided)
+The user attached ${urls.length} file(s) as context — fetch and inspect each before
+building (they're presigned, time-limited URLs; images are mockups/inspiration,
+CSV/Excel/PDF are data/specs to honor). Use \`curl -sL "<url>" -o <file>\` then read:
+${urls.map((u, i) => `  ${i + 1}. ${u}`).join("\n")}
+`;
+};
+
 const buildPrompt = (args: AgentBuildArgs): string => {
   const project = `superjam-${args.appId}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 90);
   const url = `http://127.0.0.1:${args.port}/builds/${args.buildId}/report`;
@@ -207,6 +220,7 @@ const buildPrompt = (args: AgentBuildArgs): string => {
 Use the Vercel project name "${project}" (so the platform can manage it).
 
 ${renderSpec(args.spec)}
+${renderAttachments(args.attachmentUrls)}
 
 ## Reporting (REQUIRED) — POST to the callback as you go, and once at the end:
 Progress (call a few times so the user sees movement):

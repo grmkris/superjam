@@ -75,6 +75,7 @@ const SERVER_METHODS = new Set<BridgeMethod>([
   "messages.list",
   "social.send",
   "ai.chat",
+  "files.upload",
   "payments.mine",
   "payments.usdcBalance",
   "pot.create",
@@ -83,13 +84,12 @@ const SERVER_METHODS = new Set<BridgeMethod>([
 ]);
 
 // Not yet routable. pot.stake / payX402 / wallet.sendTransaction: money-out
-// paths still being wired through the confirm sheet. files.upload +
-// data.subscribe/unsubscribe: no bridge handler yet.
+// paths still being wired through the confirm sheet. data.subscribe/unsubscribe:
+// no bridge handler yet.
 const NOT_YET = new Set<BridgeMethod>([
   "wallet.sendTransaction",
   "payments.payX402",
   "pot.stake",
-  "files.upload",
   "data.subscribe",
   "data.unsubscribe",
 ]);
