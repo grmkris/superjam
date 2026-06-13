@@ -19,8 +19,41 @@ import {
   createBuildsRouter,
   runBuild,
   type BuildPaymentVerifier,
+  type DeployerFor,
   type RefineFn,
 } from "./builds.ts";
+import type { BuilderCapability, UserId } from "@superjam/shared";
+
+// Seed an active marketplace agent that can deliver the SPEC (payments →
+// contracts:evm). Returns the inserted row.
+const seedAgent = async (
+  db: Awaited<ReturnType<typeof harness>>["db"],
+  ownerUserId: UserId,
+  over: Partial<typeof schema.builderAgent.$inferInsert> = {}
+) => {
+  const [a] = await db
+    .insert(schema.builderAgent)
+    .values({
+      ownerUserId,
+      name: "House Builder",
+      slug: "house",
+      endpointUrl: "https://builder.superjam.fun/dispatch",
+      token: "house-token",
+      priceUsdc: "1",
+      capabilities: [
+        "frontend",
+        "hosting:vercel",
+        "contracts:evm",
+        "database:neon",
+        "ai",
+      ] as BuilderCapability[],
+      walletAddress: "0x" + "a".repeat(40),
+      status: "active",
+      ...over,
+    })
+    .returning();
+  return a!;
+};
 
 const logger = createLogger({ level: "silent" });
 
@@ -430,5 +463,73 @@ describe("builds.status", () => {
     await expect(
       call(router.status, { buildId: b!.id }, { context: ctxFor(otherToken) })
     ).rejects.toBeInstanceOf(ORPCError);
+  });
+});
+
+describe("builds — marketplace routing (§14)", () => {
+  test("runBuild credits the routed agent a build on success", async () => {
+    const { db } = await harness();
+    const owner = await createTestUser(db);
+    const agent = await seedAgent(db, owner.id);
+    const [b] = await db
+      .insert(schema.build)
+      .values({ userId: owner.id, prompt: "idea", spec: SPEC, status: "queued" })
+      .returning();
+    const allocated = await allocateExternalApp(db, {
+      manifest: deployResult.manifest,
+      ownerUserId: owner.id,
+      buildId: b!.id,
+    });
+    const deploy: BuildDeployer = async () => deployResult;
+
+    await runBuild(db, logger, deploy, {
+      buildId: b!.id,
+      appId: allocated.id,
+      spec: SPEC,
+      routedAgentId: agent.id,
+    });
+
+    const after = await db.query.builderAgent.findFirst({
+      where: eq(schema.builderAgent.id, agent.id),
+    });
+    expect(after?.buildsCount).toBe(1);
+  });
+
+  test("create routes to the chosen eligible agent's endpoint + token", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const aOwner = await createTestUser(db, { username: "houseowner" });
+    const agent = await seedAgent(db, aOwner.id);
+    const calls: Array<{ endpointUrl: string; token: string }> = [];
+    const deployerFor: DeployerFor = (b) => {
+      calls.push({ endpointUrl: b.endpointUrl, token: b.token });
+      return parkedDeploy;
+    };
+    const router = createBuildsRouter({ deploy: parkedDeploy, deployerFor });
+    const token = await auth.sign({ dynamicUserId: "dyn_r", email: "r@test.io" });
+
+    await call(
+      router.create,
+      { spec: SPEC, agentId: agent.id },
+      { context: ctxFor(token) }
+    );
+    // Selection happens synchronously in the handler before runBuild is spawned.
+    expect(calls).toEqual([
+      { endpointUrl: agent.endpointUrl, token: agent.token },
+    ]);
+  });
+
+  test("create falls back to the house deployer when no agent can deliver", async () => {
+    const { auth, ctxFor } = await harness();
+    let routed = false;
+    const deployerFor: DeployerFor = () => {
+      routed = true;
+      return parkedDeploy;
+    };
+    const router = createBuildsRouter({ deploy: parkedDeploy, deployerFor });
+    const token = await auth.sign({ dynamicUserId: "dyn_s", email: "s@test.io" });
+
+    // No agents seeded ⇒ selectEligibleBuilder returns null ⇒ house deployer.
+    await call(router.create, { spec: SPEC }, { context: ctxFor(token) });
+    expect(routed).toBe(false);
   });
 });

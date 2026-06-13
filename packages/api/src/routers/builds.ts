@@ -25,13 +25,14 @@ import {
   AppId,
   AppSpecSchema,
   BuildId,
+  BuilderAgentId,
   FREE_BUILDS,
   LIST_MAX,
   REFINE_CALLS_PER_USER_DAY,
   type RefineResult,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Logger } from "@superjam/logger";
 import type { Onchain } from "@superjam/onchain";
@@ -40,11 +41,12 @@ import {
   createRemoteDeployer,
 } from "../lib/builder-dispatch.ts";
 import { protectedProcedure } from "../orpc.ts";
+import { selectEligibleBuilder } from "./agents.ts";
 import { allocateExternalApp, finalizeExternalApp } from "./apps.ts";
 import type { RefineCatalogApp, RefineInput } from "@superjam/builder";
 import { refine as defaultRefine } from "@superjam/builder";
 
-const { app, build } = schema;
+const { app, build, builderAgent } = schema;
 
 type BuildRow = typeof build.$inferSelect;
 type UserRow = typeof schema.user.$inferSelect;
@@ -67,10 +69,18 @@ export type BuildPaymentVerifier = (
   ctx: { userId: string; logger: Logger }
 ) => Promise<void>;
 
+/** Build a deployer for a chosen marketplace agent's endpoint (§14). */
+export type DeployerFor = (builder: {
+  endpointUrl: string;
+  token: string;
+}) => BuildDeployer;
+
 export interface BuildsRouterDeps {
   refine?: RefineFn;
-  /** Dispatch a spec to a builder + await the deploy result. */
+  /** Dispatch a spec to a builder + await the deploy result (the house builder). */
   deploy?: BuildDeployer;
+  /** Build a deployer for a routed marketplace agent. Tests inject a stub. */
+  deployerFor?: DeployerFor;
   verifyPayment?: BuildPaymentVerifier;
 }
 
@@ -160,11 +170,14 @@ export const runBuild = async (
     buildId: BuildRow["id"];
     appId: AppId;
     spec: AppSpec;
+    /** The marketplace agent this build was routed to (§14) — credited a build
+     *  on success. Null ⇒ the house builder (env deployer). */
+    routedAgentId?: BuilderAgentId | null;
   },
   /** Passed to finalize for the best-effort ENS mint (§16). Omitted in tests. */
   onchain?: Onchain
 ): Promise<void> => {
-  const { buildId, appId, spec } = args;
+  const { buildId, appId, spec, routedAgentId } = args;
   try {
     await db.update(build).set({ status: "generating" }).where(eq(build.id, buildId));
     const result = await deploy({ spec, buildId, appId });
@@ -177,6 +190,14 @@ export const runBuild = async (
         durationMs: result.durationMs,
       })
       .where(eq(build.id, buildId));
+
+    // Credit the marketplace agent a build on successful dispatch (§14).
+    if (routedAgentId) {
+      await db
+        .update(builderAgent)
+        .set({ buildsCount: sql`${builderAgent.buildsCount} + 1` })
+        .where(eq(builderAgent.id, routedAgentId));
+    }
 
     try {
       await finalizeExternalApp(db, { appId, entryUrl: result.entryUrl }, onchain, logger);
@@ -199,6 +220,9 @@ export const runBuild = async (
 export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
   const runRefine = deps.refine ?? defaultRefine;
   const deploy = deps.deploy ?? envRemoteDeployer();
+  const deployerFor =
+    deps.deployerFor ??
+    ((b) => createRemoteDeployer({ url: b.endpointUrl, token: b.token }));
   const verifyPayment = deps.verifyPayment ?? noopPaymentVerifier;
 
   return {
@@ -254,6 +278,8 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           /** The original idea, for the build feed. Defaults to the description. */
           prompt: z.string().min(1).max(2000).optional(),
           remixOfAppId: AppId.optional(),
+          /** The marketplace agent the wizard picked (§14). Absent ⇒ auto/house. */
+          agentId: BuilderAgentId.optional(),
           /** Receipt to pay past the free-trial gate. */
           payment: z
             .object({ txHash: z.string().min(1), chain: z.string().min(1) })
@@ -306,13 +332,33 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           .set({ appId: allocated.id })
           .where(eq(build.id, buildId));
 
+        // Route to the chosen/eligible marketplace agent (§14) if one can
+        // deliver this spec's capabilities; else the house builder. A routing
+        // hiccup never blocks the build — it just uses the house deployer.
+        let buildDeployer = deploy;
+        let routedAgentId: typeof input.agentId | null = null;
+        try {
+          const sel = await selectEligibleBuilder(context.db, input.spec, {
+            agentId: input.agentId,
+          });
+          if (sel) {
+            buildDeployer = deployerFor(sel);
+            routedAgentId = sel.agent.id;
+          }
+        } catch (err) {
+          context.logger.warn(
+            { err: String(err), buildId },
+            "builder routing failed — falling back to the house builder"
+          );
+        }
+
         // Fire-and-forget; the driver never throws (it records failures on the
         // build row). The web feed polls build.events / status.
         void runBuild(
           context.db,
           context.logger,
-          deploy,
-          { buildId, appId: allocated.id, spec: input.spec },
+          buildDeployer,
+          { buildId, appId: allocated.id, spec: input.spec, routedAgentId },
           context.onchain
         );
 
