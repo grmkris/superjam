@@ -71,18 +71,17 @@ const SERVER_METHODS = new Set<BridgeMethod>([
   "messages.list",
   "ai.chat",
   "payments.mine",
+  "payments.usdcBalance",
   "pot.create",
   "pot.get",
   "pot.resolve",
 ]);
 
-// Not yet routable. payments.usdcBalance: bridge key is `balance` (coordinate a
-// rename with lane C before routing). pot.stake / payX402 / wallet.sendTransaction:
-// money-out paths still being wired through the confirm sheet. files.upload +
+// Not yet routable. pot.stake / payX402 / wallet.sendTransaction: money-out
+// paths still being wired through the confirm sheet. files.upload +
 // data.subscribe/unsubscribe: no bridge handler yet.
 const NOT_YET = new Set<BridgeMethod>([
   "wallet.sendTransaction",
-  "payments.usdcBalance",
   "payments.payX402",
   "pot.stake",
   "files.upload",

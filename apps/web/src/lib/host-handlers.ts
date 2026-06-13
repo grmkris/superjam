@@ -15,6 +15,14 @@ import type { BridgeHandlers } from "./bridge/host-bridge";
 
 type AnyCall = (input: Record<string, unknown>) => Promise<unknown>;
 
+// SDK method string → [bridge ns, op], ONLY where the SDK contract name differs
+// from C's bridge router key. The SDK method `payments.usdcBalance` (fixed in
+// bridge.schema) maps to bridge.payments.balance. Remove this entry if/when C
+// renames the bridge handler to `usdcBalance`.
+const BRIDGE_PATH: Partial<Record<BridgeMethod, readonly [string, string]>> = {
+  "payments.usdcBalance": ["payments", "balance"],
+};
+
 /** Tag a plain Error with a §8 code the host-bridge maps onto the TJ envelope. */
 const coded = (code: string, message: string): Error =>
   Object.assign(new Error(message), { code });
@@ -33,7 +41,7 @@ export const makeHostHandlers = (
 ): BridgeHandlers => ({
   // Route "storage.get" → client.bridge.storage.get({ appId, ...params }).
   call: async (method: BridgeMethod, appId: string, params) => {
-    const [ns, op] = method.split(".");
+    const [ns, op] = BRIDGE_PATH[method] ?? method.split(".");
     const bridge = client.bridge as unknown as Record<
       string,
       Record<string, AnyCall>
