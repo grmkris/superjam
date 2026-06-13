@@ -70,6 +70,7 @@ export const MSG_DATA_MAX_BYTES = 1024;
 export const INBOX_CAP = 200; // evict oldest READ first
 export const MSG_PER_PAIR_PER_MIN = 5;
 export const MSG_PER_SENDER_PER_MIN = 20;
+export const CHAT_TEXT_MAX = 1024; // user↔user chat text (longer than app msgs)
 
 // --- deeplinks (?d=) ---
 export const DEEPLINK_JSON_MAX_BYTES = 2 * 1024; // 2KiB JSON before base64url

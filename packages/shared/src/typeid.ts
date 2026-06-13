@@ -19,6 +19,8 @@ export const idTypesMapNameToPrefix = {
   builderAgent: "bag",
   pot: "pot",
   potStake: "pst",
+  friendship: "fnd",
+  directMessage: "dm",
 } as const;
 
 type IdTypesMapNameToPrefix = typeof idTypesMapNameToPrefix;
@@ -102,3 +104,7 @@ export const PotId = typeIdValidator("pot");
 export type PotId = z.infer<typeof PotId>;
 export const PotStakeId = typeIdValidator("potStake");
 export type PotStakeId = z.infer<typeof PotStakeId>;
+export const FriendshipId = typeIdValidator("friendship");
+export type FriendshipId = z.infer<typeof FriendshipId>;
+export const DirectMessageId = typeIdValidator("directMessage");
+export type DirectMessageId = z.infer<typeof DirectMessageId>;

@@ -6,6 +6,8 @@ import { appsRouter } from "./routers/apps.ts";
 import { authRouter } from "./routers/auth.ts";
 import { bridgeRouter } from "./routers/bridge.ts";
 import { buildsRouter } from "./routers/builds.ts";
+import { chatRouter } from "./routers/chat.ts";
+import { friendsRouter } from "./routers/friends.ts";
 import { inboxRouter } from "./routers/inbox.ts";
 import { paymentsRouter } from "./routers/payments.ts";
 import { profileRouter } from "./routers/profile.ts";
@@ -26,6 +28,8 @@ export const appRouter = {
   publish: publishRouter,
   payments: paymentsRouter,
   reviews: reviewsRouter,
+  friends: friendsRouter,
+  chat: chatRouter,
 };
 
 export type AppRouter = typeof appRouter;

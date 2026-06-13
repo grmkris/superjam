@@ -8,5 +8,6 @@ export * from "./constants.ts";
 export * from "./capabilities.ts";
 export * from "./builder-capabilities.ts";
 export * from "./enums.ts";
+export * from "./social.ts";
 export * from "./appspec.ts";
 export * from "./bridge.schema.ts";
