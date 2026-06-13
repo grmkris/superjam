@@ -12,6 +12,7 @@ import {
   http,
 } from "viem";
 import { CHAINS, type ChainKey, PRIVATE_CHAIN, USDC } from "./chains.ts";
+import { type EnsConfig, createEns } from "./ens.ts";
 import { OnchainError } from "./errors.ts";
 import { type Usdc } from "./money.ts";
 import {
@@ -39,6 +40,9 @@ export interface OnchainDeps {
   arcClient?: PublicClient;
   /** The privacy rail. Defaults to the degraded client (public fallback). */
   unlink?: UnlinkClient;
+  /** ENS L2Registry config (§16). Absent ⇒ ENS ops throw (S's pipeline
+   *  try/catches; an ENS failure never fails a build). */
+  ens?: EnsConfig;
 }
 
 export interface RelayParams {
@@ -52,6 +56,7 @@ export const createOnchain = ({
   serverWallet,
   arcClient,
   unlink = nullUnlink,
+  ens,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
     if (chain === PRIVATE_CHAIN) {
@@ -61,6 +66,18 @@ export const createOnchain = ({
       return arcClient;
     }
     return publicClient;
+  };
+
+  // ENS lives on the public L2 (Base Sepolia). Absent config ⇒ ops throw
+  // ENS_WRITE_FAILED so callers degrade (an ENS failure never fails a build).
+  const ensAdapter = ens
+    ? createEns(publicClient, serverWallet, ens)
+    : null;
+  const requireEns = () => {
+    if (!ensAdapter) {
+      throw new OnchainError("ENS_WRITE_FAILED", "ENS registry not configured");
+    }
+    return ensAdapter;
   };
 
   return {
@@ -86,6 +103,16 @@ export const createOnchain = ({
     /** Send USDC from the server wallet (top-up public rail, pot payout). */
     sendUsdc: (chain: ChainKey, to: Address, value: Usdc): Promise<Hex> =>
       serverWallet.sendUsdc({ token: USDC[chain], to, value }),
+
+    // --- ENS (§16) — the seam S's build pipeline imports. Degrade-safe. ---
+    /** Ensure `username.<parent>` exists (idempotent). */
+    ensureUserNode: (username: string, owner: Address) =>
+      requireEns().ensureUserNode(username, owner),
+    /** Mint `slug.username.<parent>` + set app.* text records. */
+    mintApp: (params: Parameters<NonNullable<typeof ensAdapter>["mintApp"]>[0]) =>
+      requireEns().mintApp(params),
+    /** The chain-sourced catalog (backs the feed, §16). */
+    listFromEns: () => requireEns().listFromEns(),
   };
 };
 
@@ -98,6 +125,8 @@ export interface OnchainConfig {
   baseSepoliaRpcUrl?: string;
   arcRpcUrl?: string;
   unlink?: UnlinkConfig;
+  /** ENS L2Registry (§16). Absent ⇒ ENS ops degrade (never fail a build). */
+  ens?: EnsConfig;
 }
 
 /** Compose a live Onchain from env-style config — the composition-root wiring
@@ -122,6 +151,7 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     serverWallet,
     arcClient,
     unlink: cfg.unlink ? createUnlinkClient(cfg.unlink) : nullUnlink,
+    ens: cfg.ens,
   });
 };
 
@@ -140,6 +170,12 @@ export const nullOnchain: Onchain = {
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
   sendUsdc: () =>
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
+  ensureUserNode: () =>
+    Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
+  mintApp: () =>
+    Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
+  listFromEns: () =>
+    Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENS not configured")),
 };
 
 // --- public surface (the cross-lane seams) ---
@@ -150,5 +186,6 @@ export * from "./payment-intent.ts";
 export * from "./server-wallet.ts";
 export * from "./viem-server-wallet.ts";
 export * from "./privacy.ts";
+export * from "./ens.ts";
 export * from "./verify.ts";
 export * from "./errors.ts";

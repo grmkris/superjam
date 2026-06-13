@@ -50,6 +50,14 @@ const onchain =
     baseSepoliaRpcUrl: env.BASE_SEPOLIA_RPC_URL,
     arcRpcUrl: env.ARC_RPC_URL,
     unlink: { apiKey: env.UNLINK_API_KEY, appId: env.UNLINK_APP_ID },
+    ens:
+      env.ENS_L2_REGISTRY && env.ENS_PARENT_NODE
+        ? {
+            registryAddress: env.ENS_L2_REGISTRY as `0x${string}`,
+            parentNode: env.ENS_PARENT_NODE as `0x${string}`,
+            parentName: "superjam.eth", // §16 ship path (Sepolia parent)
+          }
+        : undefined,
   }) ?? nullOnchain;
 const treasuryAddress = env.TREASURY_ADDRESS as `0x${string}` | undefined;
 // AI pot-resolution oracle (§9) — only when a Gemini key is present; else
