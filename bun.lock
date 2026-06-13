@@ -198,7 +198,7 @@
       "dependencies": {
         "@superjam/contracts": "workspace:*",
         "@superjam/shared": "workspace:*",
-        "@unlink-xyz/sdk": "file:./vendor/unlink-xyz-sdk-0.3.0-canary.598.tgz",
+        "@unlink-xyz/sdk": "0.3.0-canary.598",
         "viem": "catalog:",
         "zod": "catalog:",
       },
@@ -927,7 +927,7 @@
 
     "@typescript/native-preview-win32-x64": ["@typescript/native-preview-win32-x64@7.0.0-dev.20260613.1", "", { "os": "win32", "cpu": "x64" }, "sha512-aCZaFWHDt5n8B++F2FrTK2pF7muAFfkvi8qkUnC0N0SNBGdVnqlO28IbdjScIfI2JFOvgZtUoYWeATGWdrLXBA=="],
 
-    "@unlink-xyz/sdk": ["@unlink-xyz/sdk@./vendor/unlink-xyz-sdk-0.3.0-canary.598.tgz", { "dependencies": { "@noble/curves": "^2.2.0", "@noble/hashes": "^2.2.0", "@scure/base": "^2.0.0", "@scure/bip32": "^2.2.0", "@scure/bip39": "^2.0.1", "openapi-fetch": "^0.13.5", "poseidon-lite": "^0.3.0", "viem": "^2.47.6" }, "peerDependencies": { "react": ">=18 <20" }, "optionalPeers": ["react"] }, "sha512-D2PFO0dtTSJh+gCAebaGO6s0rfyQaPcuvcKDvSJ54yYWnVkwYhRUyiWLnWxjGl73TojJ8DZvS7xe/2/O8ZYVeg=="],
+    "@unlink-xyz/sdk": ["@unlink-xyz/sdk@0.3.0-canary.598", "", { "dependencies": { "@noble/curves": "^2.2.0", "@noble/hashes": "^2.2.0", "@scure/base": "^2.0.0", "@scure/bip32": "^2.2.0", "@scure/bip39": "^2.0.1", "openapi-fetch": "^0.13.5", "poseidon-lite": "^0.3.0", "viem": "^2.47.6" }, "peerDependencies": { "react": ">=18 <20" }, "optionalPeers": ["react"] }, "sha512-iflg1DPysV4hrOJVVaJH9O8DfWQGdHPKodGx7buuLj5Mv9TJJvk6CUasutkTFaeeA5yYMLVCL0J8fz/MJHVHYw=="],
 
     "@use-gesture/core": ["@use-gesture/core@10.3.1", "", {}, "sha512-WcINiDt8WjqBdUXye25anHiNxPc0VOrlT8F6LLkU6cycrOGUDyY/yyFmsg3k8i5OLvv25llc0QC45GhR/C8llw=="],
 
