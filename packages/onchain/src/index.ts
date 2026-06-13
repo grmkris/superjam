@@ -186,6 +186,8 @@ export * from "./payment-intent.ts";
 export * from "./server-wallet.ts";
 export * from "./viem-server-wallet.ts";
 export * from "./privacy.ts";
+export * from "./circle-gateway.ts";
+export * from "./unlink-transport.ts";
 export * from "./ens.ts";
 export * from "./verify.ts";
 export * from "./errors.ts";

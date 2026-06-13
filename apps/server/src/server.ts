@@ -9,6 +9,7 @@ import {
   createDynamicVerifier,
   createOnchainFromConfig,
   createRateLimiter,
+  loadLiveUnlinkTransport,
   nullOnchain,
 } from "@superjam/api";
 import { createDb, runMigrations } from "@superjam/db";
@@ -43,13 +44,23 @@ const issuer = await createAppTokenIssuer({
 });
 // The chain adapter (§15/§16) — the single reused server-wallet signer. No
 // signer key ⇒ nullOnchain (boot stays green; payments return INTERNAL until
-// configured). Unlink stays degraded until its transport is wired (§23).
+// configured). Unlink stays degraded until its transport is wired (§23): the
+// live transport (Unlink withdraw → Circle Gateway pay) is null until the
+// rehearsal fills the SDK shapes, so payX402 degrades to PAYMENT_REQUIRED while
+// private tips/faucet are unaffected. A non-null transport ⇒ the Gateway leg is on.
+const unlinkTransport = loadLiveUnlinkTransport(env);
 const onchain =
   createOnchainFromConfig({
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
     baseSepoliaRpcUrl: env.BASE_SEPOLIA_RPC_URL,
     arcRpcUrl: env.ARC_RPC_URL,
-    unlink: { apiKey: env.UNLINK_API_KEY, appId: env.UNLINK_APP_ID },
+    unlink: {
+      apiKey: env.UNLINK_API_KEY,
+      appId: env.UNLINK_APP_ID,
+      ...(unlinkTransport
+        ? { transport: unlinkTransport, gatewayConfigured: true }
+        : {}),
+    },
     ens:
       env.ENS_L2_REGISTRY && env.ENS_PARENT_NODE
         ? {

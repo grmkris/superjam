@@ -31,6 +31,7 @@ export {
   nullOnchain,
   type Onchain,
   type OnchainConfig,
+  loadLiveUnlinkTransport,
 } from "@superjam/onchain";
 export { type PotOracle, nullOracle } from "./lib/oracle.ts";
 export { createRateLimiter, type RateLimiter } from "./lib/rate-limit.ts";
