@@ -7,18 +7,20 @@
 //
 // Stage 1+ `create` (the build): enforces the trial quota (free build #1, then
 // worldVerified — or a verified USDC receipt to pay past it), inserts the build
-// row, mints the appId up front (it's baked into the deploy as SUPERJAM_APP_ID),
-// and fires the async build driver. The driver dispatches the AppSpec to a
-// builder agent (apps/builder, pivot §6: it DEPLOYS + returns an entryUrl), then
-// registers the app via createExternalApp.
+// row, then ALLOCATES the app row up front (status 'building') to get the real
+// appId — which is baked into the deploy as SUPERJAM_APP_ID (the JWT aud), so
+// `app.id` is guaranteed to equal the token audience. The async driver dispatches
+// the AppSpec to a builder (apps/builder, pivot §6: it DEPLOYS + returns an
+// entryUrl), then FINALIZES the app (attaches entryUrl + lists it).
 //
 // Two cross-lane seams are wired as DI deps that no-op/log until they land, so a
-// half-built environment still works and a registration/ENS failure NEVER fails
-// a build (§11): `verifyPayment` (C's verifyUsdcTransfer) and the deploy
-// dispatch (the live builder, M5). `refine` + `deploy` are stubbed in tests.
+// half-built environment still works and a finalize/ENS failure NEVER fails a
+// build (§11): `verifyPayment` (C's verifyUsdcTransfer) and the deploy dispatch
+// (the live builder, M5). `refine` + `deploy` are stubbed in tests.
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
 import {
+  type AppManifest,
   type AppSpec,
   AppId,
   AppSpecSchema,
@@ -26,7 +28,6 @@ import {
   LIST_MAX,
   REFINE_CALLS_PER_USER_DAY,
   type RefineResult,
-  typeIdGenerator,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
 import { count, eq } from "drizzle-orm";
@@ -37,7 +38,7 @@ import {
   createRemoteDeployer,
 } from "../lib/builder-dispatch.ts";
 import { protectedProcedure } from "../orpc.ts";
-import { createExternalApp } from "./apps.ts";
+import { allocateExternalApp, finalizeExternalApp } from "./apps.ts";
 import type { RefineCatalogApp, RefineInput } from "@superjam/builder";
 import { refine as defaultRefine } from "@superjam/builder";
 
@@ -128,12 +129,26 @@ const userBuildCount = async (
   return row?.n ?? 0;
 };
 
+/** The AppManifest is derivable from the (validated) AppSpec — no deploy needed,
+ * so the app row can be allocated before the build runs. */
+const manifestFromSpec = (spec: AppSpec): AppManifest => ({
+  name: spec.name,
+  slug: spec.slug,
+  description: spec.description,
+  iconEmoji: spec.iconEmoji,
+  category: spec.category,
+  capabilities: spec.capabilities,
+});
+
 /**
- * The async build driver. Dispatches to a builder (which deploys + returns an
- * entryUrl), then registers the app. NEVER throws — failures land on the build
- * row so the web feed shows them. Registration is best-effort (§11): an ENS /
- * createExternalApp failure marks the build done-but-unregistered, it does not
- * fail the build.
+ * The async build driver. The app row is ALREADY allocated (status 'building',
+ * its id baked into the deploy as SUPERJAM_APP_ID). This dispatches to a builder
+ * (which deploys + returns an entryUrl), then FINALIZES the app (attaches the
+ * entryUrl + lists it). NEVER throws — failures land on the build row so the web
+ * feed shows them. Finalize is best-effort (§11): an ENS / finalize failure
+ * leaves the build done but the app un-listed (still 'building'); it does not
+ * fail the build. A deploy FAILURE leaves the allocated row 'building'
+ * (invisible — apps.get skips it); a stale-building reaper is a follow-up.
  */
 export const runBuild = async (
   db: Database,
@@ -141,12 +156,11 @@ export const runBuild = async (
   deploy: BuildDeployer,
   args: {
     buildId: BuildRow["id"];
-    appId: string;
+    appId: AppId;
     spec: AppSpec;
-    ownerUserId: UserRow["id"];
   }
 ): Promise<void> => {
-  const { buildId, appId, spec, ownerUserId } = args;
+  const { buildId, appId, spec } = args;
   try {
     await db.update(build).set({ status: "generating" }).where(eq(build.id, buildId));
     const result = await deploy({ spec, buildId, appId });
@@ -161,24 +175,11 @@ export const runBuild = async (
       .where(eq(build.id, buildId));
 
     try {
-      // SEAM (P1, %67): createExternalApp mints its OWN row id, so it diverges
-      // from `appId` baked into the deploy as SUPERJAM_APP_ID (the JWT `aud`).
-      // For aud to bind, createExternalApp must adopt a passed-in id — a
-      // one-line follow-up in apps.ts. The build/register flow itself is correct.
-      const registered = await createExternalApp(db, {
-        manifest: result.manifest,
-        entryUrl: result.entryUrl,
-        ownerUserId,
-        buildId,
-      });
-      await db
-        .update(build)
-        .set({ appId: registered.id })
-        .where(eq(build.id, buildId));
+      await finalizeExternalApp(db, { appId, entryUrl: result.entryUrl });
     } catch (err) {
       logger.error(
         { err: String(err), buildId },
-        "app registration failed — build stays done, app unlisted (never fails the build)"
+        "app finalize failed — build stays done, app un-listed (never fails the build)"
       );
     }
   } catch (err) {
@@ -277,8 +278,6 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           }
         }
 
-        // Mint the appId up front — it's baked into the deploy as the JWT aud.
-        const appId = typeIdGenerator("app");
         const [row] = await context.db
           .insert(build)
           .values({
@@ -290,16 +289,28 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           .returning({ id: build.id });
         const buildId = row!.id;
 
+        // Allocate the app row up front → the REAL appId, baked into the deploy
+        // as SUPERJAM_APP_ID so app.id == the minted token's aud (§1). Status
+        // stays 'building' (invisible) until runBuild finalizes it.
+        const allocated = await allocateExternalApp(context.db, {
+          manifest: manifestFromSpec(input.spec),
+          ownerUserId: context.user.id,
+          buildId,
+        });
+        await context.db
+          .update(build)
+          .set({ appId: allocated.id })
+          .where(eq(build.id, buildId));
+
         // Fire-and-forget; the driver never throws (it records failures on the
         // build row). The web feed polls build.events / status.
         void runBuild(context.db, context.logger, deploy, {
           buildId,
-          appId,
+          appId: allocated.id,
           spec: input.spec,
-          ownerUserId: context.user.id,
         });
 
-        return { buildId, appId, status: "queued" as const };
+        return { buildId, appId: allocated.id, status: "queued" as const };
       }),
   };
 };

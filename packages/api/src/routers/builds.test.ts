@@ -14,6 +14,7 @@ import { createRateLimiter } from "../lib/rate-limit.ts";
 import { createTestApp, createTestUser } from "../testing/factories.ts";
 import type { BuildDeployer } from "../lib/builder-dispatch.ts";
 import type { DeployResult } from "@superjam/builder/deploy";
+import { allocateExternalApp } from "./apps.ts";
 import {
   createBuildsRouter,
   runBuild,
@@ -306,32 +307,35 @@ describe("builds.create — trial quota", () => {
 });
 
 describe("runBuild driver", () => {
-  test("deploys, marks the build done, and registers the app", async () => {
+  test("deploys, marks the build done, and finalizes (lists) the allocated app", async () => {
     const { db } = await harness();
     const owner = await createTestUser(db);
     const [b] = await db
       .insert(schema.build)
       .values({ userId: owner.id, prompt: "idea", spec: SPEC, status: "queued" })
       .returning();
+    // create() allocates the row up front; mirror that here.
+    const allocated = await allocateExternalApp(db, {
+      manifest: deployResult.manifest,
+      ownerUserId: owner.id,
+      buildId: b!.id,
+    });
+    expect(allocated.status).toBe("building");
 
     const deploy: BuildDeployer = async () => deployResult;
     await runBuild(db, logger, deploy, {
       buildId: b!.id,
-      appId: "app_baked",
+      appId: allocated.id,
       spec: SPEC,
-      ownerUserId: owner.id,
     });
 
     const built = await db.query.build.findFirst({ where: eq(schema.build.id, b!.id) });
     expect(built?.status).toBe("done");
     expect(built?.manifest?.slug).toBe("tip-jar");
-    expect(built?.appId).toMatch(/^app_/);
 
-    const registered = await db.query.app.findFirst({
-      where: eq(schema.app.slug, "tip-jar"),
-    });
-    expect(registered?.entryUrl).toBe("https://superjam-app1.vercel.app");
-    expect(registered?.status).toBe("listed");
+    const app = await db.query.app.findFirst({ where: eq(schema.app.id, allocated.id) });
+    expect(app?.status).toBe("listed");
+    expect(app?.entryUrl).toBe("https://superjam-app1.vercel.app");
   });
 
   test("a deploy failure marks the build failed (never throws)", async () => {
@@ -341,47 +345,56 @@ describe("runBuild driver", () => {
       .insert(schema.build)
       .values({ userId: owner.id, prompt: "idea", spec: SPEC, status: "queued" })
       .returning();
+    const allocated = await allocateExternalApp(db, {
+      manifest: deployResult.manifest,
+      ownerUserId: owner.id,
+      buildId: b!.id,
+    });
 
     const deploy: BuildDeployer = async () => {
       throw new Error("vercel exploded");
     };
     await runBuild(db, logger, deploy, {
       buildId: b!.id,
-      appId: "app_x",
+      appId: allocated.id,
       spec: SPEC,
-      ownerUserId: owner.id,
     });
 
     const built = await db.query.build.findFirst({ where: eq(schema.build.id, b!.id) });
     expect(built?.status).toBe("failed");
     expect(built?.error).toContain("vercel exploded");
+    // the allocated row stays 'building' (invisible), never listed
+    const app = await db.query.app.findFirst({ where: eq(schema.app.id, allocated.id) });
+    expect(app?.status).toBe("building");
   });
 
-  test("a registration failure leaves the build done (registration never fails it)", async () => {
+  test("a finalize failure leaves the build done (finalize never fails it)", async () => {
     const { db } = await harness();
     const owner = await createTestUser(db);
     const [b] = await db
       .insert(schema.build)
       .values({ userId: owner.id, prompt: "idea", spec: SPEC, status: "queued" })
       .returning();
+    const allocated = await allocateExternalApp(db, {
+      manifest: deployResult.manifest,
+      ownerUserId: owner.id,
+      buildId: b!.id,
+    });
 
-    // an un-parseable entryUrl makes createExternalApp throw (new URL(...))
+    // an un-parseable entryUrl makes finalizeExternalApp throw (new URL(...))
     const deploy: BuildDeployer = async () => ({
       ...deployResult,
       entryUrl: "not-a-url",
     });
     await runBuild(db, logger, deploy, {
       buildId: b!.id,
-      appId: "app_y",
+      appId: allocated.id,
       spec: SPEC,
-      ownerUserId: owner.id,
     });
 
     const built = await db.query.build.findFirst({ where: eq(schema.build.id, b!.id) });
     expect(built?.status).toBe("done");
-    const registered = await db.query.app.findFirst({
-      where: eq(schema.app.slug, "tip-jar"),
-    });
-    expect(registered).toBeUndefined();
+    const app = await db.query.app.findFirst({ where: eq(schema.app.id, allocated.id) });
+    expect(app?.status).toBe("building"); // never finalized → stays unlisted
   });
 });
