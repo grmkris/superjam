@@ -48,16 +48,16 @@ export const USDC: Record<ChainKey, UsdcToken> = {
     domainVersion: "2",
     decimals: 6,
   },
-  // Arc testnet 6-dec USDC ERC-20 (§15: "0x3600…0000" — the same balance as the
-  // 18-dec native unit). SPEC-GAP: confirm the full address at the Thu §23
-  // rehearsal; the privacy rail relays through Unlink, not this address, and
-  // public reads degrade to Base Sepolia, so a wrong value here can't break the
-  // demo path.
+  // Arc testnet USDC — VERIFIED on-chain 2026-06-13 (cast against rpc.testnet.arc.network):
+  // address 0x3600…0000, a real Circle FiatToken v2 — name "USDC", version "2",
+  // 6 decimals, DOMAIN_SEPARATOR present ⇒ EIP-3009 transferWithAuthorization
+  // supported. (Arc gas IS USDC natively, so the relay is optional here, but the
+  // EIP-712 domain below must be byte-correct for any signed transfer.)
   arcTestnet: {
     address: "0x3600000000000000000000000000000000000000",
     chainId: arcTestnet.id,
-    domainName: "USD Coin",
-    domainVersion: "1",
+    domainName: "USDC",
+    domainVersion: "2",
     decimals: 6,
   },
 };
