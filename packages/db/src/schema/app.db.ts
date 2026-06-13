@@ -3,6 +3,7 @@ import type {
   AppSpec,
   BuildEvent,
   Capability,
+  DraftState,
 } from "@superjam/shared";
 import {
   type AnyPgColumn,
@@ -84,7 +85,27 @@ export const build = pgTable("build", {
   ...baseEntityFields,
 });
 
+// A resumable make-flow draft (§3c) — the wizard persisted from prompt-start so a
+// reload/redirect resumes instead of resetting. The CLIENT generates the id (typeid)
+// so the URL (/build?d=…) is stable from mount; `step`+`prompt`+`spec` are queryable,
+// `state` is the rest of the wizard blob. `buildId` is set on dispatch (builds.create)
+// → the draft leaves the "pending" feed and the build/app takes over. Owned by userId.
+export const buildDraft = pgTable("build_draft", {
+  id: typeIdPk("buildDraft"),
+  userId: typeId("user", "user_id")
+    .notNull()
+    .references(() => user.id),
+  step: text("step").notNull().default("home"),
+  prompt: text("prompt").notNull().default(""),
+  spec: jsonb("spec").$type<AppSpec>(),
+  state: jsonb("state").$type<DraftState>().notNull().default({}),
+  buildId: typeId("build", "build_id").references(() => build.id),
+  ...baseEntityFields,
+});
+
 export type App = typeof app.$inferSelect;
 export type NewApp = typeof app.$inferInsert;
 export type Build = typeof build.$inferSelect;
 export type NewBuild = typeof build.$inferInsert;
+export type BuildDraft = typeof buildDraft.$inferSelect;
+export type NewBuildDraft = typeof buildDraft.$inferInsert;

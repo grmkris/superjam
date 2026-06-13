@@ -100,3 +100,48 @@ export const AppManifestSchema = z.object({
   capabilities: z.array(z.enum(CAPABILITIES)),
 });
 export type AppManifest = z.infer<typeof AppManifestSchema>;
+
+// --- Build-wizard draft (the resumable make-flow, persisted from prompt-start) ---
+
+/** The make-flow's beats; mirrored into the URL (?step=) + the build_draft row. */
+export const BUILD_STEPS = [
+  "home",
+  "followups",
+  "plan",
+  "builder",
+  "worldgate",
+  "workshop",
+  "reveal",
+] as const;
+export type BuildStep = (typeof BUILD_STEPS)[number];
+export const BuildStepSchema = z.enum(BUILD_STEPS);
+
+/** The picked builder + how its build fee was settled (carried into builds.create). */
+export const ChosenBuilderSchema = z.object({
+  agentId: z.string(),
+  payment: z
+    .object({ via: z.literal("x402"), txHash: z.string().nullable() })
+    .optional(),
+});
+export type ChosenBuilder = z.infer<typeof ChosenBuilderSchema>;
+
+/** Everything the wizard needs to resume EXCEPT the queryable columns (step,
+ *  prompt, spec, buildId) — stored as the `state` jsonb on build_draft. The web
+ *  owns the shape; the server round-trips it (permissive). */
+export const DraftStateSchema = z
+  .object({
+    questions: z
+      .array(z.object({ q: z.string(), options: z.array(z.string()) }))
+      .optional(),
+    picks: z.record(z.string(), z.string()).optional(),
+    comments: z.array(z.string()).optional(),
+    exchange: z.array(z.object({ you: z.string(), back: z.string() })).optional(),
+    similar: z.array(SimilarSchema).optional(),
+    chosen: ChosenBuilderSchema.nullable().optional(),
+    attachments: z
+      .array(z.object({ key: z.string(), name: z.string(), mime: z.string() }))
+      .optional(),
+    revealSlug: z.string().nullable().optional(),
+  })
+  .passthrough();
+export type DraftState = z.infer<typeof DraftStateSchema>;

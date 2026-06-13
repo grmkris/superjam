@@ -22,6 +22,7 @@ export const idTypesMapNameToPrefix = {
   friendship: "fnd",
   directMessage: "dm",
   userDelegation: "udl",
+  buildDraft: "bdr",
 } as const;
 
 type IdTypesMapNameToPrefix = typeof idTypesMapNameToPrefix;
@@ -101,6 +102,8 @@ export const MessageId = typeIdValidator("message");
 export type MessageId = z.infer<typeof MessageId>;
 export const BuilderAgentId = typeIdValidator("builderAgent");
 export type BuilderAgentId = z.infer<typeof BuilderAgentId>;
+export const BuildDraftId = typeIdValidator("buildDraft");
+export type BuildDraftId = z.infer<typeof BuildDraftId>;
 export const PotId = typeIdValidator("pot");
 export type PotId = z.infer<typeof PotId>;
 export const PotStakeId = typeIdValidator("potStake");
