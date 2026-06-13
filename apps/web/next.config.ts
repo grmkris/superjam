@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 
+// (build trigger: 2026-06-13 — force a fresh git build after the builder jam cleared)
 // Per-app frame-src for the viewer is set dynamically in middleware.ts.
 //
 // BUNDLER: built with webpack (apps/web `dev`/`build` use `--webpack`), NOT the
