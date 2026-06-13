@@ -10,6 +10,7 @@ import { inboxRouter } from "./routers/inbox.ts";
 import { paymentsRouter } from "./routers/payments.ts";
 import { profileRouter } from "./routers/profile.ts";
 import { publishRouter } from "./routers/publish.ts";
+import { reviewsRouter } from "./routers/reviews.ts";
 import { worldRouter } from "./routers/world.ts";
 
 export const appRouter = {
@@ -24,6 +25,7 @@ export const appRouter = {
   world: worldRouter,
   publish: publishRouter,
   payments: paymentsRouter,
+  reviews: reviewsRouter,
 };
 
 export type AppRouter = typeof appRouter;
