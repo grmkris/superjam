@@ -12,6 +12,12 @@ import type { NextConfig } from "next";
 // (Turbopack serves idkit's WASM fine, but the Dynamic SDK isn't Turbopack-ready.)
 const nextConfig: NextConfig = {
   transpilePackages: ["@superjam/sdk", "@superjam/shared", "@superjam/api"],
+  // Run "Collecting page data" single-threaded. Our custom `webpack` config below
+  // is a function (non-cloneable), and Next's page-data worker threads try to
+  // structured-clone next.config to each worker → DataCloneError → the build wedges
+  // forever at "Collecting page data" (vercel/next.js#69096). Single-threaded page
+  // collection has nothing to clone. (7 client-shell pages → trivially fast anyway.)
+  experimental: { workerThreads: false, cpus: 1 },
   // @worldcoin/idkit v4 runs on WASM (idkit-core's idkit_wasm_bg.wasm, loaded via
   // `new URL(..., import.meta.url)`). asyncWebAssembly emits/serves it under webpack;
   // the widget is loaded client-only via next/dynamic({ssr:false}) in world-gate.tsx.
