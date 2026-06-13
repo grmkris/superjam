@@ -5,7 +5,9 @@
 //   playing  the jam runs LIVE in-feed via %67's <AppHost> (a real app, not a
 //            video — the differentiator vs TikTok)
 // The ENS name tag lives on the jam PAGE, not the card (design round 6).
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useState } from "react";
+import { useHostAuth } from "../../lib/use-host-auth";
 import { AppHost } from "../app-host";
 import { FriendPicker } from "../chat/friend-picker";
 import { Handle } from "../verified-badge";
@@ -41,6 +43,8 @@ export function JamFeedCard({
   onComments: (j: FeedJam) => void;
   onRemix: (j: FeedJam) => void;
 }) {
+  const { isLoggedIn } = useHostAuth();
+  const { setShowAuthFlow } = useDynamicContext();
   const [playing, setPlaying] = useState(false);
   const [liked, setLiked] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -49,6 +53,16 @@ export function JamFeedCard({
   const setPlay = (v: boolean) => {
     setPlaying(v);
     onPlayingChange?.(v);
+  };
+
+  // Playing needs an identity: a signed-out viewer gets no app token, so the
+  // jam's SDK calls fail with "Authentication required". Prompt sign-in first.
+  const onPlay = () => {
+    if (!isLoggedIn) {
+      setShowAuthFlow(true);
+      return;
+    }
+    setPlay(true);
   };
 
   if (playing) {
@@ -104,7 +118,7 @@ export function JamFeedCard({
       </div>
 
       <button
-        onClick={() => setPlay(true)}
+        onClick={onPlay}
         className="inline-flex items-center gap-2 bg-pink text-white border-[2.5px] border-ink rounded-full px-9 py-3.5 text-lg font-extrabold shadow-sticker-lg sticker-press"
       >
         ▸ Play now

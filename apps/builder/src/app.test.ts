@@ -31,7 +31,14 @@ const dataSpec: AppSpec = {
   slug: "wall",
   data: {
     collections: [
-      { name: "posts", doc: { text: "string", score: "number" }, writtenWhen: "post" },
+      {
+        name: "posts",
+        fields: [
+          { name: "text", type: "string" },
+          { name: "score", type: "number" },
+        ],
+        writtenWhen: "post",
+      },
     ],
     counters: [],
     storage: [],

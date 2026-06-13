@@ -31,7 +31,7 @@ const specWith = (over: Partial<AppSpec> = {}): AppSpec => ({
 });
 const SPEC_NEEDS_DB = specWith({
   data: {
-    collections: [{ name: "scores", doc: { v: "number" }, writtenWhen: "x" }],
+    collections: [{ name: "scores", fields: [{ name: "v", type: "number" }], writtenWhen: "x" }],
     counters: [],
     storage: [],
   },

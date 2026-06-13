@@ -76,9 +76,11 @@ Return EXACTLY ONE of two shapes:
    - capabilities: which of payments | ai | social this app actually uses.
    - features: 3-6 concrete bullets the build agent must implement.
    - data: the app's persistence, expressed against the SuperJam SDK —
-       collections (shared docs everyone sees: walls, posts, leaderboards),
-       counters (atomic tallies keyed by something), storage (per-user keys).
-       Only include what the features need; empty arrays are fine.
+       collections (shared docs everyone sees: walls, posts, leaderboards) —
+       each with a "fields" list of { name, type } where type is
+       string | number | boolean; counters (atomic tallies keyed by something);
+       storage (per-user keys). Only include what the features need; empty arrays
+       are fine.
    - payments (only if capability "payments"): actions { label, amountUsdc, to:"appTreasury" }.
    - ai (only if capability "ai"): uses — what the in-app AI is asked to do.
    - social (only if capability "social"): messagesSentWhen — when one-way

@@ -105,7 +105,7 @@ describe("specNeedsData", () => {
         ...baseSpec,
         data: {
           ...baseSpec.data,
-          collections: [{ name: "posts", doc: { t: "string" }, writtenWhen: "post" }],
+          collections: [{ name: "posts", fields: [{ name: "t", type: "string" }], writtenWhen: "post" }],
         },
       })
     ).toBe(true);

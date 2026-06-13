@@ -33,7 +33,10 @@ export const AppSpecSchema = z.object({
     collections: z.array(
       z.object({
         name: z.string(),
-        doc: z.record(z.string(), DocField),
+        // Field list as plain pairs (NOT an open map): Gemini structured output
+        // can't fill `additionalProperties`/`z.record` maps — it returns them
+        // empty — so the shape that survives generateObject is an array.
+        fields: z.array(z.object({ name: z.string(), type: DocField })),
         writtenWhen: z.string(),
       })
     ),
@@ -68,26 +71,22 @@ export type Similar = z.infer<typeof SimilarSchema>;
 
 const SimilarList = z.array(SimilarSchema).max(SIMILAR_MAX).optional();
 
-// refine result — either follow-up questions or a finished spec.
-export const RefineQuestionsSchema = z.object({
-  type: z.literal("questions"),
+// refine result — either follow-up questions or a finished spec. A PLAIN object
+// (not a discriminated union): the AI SDK renders a root `z.discriminatedUnion`
+// as a top-level `anyOf`, which Gemini structured output can't honor — it ignores
+// the schema and emits free-form JSON, so generateObject throws. `type` selects
+// which payload is populated (`questions` xor `spec`); both are optional here and
+// the consumer branches on `type`.
+export const RefineResultSchema = z.object({
+  type: z.enum(["questions", "spec"]),
   questions: z
     .array(z.object({ q: z.string(), options: z.array(z.string()) }))
     .min(2)
-    .max(4),
+    .max(4)
+    .optional(),
+  spec: AppSpecSchema.optional(),
   similar: SimilarList,
 });
-
-export const RefineSpecSchema = z.object({
-  type: z.literal("spec"),
-  spec: AppSpecSchema,
-  similar: SimilarList,
-});
-
-export const RefineResultSchema = z.discriminatedUnion("type", [
-  RefineQuestionsSchema,
-  RefineSpecSchema,
-]);
 export type RefineResult = z.infer<typeof RefineResultSchema>;
 
 // Manifest the builder's submit() tool returns; the platform zod-validates it

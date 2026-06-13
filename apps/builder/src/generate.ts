@@ -166,8 +166,8 @@ const pgType: Record<"string" | "number" | "boolean", string> = {
 const schemaLib = (spec: AppSpec): string => {
   const imports = `import { pgTable, text, integer, boolean, timestamp } from "drizzle-orm/pg-core";\n\n`;
   const tables = spec.data.collections.map((coll) => {
-    const cols = Object.entries(coll.doc)
-      .map(([k, t]) => `  ${k}: ${pgType[t].replace("{c}", k)},`)
+    const cols = coll.fields
+      .map(({ name, type }) => `  ${name}: ${pgType[type].replace("{c}", name)},`)
       .join("\n");
     return `export const ${coll.name} = pgTable("${coll.name}", {\n  id: text("id").primaryKey(),\n${cols}\n  createdAt: timestamp("created_at").defaultNow(),\n});`;
   });

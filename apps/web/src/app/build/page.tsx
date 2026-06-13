@@ -5,6 +5,7 @@
 // workshop → reveal. Machinery hidden throughout: no build logs, file names,
 // terminals, or "AI/agent" talk anywhere a user can see.
 import type { AppSpec, BuildId, RefineResult, Similar } from "@superjam/shared";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useConfirm } from "../../components/confirm/confirm-provider";
@@ -50,7 +51,8 @@ function MakeFlow() {
   const remixSlug = search.get("remix");
   const client = usePlatformClient();
   const { confirm } = useConfirm();
-  const { hostUser } = useHostAuth();
+  const { hostUser, isLoggedIn } = useHostAuth();
+  const { setShowAuthFlow } = useDynamicContext();
   const username = hostUser?.username ?? "you";
 
   const [step, setStep] = useState<Step>("home");
@@ -78,10 +80,10 @@ function MakeFlow() {
           answers,
         });
         setSimilar(res.similar ?? []);
-        if (res.type === "questions") {
+        if (res.type === "questions" && res.questions) {
           setQuestions(res.questions);
           setStep("followups");
-        } else {
+        } else if (res.spec) {
           setSpec(res.spec);
           setStep("plan");
         }
@@ -111,7 +113,7 @@ function MakeFlow() {
         prompt: idea,
         answers: [{ q: "change", a: text }],
       });
-      if (res.type === "spec") setSpec(res.spec);
+      if (res.type === "spec" && res.spec) setSpec(res.spec);
       setExchange((x) =>
         x.map((e, i) => (i === x.length - 1 ? { ...e, back: "Done — updated ☝️" } : e))
       );
@@ -186,6 +188,8 @@ function MakeFlow() {
           remix={remixSlug}
           busy={busy}
           err={err}
+          isLoggedIn={isLoggedIn}
+          onLogin={() => setShowAuthFlow(true)}
           onGo={() => idea.trim() && handleRefine()}
         />
       )}
@@ -271,6 +275,8 @@ function HomeBeat({
   remix,
   busy,
   err,
+  isLoggedIn,
+  onLogin,
   onGo,
 }: {
   idea: string;
@@ -278,6 +284,8 @@ function HomeBeat({
   remix: string | null;
   busy: boolean;
   err: string | null;
+  isLoggedIn: boolean;
+  onLogin: () => void;
   onGo: () => void;
 }) {
   return (
@@ -308,9 +316,17 @@ function HomeBeat({
         className="bg-card border-2 border-ink rounded-toy p-4 text-[15px] font-medium leading-relaxed placeholder:text-muted outline-none focus:border-pink shadow-sticker resize-none"
       />
       {err && <div className="text-pink text-[13px] font-bold">{err}</div>}
-      <StickerButton color="pink" size="lg" block onClick={onGo} disabled={busy || !idea.trim()}>
-        {busy ? "thinking…" : "Let's go! →"}
-      </StickerButton>
+      {isLoggedIn ? (
+        <StickerButton color="pink" size="lg" block onClick={onGo} disabled={busy || !idea.trim()}>
+          {busy ? "thinking…" : "Let's go! →"}
+        </StickerButton>
+      ) : (
+        // refine is a protected call — a signed-out maker would just 401. Send
+        // them through sign-in first; their idea text stays in the box.
+        <StickerButton color="pink" size="lg" block onClick={onLogin}>
+          Sign in to make →
+        </StickerButton>
+      )}
 
       <div className="flex flex-wrap gap-2 mt-1">
         {["a tip jar with a leaderboard", "a daily trivia game", "a doodle guessing duel"].map(

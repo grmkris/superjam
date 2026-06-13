@@ -31,7 +31,7 @@ describe("requiredCapabilities", () => {
   test("collections / counters / storage pull in a database", () => {
     const withData = spec({
       data: {
-        collections: [{ name: "scores", doc: { v: "number" }, writtenWhen: "x" }],
+        collections: [{ name: "scores", fields: [{ name: "v", type: "number" }], writtenWhen: "x" }],
         counters: [],
         storage: [],
       },

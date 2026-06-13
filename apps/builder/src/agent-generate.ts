@@ -86,7 +86,7 @@ const renderSpec = (spec: AppSpec): string =>
     `Category: ${spec.category} · Capabilities: ${spec.capabilities.join(", ") || "none"}`,
     spec.features.length ? `\n## Features\n${spec.features.map((f) => `- ${f}`).join("\n")}` : "",
     spec.data.collections.length
-      ? `\n## Data collections\n${spec.data.collections.map((c) => `- ${c.name}: ${JSON.stringify(c.doc)} — ${c.writtenWhen}`).join("\n")}`
+      ? `\n## Data collections\n${spec.data.collections.map((c) => `- ${c.name}: {${c.fields.map((f) => `${f.name}:${f.type}`).join(", ")}} — ${c.writtenWhen}`).join("\n")}`
       : "",
     spec.data.counters.length
       ? `\n## Counters\n${spec.data.counters.map((c) => `- ${c.name} (keyed by ${c.keyedBy}): ${c.meaning}`).join("\n")}`
