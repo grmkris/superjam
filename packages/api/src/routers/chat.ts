@@ -58,13 +58,7 @@ export const chatRouter = {
     ),
 
   recordTip: protectedProcedure
-    .input(
-      z.object({
-        to: z.string().min(1),
-        amountUsdc: z.string().min(1),
-        txHash: z.string().min(1),
-      })
-    )
+    .input(z.object({ to: z.string().min(1), txHash: z.string().min(1) }))
     .handler(({ context, input }) =>
       createChatService({
         db: context.db,
@@ -72,8 +66,8 @@ export const chatRouter = {
       }).recordTip(
         { id: context.user.id, username: context.user.username },
         input.to,
-        input.amountUsdc,
-        input.txHash
+        input.txHash,
+        context.onchain
       )
     ),
 

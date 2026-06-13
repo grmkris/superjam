@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useConfirm } from "../../components/confirm/confirm-provider";
 import { JamPicker } from "../../components/chat/jam-picker";
 import { MessageCard } from "../../components/chat/message-card";
+import { PayFriendSheet } from "../../components/chat/pay-friend-sheet";
 import { userEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
@@ -265,6 +266,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
   const [picking, setPicking] = useState(false);
+  const [paying, setPaying] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -277,11 +279,23 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
   }, [client, friend.username]);
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await client.chat.history({ withUsername: friend.username });
+        if (!cancelled) setMsgs((r.messages as Msg[]).toReversed());
+      } catch {
+        /* not friends / transient */
+      }
+    };
+    tick();
     client.chat.markRead({ withUsername: friend.username }).catch(() => {});
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
-  }, [load, client, friend.username]);
+    const t = setInterval(tick, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [client, friend.username]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -295,18 +309,18 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
     load();
   };
 
-  const pay = async () => {
+  const pay = async (amountUsdc: number, note: string) => {
+    setPaying(false);
     const res = await confirm({
       kind: "payFriend",
       to: `@${friend.username}`,
       toName: friend.ensName ?? userEns(friend.username),
-      amountUsdc: 1,
-      memo: "☕",
+      amountUsdc,
+      memo: note || undefined,
     }).catch(() => ({ approved: false, txHash: undefined as string | undefined }));
-    if (res.approved) {
-      await client.chat
-        .recordTip({ to: friend.username, amountUsdc: "1.00", txHash: res.txHash ?? "" })
-        .catch(() => {});
+    if (res.approved && res.txHash) {
+      // the money line is recorded server-side from the verified on-chain tx
+      await client.chat.recordTip({ to: friend.username, txHash: res.txHash }).catch(() => {});
       load();
     }
   };
@@ -357,7 +371,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
 
       <div className="flex gap-2 items-center sticky bottom-0 bg-cream pb-1">
         <button
-          onClick={pay}
+          onClick={() => setPaying(true)}
           className="w-11 h-11 bg-green border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Pay a friend"
         >
@@ -380,6 +394,13 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
       </div>
 
       {picking && <JamPicker onPick={shareJam} onClose={() => setPicking(false)} />}
+      {paying && (
+        <PayFriendSheet
+          username={friend.username}
+          onSend={pay}
+          onClose={() => setPaying(false)}
+        />
+      )}
     </div>
   );
 }

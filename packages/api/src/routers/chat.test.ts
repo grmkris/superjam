@@ -4,10 +4,12 @@ import { createPgliteDb } from "@superjam/db/pglite";
 import { createLogger } from "@superjam/logger";
 
 setDefaultTimeout(20_000);
+import { parseUsdc } from "@superjam/onchain";
 import { createTestAuth } from "../auth/test-auth.ts";
 import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
 import { appRouter } from "../router.ts";
+import { createMockOnchain } from "../testing/onchain-mock.ts";
 import { createExternalApp } from "./apps.ts";
 import { createTestUser } from "../testing/factories.ts";
 
@@ -17,17 +19,19 @@ const harness = async () => {
   const { db } = await createPgliteDb();
   const auth = await createTestAuth();
   const rateLimiter = createRateLimiter();
+  const onchain = createMockOnchain();
   const ctxFor = (token?: string) =>
     createContext({
       db,
       logger,
       auth: auth.verifier,
       rateLimiter,
+      onchain,
       headers: new Headers(token ? { authorization: `Bearer ${token}` } : {}),
     });
   const tokenFor = (u: { dynamicUserId: string | null; email: string }) =>
     auth.sign({ dynamicUserId: u.dynamicUserId!, email: u.email });
-  return { db, ctxFor, tokenFor };
+  return { db, onchain, ctxFor, tokenFor };
 };
 
 const twoFriends = async (h: Awaited<ReturnType<typeof harness>>) => {
@@ -164,13 +168,26 @@ describe("chat shareJam (card + deeplink)", () => {
   });
 });
 
-describe("chat recordTip", () => {
-  test("records a tip money line", async () => {
+describe("chat recordTip (server-authoritative)", () => {
+  const ALICE_WALLET = `0x${"a".repeat(40)}`;
+  const BOB_WALLET = `0x${"b".repeat(40)}`;
+
+  test("verifies the txHash on-chain + derives the amount from the receipt", async () => {
     const h = await harness();
-    const { aliceTok } = await twoFriends(h);
+    const alice = await createTestUser(h.db, { username: "alice", walletAddress: ALICE_WALLET });
+    const bob = await createTestUser(h.db, { username: "bob", walletAddress: BOB_WALLET });
+    const aliceTok = await h.tokenFor(alice);
+    await call(appRouter.friends.add, { username: "bob" }, { context: h.ctxFor(aliceTok) });
+
+    // on-chain says: alice's wallet sent 2.00 USDC to bob's wallet
+    h.onchain.setVerify(async () => ({
+      from: ALICE_WALLET as `0x${string}`,
+      value: parseUsdc("2.00"),
+    }));
+
     await call(
       appRouter.chat.recordTip,
-      { to: "bob", amountUsdc: "1.00", txHash: "0xabc" },
+      { to: "bob", txHash: "0xfeed" },
       { context: h.ctxFor(aliceTok) }
     );
     const hist = await call(
@@ -179,7 +196,23 @@ describe("chat recordTip", () => {
       { context: h.ctxFor(aliceTok) }
     );
     expect(hist.messages[0]!.kind).toBe("tip");
-    expect(hist.messages[0]!.amountUsdc).toBe("1.00");
+    expect(hist.messages[0]!.amountUsdc).toBe("2"); // derived from the receipt, not the client
+  });
+
+  test("rejects a forged tip whose transfer doesn't verify", async () => {
+    const h = await harness();
+    const alice = await createTestUser(h.db, { username: "alice", walletAddress: ALICE_WALLET });
+    const bob = await createTestUser(h.db, { username: "bob", walletAddress: BOB_WALLET });
+    const aliceTok = await h.tokenFor(alice);
+    await call(appRouter.friends.add, { username: "bob" }, { context: h.ctxFor(aliceTok) });
+    // default mock verify throws (no qualifying transfer)
+    await expect(
+      call(
+        appRouter.chat.recordTip,
+        { to: "bob", txHash: "0xdeadbeef" },
+        { context: h.ctxFor(aliceTok) }
+      )
+    ).rejects.toBeTruthy();
   });
 });
 
@@ -200,9 +233,11 @@ describe("bridge.social.send (app → friend card)", () => {
       ownerUserId: alice.id,
     });
 
+    // non-ASCII params exercise the UTF-8-safe base64 round-trip
+    const params = { round: 2, emoji: "🎮", who: "míra" };
     await call(
       appRouter.bridge.social.send,
-      { appId: jam.id, to: "bob", card: { title: "Beat me!", cta: "Play" }, params: { round: 2 } },
+      { appId: jam.id, to: "bob", card: { title: "Beat me!", cta: "Play" }, params },
       { context: h.ctxFor(aliceTok) }
     );
 
@@ -215,8 +250,9 @@ describe("bridge.social.send (app → friend card)", () => {
     expect(m.kind).toBe("card");
     expect(m.card?.title).toBe("Beat me!");
     expect(m.via?.name).toBe("Trivia");
+    // decode exactly like the viewer's parseLaunch
     const d = new URL(`https://x${m.link}`).searchParams.get("d")!;
-    expect(JSON.parse(Buffer.from(d, "base64").toString("utf8"))).toEqual({ round: 2 });
+    expect(JSON.parse(decodeURIComponent(escape(atob(d))))).toEqual(params);
   });
 
   test("rejects a non-friend recipient", async () => {

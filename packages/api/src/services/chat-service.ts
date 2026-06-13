@@ -12,8 +12,15 @@ import {
   MSG_PER_SENDER_PER_MIN,
   type UserId,
 } from "@superjam/shared";
+import {
+  type Onchain,
+  PUBLIC_CHAIN,
+  formatUsdc,
+  usdc,
+} from "@superjam/onchain";
 import { ORPCError } from "@orpc/server";
 import { aliasedTable, and, desc, eq, inArray, or } from "drizzle-orm";
+import { type Hex, isAddressEqual } from "viem";
 import type { RateLimiter } from "../lib/rate-limit.ts";
 import { normalizeInboxLink } from "./../lib/validate.ts";
 import { createFriendService } from "./friend-service.ts";
@@ -29,8 +36,13 @@ const decodeCursor = (cursor?: string): number => {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 };
 
-// Build a platform deeplink with app-defined params, encoded to match the host
-// viewer's parseLaunch (URLSearchParams.get("d") → atob → JSON.parse).
+// Build a platform deeplink with app-defined params. The base64 MUST match the
+// viewer's parseLaunch (app-frame.tsx): JSON.parse(decodeURIComponent(escape(
+// atob(d)))) — the standard UTF-8-safe base64 idiom. Node's
+// Buffer.from(json,"utf8").toString("base64") produces exactly that base64 (same
+// as the host's btoa(unescape(encodeURIComponent(json)))). encodeURIComponent
+// then makes the +/=//chars query-safe; URLSearchParams.get decodes them back.
+// Verified round-trip incl. emoji/accents — do NOT "simplify" the escape() away.
 const deeplink = (slug: string, params?: Record<string, unknown>): string => {
   if (!params) return normalizeInboxLink(`/app/${slug}`);
   const d = encodeURIComponent(
@@ -285,10 +297,44 @@ export const createChatService = ({
       });
     },
 
-    /** Record a completed pay-a-friend as a money line (USDC already moved). */
-    async recordTip(from: Sender, to: string, amountUsdc: string, txHash: string) {
+    /** Record a completed pay-a-friend as a money line. SERVER-AUTHORITATIVE: the
+     *  txHash is verified on-chain (Transfer LOG → the friend's wallet) and the
+     *  amount is DERIVED from the receipt — a client can't forge a money line.
+     *  relayTransfer awaits the receipt, so the tx is mined by the time we're
+     *  called. Idempotent on txHash (no double-record / replay). */
+    async recordTip(from: Sender, to: string, txHash: string, onchain: Onchain) {
       const other = await friends.resolveUserId(to);
       await assertFriend(from.id, other);
+
+      const dup = await db.query.directMessage.findFirst({
+        columns: { id: true },
+        where: eq(directMessage.txHash, txHash),
+      });
+      if (dup) return { id: dup.id };
+
+      const wallets = await db
+        .select({ id: user.id, walletAddress: user.walletAddress })
+        .from(user)
+        .where(inArray(user.id, [from.id, other]));
+      const friendWallet = wallets.find((w) => w.id === other)?.walletAddress;
+      const myWallet = wallets.find((w) => w.id === from.id)?.walletAddress;
+      if (!friendWallet) {
+        throw new ORPCError("BAD_REQUEST", { message: "Friend has no wallet" });
+      }
+
+      const { from: payer, value } = await onchain.verifyUsdcTransfer({
+        hash: txHash as Hex,
+        chain: PUBLIC_CHAIN,
+        expectedTo: friendWallet as `0x${string}`,
+        minAmount: usdc(1n),
+      });
+      if (myWallet && !isAddressEqual(payer, myWallet as `0x${string}`)) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Tip must come from your wallet",
+        });
+      }
+
+      const amountUsdc = formatUsdc(value);
       return insert({
         fromUserId: from.id,
         toUserId: other,
