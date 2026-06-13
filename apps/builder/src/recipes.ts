@@ -1,0 +1,54 @@
+// Recipe corpus selection — the repo's canonical "how to build app type X" patterns
+// (apps/builder/recipes/*.md). Shared by BOTH builder paths: the agent-fill generator
+// (agent-generate.ts) and the autonomous agent (agent-build.ts), so each gets the same
+// archetype guidance grounded in the actual recipe files.
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { AppSpec } from "@superjam/shared";
+
+export const RECIPES_DIR = join(import.meta.dir, "..", "recipes");
+
+/**
+ * Choose which recipes to feed the agent. `_base` + `INDEX` always; archetypes by skill,
+ * category, and keyword (keywords cover archetypes the SkillName enum doesn't name yet —
+ * quiz/predict/data/realtime/social).
+ */
+export const selectRecipes = (spec: AppSpec): string[] => {
+  const want = new Set<string>(["_base", "INDEX"]);
+  for (const s of spec.skills ?? []) {
+    if (s === "game-2d" || s === "game-3d") want.add("game");
+    else if (s === "charts") want.add("poll-charts");
+    else if (s === "judge") want.add("judge");
+    else if (s === "market") want.add("market");
+  }
+  if (spec.category === "game") want.add("game");
+  if (spec.category === "social") want.add("social");
+  const hay = `${spec.name} ${spec.description} ${spec.features.join(" ")}`.toLowerCase();
+  const kw: [RegExp, string][] = [
+    [/quiz|trivia/, "quiz"],
+    [/predict|sweepstake|forecast/, "predict"],
+    [/\bbet\b|pot|wager|market|stake/, "market"],
+    [/vote|poll|survey/, "poll-charts"],
+    [/csv|spreadsheet|dataset|data set|analy/, "data"],
+    [/live|real-?time|multiplayer/, "realtime"],
+    [/wall|guestbook|feed|\bpost\b/, "social"],
+    [/draw|photo|judge|contest|\brate\b/, "judge"],
+    [/game|arcade|clicker|score/, "game"],
+  ];
+  for (const [re, r] of kw) if (re.test(hay)) want.add(r);
+  return [...want];
+};
+
+/** Concatenated recipe markdown for a spec (missing files are skipped). */
+export const loadRecipes = async (spec: AppSpec): Promise<string> => {
+  const parts = await Promise.all(
+    selectRecipes(spec).map(async (n) => {
+      try {
+        return await readFile(join(RECIPES_DIR, `${n}.md`), "utf8");
+      } catch {
+        return "";
+      }
+    })
+  );
+  return parts.filter(Boolean).join("\n\n---\n\n");
+};

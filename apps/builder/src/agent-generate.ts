@@ -9,11 +9,12 @@
 // tested with a stub, and the dependency stays isolated to the runner adapter (wired in
 // server.ts on the claude-authed builder box). On ANY agent error or incomplete output it
 // returns the deterministic skeleton — the agent makes apps BETTER, it never fails a build.
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { AppSpec } from "@superjam/shared";
 import type { GeneratedApp, Generator } from "@superjam/builder/deploy";
 import { generateApp } from "./generate.ts";
+import { loadRecipes, selectRecipes } from "./recipes.ts";
+
+export { loadRecipes, selectRecipes };
 
 /**
  * Run an LLM agent over a seeded workspace; return the final path→source map. The real impl
@@ -32,52 +33,6 @@ export interface AgentGeneratorDeps {
   loadRecipes?: (spec: AppSpec) => Promise<string>;
   onEvent?: (label: string) => void;
 }
-
-const RECIPES_DIR = join(import.meta.dir, "..", "recipes");
-
-/**
- * Choose which recipes to feed the agent. `_base` + `INDEX` always; archetypes by skill,
- * category, and keyword (keywords cover archetypes the SkillName enum doesn't name yet —
- * quiz/predict/data/realtime/social).
- */
-export const selectRecipes = (spec: AppSpec): string[] => {
-  const want = new Set<string>(["_base", "INDEX"]);
-  for (const s of spec.skills ?? []) {
-    if (s === "game-2d" || s === "game-3d") want.add("game");
-    else if (s === "charts") want.add("poll-charts");
-    else if (s === "judge") want.add("judge");
-    else if (s === "market") want.add("market");
-  }
-  if (spec.category === "game") want.add("game");
-  if (spec.category === "social") want.add("social");
-  const hay = `${spec.name} ${spec.description} ${spec.features.join(" ")}`.toLowerCase();
-  const kw: [RegExp, string][] = [
-    [/quiz|trivia/, "quiz"],
-    [/predict|sweepstake|forecast/, "predict"],
-    [/\bbet\b|pot|wager|market|stake/, "market"],
-    [/vote|poll|survey/, "poll-charts"],
-    [/csv|spreadsheet|dataset|data set|analy/, "data"],
-    [/live|real-?time|multiplayer/, "realtime"],
-    [/wall|guestbook|feed|\bpost\b/, "social"],
-    [/draw|photo|judge|contest|\brate\b/, "judge"],
-    [/game|arcade|clicker|score/, "game"],
-  ];
-  for (const [re, r] of kw) if (re.test(hay)) want.add(r);
-  return [...want];
-};
-
-const defaultLoadRecipes = async (spec: AppSpec): Promise<string> => {
-  const parts = await Promise.all(
-    selectRecipes(spec).map(async (n) => {
-      try {
-        return await readFile(join(RECIPES_DIR, `${n}.md`), "utf8");
-      } catch {
-        return "";
-      }
-    })
-  );
-  return parts.filter(Boolean).join("\n\n---\n\n");
-};
 
 const renderSpec = (spec: AppSpec): string =>
   [
@@ -126,7 +81,7 @@ export const createAgentGenerator = (deps: AgentGeneratorDeps): Generator =>
   async (spec, ctx): Promise<GeneratedApp> => {
     const base = generateApp(spec, ctx); // deterministic skeleton + fallback (bakes appId + JWKS)
     try {
-      const recipes = await (deps.loadRecipes ?? defaultLoadRecipes)(spec);
+      const recipes = await (deps.loadRecipes ?? loadRecipes)(spec);
       const { system, prompt } = buildPrompt(spec, recipes);
       deps.onEvent?.("agent: generating");
       const edited = await deps.runAgent({ system, prompt, files: base.files });

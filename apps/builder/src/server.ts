@@ -4,30 +4,25 @@
 // unit repoints WorkingDirectory/ExecStart here and restarts (SPEC §11 deploy).
 import {
   createNeonClient,
-  type DeployPort,
   teardownApp,
   type VercelTeardown,
 } from "@superjam/builder/deploy";
 import { createLogger } from "@superjam/logger";
 import { serve } from "@hono/node-server";
-import { createAgentGenerator } from "./agent-generate.ts";
+import { runAgentBuild } from "./agent-build.ts";
 import { createBuilderApp } from "./app.ts";
-import { cliDeploy, vercelRemove } from "./cli-deploy.ts";
-import { createClaudeAgentRunner } from "./claude-runner.ts";
+import { vercelRemove } from "./cli-deploy.ts";
 import { parseBuilderEnv } from "./env.ts";
-import { createTemplateGenerator } from "./generate.ts";
 import { createBuildRunner } from "./queue.ts";
 
 const env = parseBuilderEnv(process.env);
 const logger = createLogger({ level: "info" });
 
-// Deploy = the Vercel CLI (authed on the box; optional VERCEL_TOKEN for systemd).
-const deploy: DeployPort = (args) =>
-  cliDeploy({ files: args.files, name: args.name, token: env.VERCEL_TOKEN });
+// Teardown (app delete) stays platform-side: `vercel rm` + Neon delete by the ids
+// the agent reported. The Neon client needs an API key for the SAME account the
+// agent's Neon MCP provisions under (so it can delete by id).
 const teardownVercel: VercelTeardown = (name) =>
   vercelRemove(name, { token: env.VERCEL_TOKEN });
-
-// Neon only when the org key is set (data apps); zero-backend builds skip it.
 const neon = env.NEON_API_KEY
   ? createNeonClient({ apiKey: env.NEON_API_KEY, regionId: env.NEON_REGION_ID })
   : undefined;
@@ -49,24 +44,12 @@ const claudeAuth = async (): Promise<boolean> => {
   return authCache.ok;
 };
 
-// Agent fill when `claude` is subscription-authed on the box (richer, real
-// interactive apps); deterministic skeleton otherwise. The agent only generates
-// files — cliDeploy ships them; agent-generate falls back to the skeleton on any
-// agent error, so a flaky agent never fails a build.
-const generate = (await claudeAuth())
-  ? createAgentGenerator({
-      runAgent: createClaudeAgentRunner(),
-      onEvent: (label) => logger.debug({ agent: label }, "agent-generate"),
-    })
-  : createTemplateGenerator();
-logger.info({ mode: (await claudeAuth()) ? "agent" : "deterministic" }, "generator");
-
+// Pure-agentic build: the runner launches the autonomous agent (Bash + the box's
+// inherited Neon/Vercel MCPs), which implements + provisions + deploys the app
+// itself and POSTs progress/result to the loopback /report callback (port below).
 const runner = createBuildRunner({
-  generate,
-  deploy,
-  teardownVercel,
-  neon,
-  jwksUrl: env.SUPERJAM_JWKS_URL,
+  runBuild: (a) =>
+    runAgentBuild({ ...a, port: env.PORT, jwksUrl: env.SUPERJAM_JWKS_URL }),
   maxConcurrent: env.MAX_CONCURRENT_BUILDS,
 });
 
