@@ -11,15 +11,31 @@ import {
   type AppManifest,
   AppManifestSchema,
   type BuildId,
+  LIST_MAX,
+  PLAYS_COUNTER,
   RESERVED_LABELS,
   type UserId,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
-import { publicProcedure, worldVerifiedProcedure } from "../orpc.ts";
+import {
+  protectedProcedure,
+  publicProcedure,
+  worldVerifiedProcedure,
+} from "../orpc.ts";
 
-const { app } = schema;
+const { app, user, appCounter, appReview, build } = schema;
+
+// Offset cursors (mirrors review-service): opaque base64 page offset.
+const encodeCursor = (offset: number): string =>
+  Buffer.from(String(offset), "utf8").toString("base64url");
+const decodeCursor = (cursor?: string): number => {
+  if (!cursor) return 0;
+  const n = Number.parseInt(Buffer.from(cursor, "base64url").toString("utf8"), 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
 
 const isReserved = (slug: string): boolean =>
   (RESERVED_LABELS as readonly string[]).includes(slug);
@@ -156,6 +172,135 @@ export const appsRouter = {
         entryOrigin: row.entryOrigin,
         ensName: row.ensName,
       };
+    }),
+
+  // Discover feed (DESIGN_BRIEF §3b). Lists live jams with the social meta the
+  // feed card needs: maker (✓-human), play total, review count, remix lineage.
+  // "foryou" = most-played first; "new" = newest. No "friends" tab (no friends
+  // graph yet). likes/friendsPlayed are 0 until those surfaces exist.
+  explore: publicProcedure
+    .input(
+      z.object({
+        tab: z.enum(["foryou", "new"]).default("foryou"),
+        cursor: z.string().optional(),
+        limit: z.number().int().min(1).max(LIST_MAX).default(20),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const db = context.db;
+      const offset = decodeCursor(input.cursor);
+      const limit = input.limit;
+
+      // play totals (SUM over the _plays counter's per-key rows) + review counts
+      const plays = db
+        .select({
+          appId: appCounter.appId,
+          total: sql<string>`coalesce(sum(${appCounter.value}), 0)`.as("total"),
+        })
+        .from(appCounter)
+        .where(eq(appCounter.counter, PLAYS_COUNTER))
+        .groupBy(appCounter.appId)
+        .as("plays");
+      const reviews = db
+        .select({
+          appId: appReview.appId,
+          cnt: sql<number>`count(*)::int`.as("cnt"),
+        })
+        .from(appReview)
+        .groupBy(appReview.appId)
+        .as("reviews");
+      const remixBase = alias(app, "remix_base");
+
+      const playsTotal = sql<number>`coalesce(${plays.total}, 0)::int`;
+      const rows = await db
+        .select({
+          id: app.id,
+          slug: app.slug,
+          name: app.name,
+          description: app.description,
+          iconEmoji: app.iconEmoji,
+          category: app.category,
+          capabilities: app.capabilities,
+          entryUrl: app.entryUrl,
+          entryOrigin: app.entryOrigin,
+          ensName: app.ensName,
+          createdAt: app.createdAt,
+          makerUsername: user.username,
+          makerVerified: user.worldVerified,
+          remixOfName: remixBase.name,
+          plays: playsTotal,
+          reviewCount: sql<number>`coalesce(${reviews.cnt}, 0)::int`,
+        })
+        .from(app)
+        .innerJoin(user, eq(app.ownerUserId, user.id))
+        .leftJoin(plays, eq(plays.appId, app.id))
+        .leftJoin(reviews, eq(reviews.appId, app.id))
+        .leftJoin(remixBase, eq(app.remixOfAppId, remixBase.id))
+        .where(
+          and(inArray(app.status, ["listed", "deployed"]), isNotNull(app.entryUrl))
+        )
+        .orderBy(
+          ...(input.tab === "foryou"
+            ? [desc(playsTotal), desc(app.createdAt)]
+            : [desc(app.createdAt)])
+        )
+        .limit(limit + 1)
+        .offset(offset);
+
+      const hasMore = rows.length > limit;
+      const page = hasMore ? rows.slice(0, limit) : rows;
+      return {
+        jams: page.map((r) => ({
+          id: r.id,
+          slug: r.slug,
+          name: r.name,
+          description: r.description,
+          iconEmoji: r.iconEmoji,
+          category: r.category,
+          capabilities: r.capabilities,
+          entryUrl: r.entryUrl,
+          entryOrigin: r.entryOrigin,
+          ensName: r.ensName,
+          maker: { username: r.makerUsername, verified: r.makerVerified },
+          likes: 0,
+          comments: Number(r.reviewCount),
+          reviewCount: Number(r.reviewCount),
+          plays: Number(r.plays),
+          friendsPlayed: 0,
+          remixOf: r.remixOfName ? { name: r.remixOfName } : null,
+        })),
+        cursor: hasMore ? encodeCursor(offset + limit) : undefined,
+      };
+    }),
+
+  // The caller's own jams (DESIGN_BRIEF §3c-i shelf, §3f /me). Includes
+  // in-progress "baking" builds (status 'building' + the live build row) and
+  // failed ones — no status filter, unlike the public feed.
+  mine: protectedProcedure
+    .input(
+      z.object({ limit: z.number().int().min(1).max(LIST_MAX).default(50) }).optional()
+    )
+    .handler(async ({ context, input }) => {
+      const db = context.db;
+      const rows = await db
+        .select({
+          id: app.id,
+          slug: app.slug,
+          name: app.name,
+          iconEmoji: app.iconEmoji,
+          category: app.category,
+          status: app.status,
+          entryUrl: app.entryUrl,
+          buildId: app.currentBuildId,
+          buildStatus: build.status,
+          createdAt: app.createdAt,
+        })
+        .from(app)
+        .leftJoin(build, eq(app.currentBuildId, build.id))
+        .where(eq(app.ownerUserId, context.user.id))
+        .orderBy(desc(app.createdAt))
+        .limit(input?.limit ?? 50);
+      return { jams: rows.map((r) => ({ ...r, buildStatus: r.buildStatus ?? null })) };
     }),
 
   // Register a developer-hosted app by URL. Human-gated (worldVerified) — one

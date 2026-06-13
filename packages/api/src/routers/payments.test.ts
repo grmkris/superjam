@@ -154,3 +154,55 @@ describe("profile.topup", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
+
+describe("payments.resolveRecipient", () => {
+  test("@username → that user's wallet; 0x passes through; appTreasury → owner wallet", async () => {
+    const { token } = await seedUser(); // "user" @ WALLET
+    // pay a friend
+    const friend = await call(
+      appRouter.payments.resolveRecipient,
+      { to: "@user" },
+      { context: ctxFor(token) }
+    );
+    expect(friend.address.toLowerCase()).toBe(WALLET.toLowerCase());
+
+    // raw address passthrough
+    const passthrough = await call(
+      appRouter.payments.resolveRecipient,
+      { to: OTHER },
+      { context: ctxFor(token) }
+    );
+    expect(passthrough.address.toLowerCase()).toBe(OTHER.toLowerCase());
+
+    // tip → app treasury falls back to the owner's wallet
+    const me = await db.query.user.findFirst({
+      where: (t, { eq: e }) => e(t.username, "user"),
+    });
+    const [a] = await db
+      .insert(schema.app)
+      .values({
+        slug: "tip-jar",
+        name: "Tip Jar",
+        ownerUserId: me!.id,
+        status: "deployed",
+      })
+      .returning();
+    const tip = await call(
+      appRouter.payments.resolveRecipient,
+      { to: "appTreasury", appId: a!.id },
+      { context: ctxFor(token) }
+    );
+    expect(tip.address.toLowerCase()).toBe(WALLET.toLowerCase());
+  });
+
+  test("unknown @handle → BAD_REQUEST", async () => {
+    const { token } = await seedUser();
+    await expect(
+      call(
+        appRouter.payments.resolveRecipient,
+        { to: "@ghost" },
+        { context: ctxFor(token) }
+      )
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+});

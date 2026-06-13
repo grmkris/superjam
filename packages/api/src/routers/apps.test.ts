@@ -209,3 +209,86 @@ describe("apps.get (public viewer lookup)", () => {
     ).rejects.toBeInstanceOf(ORPCError);
   });
 });
+
+describe("apps.explore (Discover feed)", () => {
+  test("lists live jams with maker, plays + review counts", async () => {
+    const { db, ctxFor } = await harness();
+    const schema = (await import("@superjam/db")).schema;
+    const { PLAYS_COUNTER } = await import("@superjam/shared");
+    const [u] = await db
+      .insert(schema.user)
+      .values({
+        dynamicUserId: "dyn_m",
+        email: "m@test.io",
+        username: "mira",
+        worldVerified: true,
+      })
+      .returning();
+    const a = await createExternalApp(db, {
+      manifest,
+      entryUrl: "https://tipjar.vercel.app",
+      ownerUserId: u!.id,
+    });
+    // 5 plays (two keys) + one review
+    await db.insert(schema.appCounter).values([
+      { appId: a.id, counter: PLAYS_COUNTER, key: "d1", value: 2n },
+      { appId: a.id, counter: PLAYS_COUNTER, key: "d2", value: 3n },
+    ]);
+    await db
+      .insert(schema.appReview)
+      .values({ appId: a.id, userId: u!.id, rating: 5, text: "nice" });
+
+    const res = await call(
+      appRouter.apps.explore,
+      { tab: "foryou" },
+      { context: ctxFor() }
+    );
+    expect(res.jams).toHaveLength(1);
+    const jam = res.jams[0]!;
+    expect(jam.slug).toBe("tip-jar");
+    expect(jam.maker).toEqual({ username: "mira", verified: true });
+    expect(jam.plays).toBe(5);
+    expect(jam.reviewCount).toBe(1);
+    expect(jam.comments).toBe(1);
+    expect(jam.remixOf).toBeNull();
+  });
+
+  test("excludes building apps (only listed/deployed are discoverable)", async () => {
+    const { db, ctxFor } = await harness();
+    const schema = (await import("@superjam/db")).schema;
+    const [u] = await db
+      .insert(schema.user)
+      .values({ dynamicUserId: "dyn_b2", email: "b2@test.io", username: "b2" })
+      .returning();
+    await allocateExternalApp(db, { manifest, ownerUserId: u!.id }); // building
+    const res = await call(
+      appRouter.apps.explore,
+      {},
+      { context: ctxFor() }
+    );
+    expect(res.jams).toHaveLength(0);
+  });
+});
+
+describe("apps.mine", () => {
+  test("returns the caller's jams incl. baking builds", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const schema = (await import("@superjam/db")).schema;
+    await db.insert(schema.user).values({
+      dynamicUserId: "dyn_me",
+      email: "me@test.io",
+      username: "me",
+    });
+    const me = await db.query.user.findFirst({
+      where: (t, { eq: e }) => e(t.username, "me"),
+    });
+    await allocateExternalApp(db, { manifest, ownerUserId: me!.id }); // building
+    const token = await auth.sign({ dynamicUserId: "dyn_me", email: "me@test.io" });
+
+    const res = await call(appRouter.apps.mine, undefined, {
+      context: ctxFor(token),
+    });
+    expect(res.jams).toHaveLength(1);
+    expect(res.jams[0]!.status).toBe("building");
+  });
+});

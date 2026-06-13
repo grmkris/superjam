@@ -21,14 +21,14 @@ import {
 } from "@superjam/onchain";
 import { ORPCError } from "@orpc/server";
 import { desc, eq } from "drizzle-orm";
-import { type Hex, isAddressEqual } from "viem";
+import { getAddress, type Hex, isAddressEqual } from "viem";
 import { z } from "zod";
 import { requireApp } from "../lib/app-context.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
 import { protectedProcedure } from "../orpc.ts";
 import { createCounterService } from "../services/counter-service.ts";
 
-const { publishPayment, potStake } = schema;
+const { publishPayment, potStake, user } = schema;
 
 const Hex0x = z.string().regex(/^0x[0-9a-fA-F]+$/, "Invalid hex");
 const Uint = z.string().regex(/^\d+$/, "Expected a base-unit integer");
@@ -46,6 +46,69 @@ const AuthorizationInput = z.object({
 });
 
 export const paymentsRouter = {
+  // Turn a confirm-sheet recipient into an on-chain address for the host's relay
+  // executor (DESIGN_BRIEF §3d). `to` is "appTreasury" (a tip — needs appId), a
+  // "@username" (pay a friend), or an already-0x address. Pure DB lookups; the
+  // resolved 0x is what the browser signs the EIP-3009 auth against.
+  resolveRecipient: protectedProcedure
+    .input(z.object({ to: z.string().min(1), appId: AppId.optional() }))
+    .handler(async ({ context, input }) => {
+      const raw = input.to.trim();
+
+      // already an address
+      if (/^0x[0-9a-fA-F]{40}$/.test(raw)) {
+        return { address: getAddress(raw), displayName: undefined };
+      }
+
+      // pay a friend: @username
+      if (raw.startsWith("@")) {
+        const handle = raw.slice(1).toLowerCase();
+        const u = await context.db.query.user.findFirst({
+          columns: { walletAddress: true, username: true, ensName: true },
+          where: eq(user.username, handle),
+        });
+        if (!u) {
+          throw new ORPCError("BAD_REQUEST", { message: `Unknown user @${handle}` });
+        }
+        if (!u.walletAddress) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: `@${handle} has no wallet yet`,
+          });
+        }
+        return {
+          address: getAddress(u.walletAddress),
+          displayName: u.ensName ?? `@${u.username}`,
+        };
+      }
+
+      // tip to the app treasury (falls back to the owner's wallet)
+      if (raw === "appTreasury") {
+        if (!input.appId) {
+          throw new ORPCError("BAD_REQUEST", { message: "Missing appId for a tip" });
+        }
+        const appRow = await requireApp(context.db, input.appId);
+        let address = appRow.treasuryAddress;
+        let displayName: string | undefined = appRow.ensName ?? undefined;
+        if (!address) {
+          const owner = await context.db.query.user.findFirst({
+            columns: { walletAddress: true, username: true, ensName: true },
+            where: eq(user.id, appRow.ownerUserId),
+          });
+          address = owner?.walletAddress ?? null;
+          displayName =
+            displayName ?? owner?.ensName ?? (owner ? `@${owner.username}` : undefined);
+        }
+        if (!address) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "This jam can't receive tips yet",
+          });
+        }
+        return { address: getAddress(address), displayName };
+      }
+
+      throw new ORPCError("BAD_REQUEST", { message: "Unrecognized recipient" });
+    }),
+
   /** Relay a user-signed EIP-3009 transfer on the public rail (§13). */
   relay: protectedProcedure
     .input(

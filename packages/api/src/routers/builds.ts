@@ -24,6 +24,7 @@ import {
   type AppSpec,
   AppId,
   AppSpecSchema,
+  BuildId,
   FREE_BUILDS,
   LIST_MAX,
   REFINE_CALLS_PER_USER_DAY,
@@ -311,6 +312,43 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
         });
 
         return { buildId, appId: allocated.id, status: "queued" as const };
+      }),
+
+    // Poll a build's progress (DESIGN_BRIEF §3c-vii workshop). Owned-by-caller.
+    // The web animates from status/events, then routes to the reveal once the
+    // build is done AND the app is finalized (listed/deployed) — runBuild marks
+    // the build done before finalize, so an ENS/finalize hiccup leaves the app
+    // un-listed while the build reads done.
+    status: protectedProcedure
+      .input(z.object({ buildId: BuildId }))
+      .handler(async ({ context, input }) => {
+        const row = await context.db.query.build.findFirst({
+          where: eq(build.id, input.buildId),
+        });
+        if (!row) {
+          throw new ORPCError("NOT_FOUND", { message: "Build not found" });
+        }
+        if (row.userId !== context.user.id) {
+          throw new ORPCError("FORBIDDEN", { message: "Not your build" });
+        }
+        let slug: string | null = null;
+        let appStatus: string | null = null;
+        if (row.appId) {
+          const a = await context.db.query.app.findFirst({
+            columns: { slug: true, status: true },
+            where: eq(app.id, row.appId),
+          });
+          slug = a?.slug ?? null;
+          appStatus = a?.status ?? null;
+        }
+        return {
+          status: row.status,
+          error: row.error,
+          events: row.events,
+          appId: row.appId,
+          slug,
+          appStatus,
+        };
       }),
   };
 };

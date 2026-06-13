@@ -398,3 +398,37 @@ describe("runBuild driver", () => {
     expect(app?.status).toBe("building"); // never finalized → stays unlisted
   });
 });
+
+describe("builds.status", () => {
+  test("returns own build's status; forbids another user's", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const owner = await createTestUser(db, { username: "owner1" });
+    const [b] = await db
+      .insert(schema.build)
+      .values({ userId: owner.id, prompt: "a tip jar", status: "generating" })
+      .returning();
+    const ownerToken = await auth.sign({
+      dynamicUserId: owner.dynamicUserId!,
+      email: owner.email,
+    });
+    const router = createBuildsRouter();
+
+    const res = await call(
+      router.status,
+      { buildId: b!.id },
+      { context: ctxFor(ownerToken) }
+    );
+    expect(res.status).toBe("generating");
+    expect(res.slug).toBeNull();
+    expect(res.appStatus).toBeNull();
+
+    const other = await createTestUser(db, { username: "other1" });
+    const otherToken = await auth.sign({
+      dynamicUserId: other.dynamicUserId!,
+      email: other.email,
+    });
+    await expect(
+      call(router.status, { buildId: b!.id }, { context: ctxFor(otherToken) })
+    ).rejects.toBeInstanceOf(ORPCError);
+  });
+});
