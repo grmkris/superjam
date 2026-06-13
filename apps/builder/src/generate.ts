@@ -138,7 +138,10 @@ const JWKS = createRemoteJWKSet(new URL(SUPERJAM_JWKS_URL));
 
 export async function verifyUser(token: string) {
   const { payload } = await jwtVerify(token, JWKS, {
-    issuer: "https://superjam.fun",
+    // The platform mints with issuer = its web origin (SERVICE_URLS[env].web),
+    // which is the origin serving this JWKS — so derive it (dev + prod correct)
+    // instead of hardcoding the prod origin.
+    issuer: new URL(SUPERJAM_JWKS_URL).origin,
     audience: SUPERJAM_APP_ID,
   });
   return payload;

@@ -123,8 +123,8 @@ const looksImplemented = (files: Record<string, string>, needsData: boolean): bo
  * or the skeleton if the agent fails / under-delivers.
  */
 export const createAgentGenerator = (deps: AgentGeneratorDeps): Generator =>
-  async (spec, _ctx): Promise<GeneratedApp> => {
-    const base = generateApp(spec); // deterministic skeleton + fallback
+  async (spec, ctx): Promise<GeneratedApp> => {
+    const base = generateApp(spec, ctx); // deterministic skeleton + fallback (bakes appId + JWKS)
     try {
       const recipes = await (deps.loadRecipes ?? defaultLoadRecipes)(spec);
       const { system, prompt } = buildPrompt(spec, recipes);
