@@ -2,15 +2,15 @@
   "name": "web",
   "type": "module",
   "scripts": {
-    "dev": "next dev --webpack -p 4700",
-    "build": "next build --webpack",
+    "dev": "next dev -p 4700",
+    "build": "next build",
     "start": "next start -p 4700",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@base-ui-components/react": "catalog:",
-    "@dynamic-labs/ethereum": "^4.0.0",
-    "@dynamic-labs/sdk-react-core": "^4.0.0",
+    "@dynamic-labs/ethereum": "^4.88.6",
+    "@dynamic-labs/sdk-react-core": "^4.88.6",
     "@orpc/client": "catalog:",
     "@superjam/api": "workspace:*",
     "@superjam/onchain": "workspace:*",

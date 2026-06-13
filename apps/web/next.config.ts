@@ -1,33 +1,18 @@
 import type { NextConfig } from "next";
 
-// (build trigger: 2026-06-13 — force a fresh git build after the builder jam cleared)
 // Per-app frame-src for the viewer is set dynamically in middleware.ts.
 //
-// BUNDLER: built with webpack (apps/web `dev`/`build` use `--webpack`), NOT the
-// Next 16 default Turbopack. Reason: the @dynamic-labs wallet SDK duplicates its
-// shared store singleton under Turbopack — DynamicContextProvider writes the
-// client into one instance while the hooks read another → "No Dynamic client has
-// been created yet" / "Hook must be used within <ViewContextProvider>" (login
-// crash). webpack dedupes it; transpilePackages did NOT fix it under Turbopack.
-// (Turbopack serves idkit's WASM fine, but the Dynamic SDK isn't Turbopack-ready.)
-//
-// NOTE on the earlier "build hang": that was Railway *shared-builder contention*
-// (7 agents pushing at once), NOT this config. The `experimental: { cpus: 1 }`
-// "fix" misdiagnosed it and pathologically single-threaded the compile. Removed.
-// This webpack function is non-cloneable but does NOT trigger #69096 here — this
-// exact config built + deployed a working login + idkit WASM live.
+// BUNDLER: Turbopack (the Next 16 default — no --webpack). The @dynamic-labs SDK
+// used to crash under Turbopack ("No Dynamic client" / "Hook must be used within
+// <ViewContextProvider>") because a STALE lockfile left two physical copies of
+// @dynamic-labs/store (4.88.5 + 4.88.6) → two store singletons. A clean reinstall
+// (rm node_modules bun.lock) deduped the whole @dynamic-labs family to one version,
+// so Turbopack now runs it like Dynamic's own Next examples. No webpack() override
+// needed: Turbopack serves idkit v4's WASM (`new URL('idkit_wasm_bg.wasm',
+// import.meta.url)`) natively; the widget is client-only via next/dynamic({ssr:false})
+// in world-gate.tsx.
 const nextConfig: NextConfig = {
   transpilePackages: ["@superjam/sdk", "@superjam/shared", "@superjam/api"],
-  // @worldcoin/idkit v4 runs on WASM (idkit-core's idkit_wasm_bg.wasm, loaded via
-  // `new URL(..., import.meta.url)`). asyncWebAssembly emits/serves it under webpack;
-  // the widget is loaded client-only via next/dynamic({ssr:false}) in world-gate.tsx.
-  webpack: (config, { isServer }) => {
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
-    config.output.webassemblyModuleFilename = isServer
-      ? "../static/wasm/[modulehash].wasm"
-      : "static/wasm/[modulehash].wasm";
-    return config;
-  },
 };
 
 export default nextConfig;
