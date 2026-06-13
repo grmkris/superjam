@@ -11,13 +11,94 @@
 // the CLI defaults (verified on this box → railway/cloudflare/vercel + Neon),
 // matching the user's "launch like the CLI" intent. We unlock Bash (so it can run
 // `vercel`) and keep a workspace write-gate as defense in depth.
-import { query, type HookCallback, type HookJSONOutput } from "@anthropic-ai/claude-agent-sdk";
+import {
+  createSdkMcpServer,
+  query,
+  tool,
+  type HookCallback,
+  type HookJSONOutput,
+} from "@anthropic-ai/claude-agent-sdk";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { z } from "zod";
 import type { AppSpec } from "@superjam/shared";
+import { generateImage, generateVoice } from "./assets.ts";
 import { generateApp } from "./generate.ts";
 import { loadRecipes } from "./recipes.ts";
+
+// Per-build caps on generated assets (cost + deploy size guard).
+const IMAGE_BUDGET = 8;
+const VOICE_BUDGET = 4;
+
+/**
+ * In-process MCP server giving the agent build-time asset generation: generate_image
+ * (PNG) + generate_voice (WAV), baked into the workspace under public/ (Next serves
+ * it at the root). Runs in the builder process — the Google key never enters the app
+ * workspace. Writes are gated to the workspace; missing key / over-budget degrade
+ * gracefully (the agent falls back to emoji / CSS / procedural SFX).
+ */
+const assetsMcp = (ws: string, key: string | undefined) => {
+  let images = 0;
+  let voices = 0;
+  // Resolve an agent-supplied path under public/, gated to the workspace.
+  const out = (p: string): string | null => {
+    const rel = p.replace(/^\/+/, "");
+    const abs = resolve(ws, rel.startsWith("public/") ? rel : join("public", rel));
+    return abs.startsWith(resolve(ws)) ? abs : null;
+  };
+  const ok = (text: string) => ({ content: [{ type: "text" as const, text }] });
+  const write = async (abs: string, bytes: Uint8Array) => {
+    await mkdir(dirname(abs), { recursive: true });
+    await writeFile(abs, bytes);
+  };
+  return createSdkMcpServer({
+    name: "assets",
+    version: "1.0.0",
+    tools: [
+      tool(
+        "generate_image",
+        "Generate a PNG image from a prompt and write it into public/ (served at /<path>). Use for fixed art: sprites, backgrounds, a logo/icon — NOT per-user images. Reference it in the app as <img src=\"/<path>\">.",
+        { prompt: z.string().min(1), path: z.string().min(1).describe("e.g. public/hero.png") },
+        async ({ prompt, path }) => {
+          if (!key) return ok("image generation unavailable (no key) — use an emoji or a CSS gradient instead");
+          if (images >= IMAGE_BUDGET) return ok(`image budget (${IMAGE_BUDGET}) exhausted — reuse an existing asset or use emoji/CSS`);
+          const abs = out(path);
+          if (!abs) return ok("invalid path — must stay inside public/");
+          try {
+            await write(abs, await generateImage(prompt, key));
+            images += 1;
+            return ok(`wrote ${path} (reference it at /${path.replace(/^public\//, "").replace(/^\/+/, "")})`);
+          } catch (e) {
+            return ok(`image generation failed (${e instanceof Error ? e.message : String(e)}) — fall back to emoji/CSS`);
+          }
+        }
+      ),
+      tool(
+        "generate_voice",
+        "Synthesize speech from text to a WAV and write it into public/ (served at /<path>). Use for FIXED narration/jingles, not per-user speech. Play via an <audio> element.",
+        {
+          text: z.string().min(1).max(2000),
+          path: z.string().min(1).describe("e.g. public/intro.wav"),
+          voice: z.string().optional().describe("Gemini prebuilt voice, e.g. Kore, Puck, Charon"),
+        },
+        async ({ text, path, voice }) => {
+          if (!key) return ok("voice generation unavailable (no key) — use procedural WebAudio SFX instead");
+          if (voices >= VOICE_BUDGET) return ok(`voice budget (${VOICE_BUDGET}) exhausted`);
+          const abs = out(path);
+          if (!abs) return ok("invalid path — must stay inside public/");
+          try {
+            await write(abs, await generateVoice(text, key, voice));
+            voices += 1;
+            return ok(`wrote ${path} (reference it at /${path.replace(/^public\//, "").replace(/^\/+/, "")})`);
+          } catch (e) {
+            return ok(`voice generation failed (${e instanceof Error ? e.message : String(e)}) — fall back to SFX`);
+          }
+        }
+      ),
+    ],
+  });
+};
 
 // The authoritative SDK reference (packages/sdk/SDK.md) — injected so the agent
 // programs against the REAL surface, not priors. Read once, cached; absent ⇒ the
@@ -104,6 +185,9 @@ The manifest declares capabilities that gate SDK surface: "payments" → payUSDC
 - Degrade gracefully when sdk.standalone is true (opened outside the host).
 - No external asset fetches (no CDN images/fonts/audio); emoji + inline SVG/canvas + user uploads only.
 
+## Generated assets (image + voice)
+You have build-time asset tools — generate_image (PNG) and generate_voice (WAV). They write into public/ (Next serves it at the site root, so public/hero.png is referenced as <img src="/hero.png">; audio via <audio src="/intro.wav">). Use them to BAKE FIXED art/audio that's the same for everyone — a mascot/sprite, a themed background, an app logo/icon, a short intro jingle or narration — so the jam looks crafted, not emoji-default. Budgets: ${IMAGE_BUDGET} images, ${VOICE_BUDGET} voice clips per build; each call costs real money, so generate only what the design needs and reuse assets. Do NOT use these for per-user content (that would need runtime generation, which jams don't have yet) — for per-user variety, dynamic SFX, or trivial decoration, prefer emoji, CSS gradients, and the procedural WebAudio SFX pattern. If a tool reports unavailable/over-budget, degrade gracefully (emoji/CSS/SFX) — never block the build on it.
+
 ## Deploy (you do this yourself)
 From the working directory run the Vercel CLI. Use the project name given in the task (so the platform can manage/tear it down).
 - Zero-backend: \`vercel deploy --yes --prod\`
@@ -177,9 +261,11 @@ export const runAgentBuild = async (args: AgentBuildArgs): Promise<void> => {
         maxTurns: args.maxTurns ?? 48,
         // Headless: auto-accept. Bash is ALLOWED (the agent runs `vercel`); the
         // write-gate keeps Edit/Write inside the workspace. MCPs inherited from
-        // the box CLI config (settingSources omitted = CLI defaults).
+        // the box CLI config (settingSources omitted = CLI defaults) MERGE with
+        // our in-process `assets` server (build-time image/voice generation).
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
+        mcpServers: { assets: assetsMcp(ws, process.env.GOOGLE_GENERATIVE_AI_API_KEY) },
         hooks: { PreToolUse: [{ hooks: [pathGate(ws)] }] },
       },
     });
