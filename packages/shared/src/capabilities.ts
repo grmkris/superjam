@@ -44,6 +44,7 @@ export const METHOD_CAPABILITY: Record<BridgeMethod, Capability | null> = {
   "pot.resolve": "payments",
   "messages.send": "social",
   "messages.list": null,
+  "social.send": "social",
   "share.link": null,
   "files.upload": null,
   "ui.toast": null,

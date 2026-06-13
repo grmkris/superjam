@@ -3,6 +3,7 @@
 // session user. Every call validates the app (exists, not delisted) first.
 import {
   AppId,
+  DmCardSchema,
   KEY_MAX_LEN,
   LIST_MAX,
   MSG_TEXT_MAX,
@@ -13,6 +14,7 @@ import { z } from "zod";
 import { requireApp } from "../lib/app-context.ts";
 import { protectedProcedure } from "../orpc.ts";
 import { createAiBridge } from "./bridge-ai.ts";
+import { createChatService } from "../services/chat-service.ts";
 import { createCounterService } from "../services/counter-service.ts";
 import { createDataService } from "../services/data-service.ts";
 import { createMessageService } from "../services/message-service.ts";
@@ -283,11 +285,43 @@ const messages = {
     }),
 };
 
+// social.send (§3e) — a jam pushes a render-spec card + app-defined deeplink
+// into a player's FRIEND's chat (friendship-gated in the service). Distinct from
+// messages.send (one-way app→inbox); this writes the user↔user directMessage.
+const social = {
+  send: protectedProcedure
+    .input(
+      z.object({
+        appId: AppId,
+        to: z.string().min(1),
+        card: DmCardSchema,
+        params: jsonRecord.optional(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const appRow = await requireApp(context.db, input.appId);
+      return createChatService({
+        db: context.db,
+        rateLimiter: context.rateLimiter,
+      }).sendAppCard(
+        input.appId,
+        { id: context.user.id, username: context.user.username },
+        {
+          to: input.to,
+          card: input.card,
+          slug: appRow.slug,
+          params: input.params,
+        }
+      );
+    }),
+};
+
 export const bridgeRouter = {
   storage,
   data,
   counter,
   messages,
+  social,
   pot: potBridge,
   payments: paymentsBridge,
   ai: createAiBridge(),

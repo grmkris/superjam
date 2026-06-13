@@ -38,6 +38,7 @@ export const BRIDGE_METHODS = [
   "pot.resolve",
   "messages.send",
   "messages.list",
+  "social.send",
   "share.link",
   "files.upload",
   "ui.toast",

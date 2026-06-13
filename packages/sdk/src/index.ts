@@ -128,6 +128,17 @@ export type SuperJamSdk = {
     send(msg: { to: string; text: string; data?: Json; link?: string }): Promise<{ id: string }>;
     list(opts?: { limit?: number }): Promise<{ messages: Message[] }>;
   };
+  /** Push a render-spec CARD into one of the player's FRIENDS' chats (a
+   *  challenge/invite). The host renders {title,body,icon,cta} safely + a CTA
+   *  that opens THIS app at /app/<slug>?d=<base64(params)> (read via
+   *  app.context().launch). Requires the "social" capability + friendship. */
+  social: {
+    send(args: {
+      to: string;
+      card: { title: string; body?: string; icon?: string; cta?: string };
+      params?: Json;
+    }): Promise<{ id: string }>;
+  };
   share: { link(args?: { data?: Json }): Promise<{ url: string }> };
   files: { upload(dataUrl: string): Promise<{ id: string; url: string }> };
   /** Identity for YOUR backend: a short-lived ({exp} epoch-seconds) platform
@@ -289,6 +300,7 @@ function makeBridgeSdk(call: CallFn, ctx: AppContext): SuperJamSdk {
     },
     data: { collection, counter },
     ai: { chat: (messages, opts) => call("ai.chat", { messages, ...opts }) },
+    social: { send: (a) => call("social.send", a) },
     messages: {
       send: (msg) => call("messages.send", msg),
       list: (opts) => call<{ messages: Message[] }>("messages.list", opts ?? {}).then((r) => ({ messages: r.messages.map((m) => ({ ...m, createdAt: toMs(m.createdAt) })) })),
@@ -472,6 +484,10 @@ function makeStandalone(): SuperJamSdk {
         return { id };
       },
       list: async (opts) => ({ messages: (read<Message[]>("inbox") ?? []).slice(0, opts?.limit ?? 50) }),
+    },
+    social: {
+      // standalone has no friends graph — the card is a no-op that returns an id
+      send: async () => ({ id: rid("dm") }),
     },
     share: {
       link: async ({ data } = {}) => {

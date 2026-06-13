@@ -182,3 +182,65 @@ describe("chat recordTip", () => {
     expect(hist.messages[0]!.amountUsdc).toBe("1.00");
   });
 });
+
+describe("bridge.social.send (app → friend card)", () => {
+  test("writes a card to a friend's chat w/ app-defined deeplink params", async () => {
+    const h = await harness();
+    const { alice, aliceTok } = await twoFriends(h);
+    const jam = await createExternalApp(h.db, {
+      manifest: {
+        name: "Trivia",
+        slug: "trivia",
+        description: "q",
+        iconEmoji: "🎯",
+        category: "game",
+        capabilities: [],
+      },
+      entryUrl: "https://trivia.vercel.app",
+      ownerUserId: alice.id,
+    });
+
+    await call(
+      appRouter.bridge.social.send,
+      { appId: jam.id, to: "bob", card: { title: "Beat me!", cta: "Play" }, params: { round: 2 } },
+      { context: h.ctxFor(aliceTok) }
+    );
+
+    const hist = await call(
+      appRouter.chat.history,
+      { withUsername: "bob" },
+      { context: h.ctxFor(aliceTok) }
+    );
+    const m = hist.messages[0]!;
+    expect(m.kind).toBe("card");
+    expect(m.card?.title).toBe("Beat me!");
+    expect(m.via?.name).toBe("Trivia");
+    const d = new URL(`https://x${m.link}`).searchParams.get("d")!;
+    expect(JSON.parse(Buffer.from(d, "base64").toString("utf8"))).toEqual({ round: 2 });
+  });
+
+  test("rejects a non-friend recipient", async () => {
+    const h = await harness();
+    const { alice, aliceTok } = await twoFriends(h);
+    const jam = await createExternalApp(h.db, {
+      manifest: {
+        name: "T",
+        slug: "tt",
+        description: "q",
+        iconEmoji: "🎯",
+        category: "game",
+        capabilities: [],
+      },
+      entryUrl: "https://tt.vercel.app",
+      ownerUserId: alice.id,
+    });
+    await createTestUser(h.db, { username: "carol" });
+    await expect(
+      call(
+        appRouter.bridge.social.send,
+        { appId: jam.id, to: "carol", card: { title: "x" } },
+        { context: h.ctxFor(aliceTok) }
+      )
+    ).rejects.toBeInstanceOf(ORPCError);
+  });
+});

@@ -73,6 +73,7 @@ const SERVER_METHODS = new Set<BridgeMethod>([
   "counter.top",
   "messages.send",
   "messages.list",
+  "social.send",
   "ai.chat",
   "payments.mine",
   "payments.usdcBalance",
