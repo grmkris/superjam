@@ -50,6 +50,13 @@
       "when": 1781366506331,
       "tag": "0006_odd_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781380715600,
+      "tag": "0007_clean_vertigo",
+      "breakpoints": true
     }
   ]
 }

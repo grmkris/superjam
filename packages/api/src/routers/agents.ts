@@ -7,6 +7,7 @@
 // (best-effort). The builder's auth `token` is write-only — never returned.
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
+import type { Logger } from "@superjam/logger";
 import {
   type AppSpec,
   type BuilderCapability,
@@ -37,6 +38,7 @@ export const toAgent = (a: BuilderAgent) => ({
   priceUsdc: a.priceUsdc,
   capabilities: a.capabilities,
   walletAddress: a.walletAddress,
+  model: a.model,
   ensName: a.ensName,
   erc8004Id: a.erc8004Id,
   stakedUsdc: a.stakedUsdc,
@@ -72,7 +74,108 @@ const RegisterInput = z.object({
     .string()
     .regex(EVM_ADDRESS)
     .transform((s) => s.toLowerCase()),
+  /** The agent's coding model (Opus/Sonnet …). Optional — house default if unset. */
+  model: z.string().min(1).optional(),
 });
+
+export type CreateBuilderAgentInput = z.infer<typeof RegisterInput>;
+
+/** The SINGLE builder-agent registration path — shared by the worldVerified
+ *  `register` endpoint (community, via the website), the platform `create-agent`
+ *  script (the fleet), and the Claude Code skill. Inserts the row + provisions the
+ *  agent's onchain identity (ENS + ERC-8004 + StakeSlash stake + AgentBook detect),
+ *  all best-effort (a provision failure never fails registration). Throws CONFLICT
+ *  on a duplicate slug. Returns the full agent row with the provisioned fields. */
+export const createBuilderAgent = async (
+  deps: { db: Database; agentIdentity: AgentIdentity; logger: Logger },
+  input: CreateBuilderAgentInput,
+  owner: { id: User["id"]; username: string; walletAddress: string | null }
+) => {
+  const { db, agentIdentity, logger } = deps;
+  const clash = await db.query.builderAgent.findFirst({
+    where: eq(builderAgent.slug, input.slug),
+  });
+  if (clash) {
+    throw new ORPCError("CONFLICT", {
+      message: `A builder named "${input.slug}" already exists.`,
+    });
+  }
+  const [row] = await db
+    .insert(builderAgent)
+    .values({
+      ownerUserId: owner.id,
+      name: input.name,
+      slug: input.slug,
+      endpointUrl: input.endpointUrl,
+      token: input.token,
+      priceUsdc: input.priceUsdc,
+      model: input.model ?? null,
+      capabilities: input.capabilities,
+      walletAddress: input.walletAddress,
+      status: "active",
+    })
+    .returning();
+  const agent = row!;
+
+  // Best-effort onchain identity — ENS subname + ERC-8004 + StakeSlash stake +
+  // AgentBook detect. A failure here never fails registration.
+  let ensName = agent.ensName;
+  let erc8004Id = agent.erc8004Id;
+  let stakedUsdc = agent.stakedUsdc;
+  let stakeTxHash = agent.stakeTxHash;
+  let agentbookRegistered = agent.agentbookRegistered;
+  let agentbookHumanId = agent.agentbookHumanId;
+  try {
+    const identity = await agentIdentity.provision({
+      agentId: agent.id,
+      slug: agent.slug,
+      ownerUsername: owner.username,
+      ownerWallet: owner.walletAddress ?? undefined,
+      walletAddress: agent.walletAddress,
+    });
+    const patch: Partial<typeof builderAgent.$inferInsert> = {};
+    if (identity.ensName) {
+      ensName = identity.ensName;
+      patch.ensName = ensName;
+    }
+    if (identity.erc8004Id) {
+      erc8004Id = identity.erc8004Id;
+      patch.erc8004Id = erc8004Id;
+    }
+    if (identity.stakeTxHash) {
+      stakeTxHash = identity.stakeTxHash;
+      stakedUsdc = identity.stakedUsdc ?? null;
+      patch.stakeTxHash = stakeTxHash;
+      patch.stakedUsdc = stakedUsdc;
+    }
+    if (identity.agentbookRegistered) {
+      agentbookRegistered = true;
+      agentbookHumanId = identity.agentbookHumanId ?? null;
+      patch.agentbookRegistered = true;
+      patch.agentbookHumanId = agentbookHumanId;
+    }
+    if (Object.keys(patch).length > 0) {
+      await db
+        .update(builderAgent)
+        .set(patch)
+        .where(eq(builderAgent.id, agent.id));
+    }
+  } catch (err) {
+    logger.warn(
+      { err: String(err), agentId: agent.id },
+      "agent identity provision failed"
+    );
+  }
+  return {
+    ...agent,
+    ensName,
+    erc8004Id,
+    stakedUsdc,
+    stakeTxHash,
+    agentbookRegistered,
+    agentbookHumanId,
+  };
+};
 
 // register mints the agent's onchain identity through C's seam. Rather than
 // widen the shared ApiContext, the dependency is declared locally (mirrors the
@@ -91,87 +194,20 @@ export const agentsRouter = {
     .use(withIdentity)
     .input(RegisterInput)
     .handler(async ({ context, input }) => {
-      const clash = await context.db.query.builderAgent.findFirst({
-        where: eq(builderAgent.slug, input.slug),
-      });
-      if (clash) {
-        throw new ORPCError("CONFLICT", {
-          message: `A builder named "${input.slug}" already exists.`,
-        });
-      }
-
-      const [row] = await context.db
-        .insert(builderAgent)
-        .values({
-          ownerUserId: context.user.id,
-          name: input.name,
-          slug: input.slug,
-          endpointUrl: input.endpointUrl,
-          token: input.token,
-          priceUsdc: input.priceUsdc,
-          capabilities: input.capabilities,
-          walletAddress: input.walletAddress,
-          status: "active",
-        })
-        .returning();
-      const agent = row!;
-
-      // Best-effort onchain identity (ENS subname + ERC-8004). A failure here
-      // never fails registration — the agent is just un-named until a retry.
-      let ensName = agent.ensName;
-      let erc8004Id = agent.erc8004Id;
-      let stakedUsdc = agent.stakedUsdc;
-      let stakeTxHash = agent.stakeTxHash;
-      let agentbookRegistered = agent.agentbookRegistered;
-      try {
-        const identity = await context.agentIdentity.provision({
-          agentId: agent.id,
-          slug: agent.slug,
-          ownerUsername: context.user.username,
-          ownerWallet: context.user.walletAddress ?? undefined,
-          walletAddress: agent.walletAddress,
-        });
-        const patch: Partial<typeof builderAgent.$inferInsert> = {};
-        if (identity.ensName) {
-          ensName = identity.ensName;
-          patch.ensName = ensName;
+      const agent = await createBuilderAgent(
+        {
+          db: context.db,
+          agentIdentity: context.agentIdentity,
+          logger: context.logger,
+        },
+        input,
+        {
+          id: context.user.id,
+          username: context.user.username,
+          walletAddress: context.user.walletAddress,
         }
-        if (identity.erc8004Id) {
-          erc8004Id = identity.erc8004Id;
-          patch.erc8004Id = erc8004Id;
-        }
-        if (identity.stakeTxHash) {
-          stakeTxHash = identity.stakeTxHash;
-          stakedUsdc = identity.stakedUsdc ?? null;
-          patch.stakeTxHash = stakeTxHash;
-          patch.stakedUsdc = stakedUsdc;
-        }
-        if (identity.agentbookRegistered) {
-          agentbookRegistered = true;
-          patch.agentbookRegistered = true;
-          patch.agentbookHumanId = identity.agentbookHumanId;
-        }
-        if (Object.keys(patch).length > 0) {
-          await context.db
-            .update(builderAgent)
-            .set(patch)
-            .where(eq(builderAgent.id, agent.id));
-        }
-      } catch (err) {
-        context.logger.warn(
-          { err: String(err), agentId: agent.id },
-          "agent identity provision failed"
-        );
-      }
-
-      return toAgent({
-        ...agent,
-        ensName,
-        erc8004Id,
-        stakedUsdc,
-        stakeTxHash,
-        agentbookRegistered,
-      });
+      );
+      return toAgent(agent);
     }),
 
   // Public marketplace listing — active agents, busiest first, with backer.

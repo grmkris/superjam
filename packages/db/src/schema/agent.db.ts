@@ -16,6 +16,9 @@ export const builderAgent = pgTable("builder_agent", {
   endpointUrl: text("endpoint_url").notNull(),
   token: text("token").notNull(),
   priceUsdc: text("price_usdc").notNull().default("0"),
+  // The agent's coding model (e.g. "claude-opus-4-8" / "claude-sonnet-4-6") — passed
+  // to the builder per build so the roster differentiates capability by model + price.
+  model: text("model"),
   // Builder capability checklist (§14): a jsonb string[] from BUILDER_CAPABILITIES
   // — the platform routes a build only to agents that hold every required cap.
   capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),

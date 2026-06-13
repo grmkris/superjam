@@ -177,14 +177,16 @@ export const runBuild = async (
     /** The marketplace agent this build was routed to (§14) — credited a build
      *  on success. Null ⇒ the house builder (env deployer). */
     routedAgentId?: BuilderAgentId | null;
+    /** The routed agent's coding model — forwarded to the builder per build. */
+    model?: string | null;
   },
   /** Passed to finalize for the best-effort ENS mint (§16). Omitted in tests. */
   onchain?: Onchain
 ): Promise<void> => {
-  const { buildId, appId, spec, routedAgentId } = args;
+  const { buildId, appId, spec, routedAgentId, model } = args;
   try {
     await db.update(build).set({ status: "generating" }).where(eq(build.id, buildId));
-    const result = await deploy({ spec, buildId, appId });
+    const result = await deploy({ spec, buildId, appId, model });
 
     await db
       .update(build)
@@ -415,6 +417,7 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             appId: allocated.id,
             spec: input.spec,
             routedAgentId: selected?.agent.id ?? null,
+            model: selected?.agent.model ?? null,
           },
           context.onchain
         );

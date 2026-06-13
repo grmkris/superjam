@@ -16,6 +16,9 @@ export interface DeployRequest {
   buildId: string;
   /** Pre-generated app id → SUPERJAM_APP_ID (JWT aud), injected before deploy. */
   appId: string;
+  /** The routed agent's coding model (Opus vs Sonnet) — the builder forwards it to
+   *  its agent (`runAgentBuild` already accepts `model`). Absent ⇒ builder default. */
+  model?: string | null;
 }
 
 export type BuildDeployer = (req: DeployRequest) => Promise<DeployResult>;
@@ -56,11 +59,11 @@ export const createRemoteDeployer = (
     "content-type": "application/json",
   };
 
-  return async ({ spec, buildId, appId }) => {
+  return async ({ spec, buildId, appId, model }) => {
     const accept = await doFetch(`${base}/builds`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ spec, buildId, appId }),
+      body: JSON.stringify({ spec, buildId, appId, model }),
     });
     if (accept.status === 429) {
       // Builder busy — surface so the platform FIFO holds + retries.
