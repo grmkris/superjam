@@ -7,6 +7,8 @@ import { type Onchain, nullOnchain } from "@superjam/onchain";
 import type { Address } from "viem";
 import { type AppTokenIssuer, nullAppTokenIssuer } from "./auth/app-token.ts";
 import type { AuthVerifier } from "./auth/verifier.ts";
+import { type WorldVerifier, nullWorldVerifier } from "./auth/world.ts";
+import { type AgentIdentity, nullAgentIdentity } from "./lib/agent-identity.ts";
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
 
@@ -21,6 +23,10 @@ export interface ApiContext {
   onchain: Onchain;
   /** AI pot-resolution oracle (§9). Disabled by default. */
   oracle: PotOracle;
+  /** World ID backend verifier (§14, the human gate). Keyless by default. */
+  world: WorldVerifier;
+  /** Builder-agent onchain identity (ENS subname + ERC-8004, §14/§16). No-op default. */
+  agentIdentity: AgentIdentity;
   /** Platform treasury — recipient of the publish fee (§15). */
   treasuryAddress?: Address;
   headers: Headers;
@@ -37,6 +43,10 @@ export interface CreateContextDeps {
   onchain?: Onchain;
   /** Optional — defaults to the null oracle (AI-resolve unavailable). */
   oracle?: PotOracle;
+  /** Optional — defaults to the keyless World verifier (verify rejects). */
+  world?: WorldVerifier;
+  /** Optional — defaults to the no-op identity (register skips ENS/8004). */
+  agentIdentity?: AgentIdentity;
   treasuryAddress?: Address;
   headers: Headers;
 }
@@ -49,6 +59,8 @@ export const createContext = (deps: CreateContextDeps): ApiContext => ({
   issuer: deps.issuer ?? nullAppTokenIssuer,
   onchain: deps.onchain ?? nullOnchain,
   oracle: deps.oracle ?? nullOracle,
+  world: deps.world ?? nullWorldVerifier,
+  agentIdentity: deps.agentIdentity ?? nullAgentIdentity,
   treasuryAddress: deps.treasuryAddress,
   headers: deps.headers,
 });

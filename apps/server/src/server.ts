@@ -9,6 +9,7 @@ import {
   createDynamicVerifier,
   createOnchainFromConfig,
   createRateLimiter,
+  createWorldVerifier,
   loadLiveUnlinkTransport,
   nullOnchain,
 } from "@superjam/api";
@@ -70,6 +71,12 @@ const onchain =
           }
         : undefined,
   }) ?? nullOnchain;
+// World ID backend verifier (§14) — the human gate behind publish/reviews/
+// register-builder. Keyless (verify rejects) unless WORLD_APP_ID is set.
+const world = createWorldVerifier({
+  appId: env.WORLD_APP_ID,
+  action: env.WORLD_ACTION,
+});
 const treasuryAddress = env.TREASURY_ADDRESS as `0x${string}` | undefined;
 // AI pot-resolution oracle (§9) — only when a Gemini key is present; else
 // nullOracle (creators resolve with an explicit outcome).
@@ -114,6 +121,7 @@ app.use("/rpc/*", async (c, next) => {
       issuer,
       onchain,
       oracle,
+      world,
       treasuryAddress,
       headers: c.req.raw.headers,
     }),

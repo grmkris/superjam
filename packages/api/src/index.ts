@@ -20,6 +20,20 @@ export {
   nullAppTokenIssuer,
 } from "./auth/app-token.ts";
 export {
+  type WorldVerifier,
+  type WorldProof,
+  type WorldVerifyResult,
+  createWorldVerifier,
+  nullWorldVerifier,
+  WorldNotConfiguredError,
+} from "./auth/world.ts";
+export {
+  type AgentIdentity,
+  type AgentIdentityInput,
+  type AgentIdentityResult,
+  nullAgentIdentity,
+} from "./lib/agent-identity.ts";
+export {
   createExternalApp,
   type CreateExternalAppInput,
 } from "./routers/apps.ts";
