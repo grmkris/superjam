@@ -1,0 +1,9 @@
+# Web service build config. Reliable mechanism is the service var
+# RAILWAY_DOCKERFILE_PATH=apps/web/Dockerfile (set via MCP); this documents intent.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/web/Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
