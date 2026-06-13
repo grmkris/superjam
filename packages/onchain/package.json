@@ -6,7 +6,8 @@
     "./money": "./src/money.ts",
     "./chains": "./src/chains.ts",
     "./transfer-auth": "./src/transfer-auth.ts",
-    "./payment-intent": "./src/payment-intent.ts"
+    "./payment-intent": "./src/payment-intent.ts",
+    "./staking": "./src/staking/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

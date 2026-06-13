@@ -10,6 +10,9 @@ export interface AgentIdentityInput {
   /** kebab slug — the ENS label: `<slug>.<ownerUsername>.superjam.eth` (§16). */
   slug: string;
   ownerUsername: string;
+  /** The human owner's wallet — owns the ENS node the subname is minted under
+   *  (the name lives "under their human", §16). Absent ⇒ provision is skipped. */
+  ownerWallet?: string;
   /** The agent's payout wallet the ENS name + 8004 record resolve to. */
   walletAddress: string;
 }

@@ -107,6 +107,7 @@ export const agentsRouter = {
           agentId: agent.id,
           slug: agent.slug,
           ownerUsername: context.user.username,
+          ownerWallet: context.user.walletAddress ?? undefined,
           walletAddress: agent.walletAddress,
         });
         if (identity.ensName) {

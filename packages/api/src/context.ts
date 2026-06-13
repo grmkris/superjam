@@ -8,7 +8,8 @@ import type { Address } from "viem";
 import { type AppTokenIssuer, nullAppTokenIssuer } from "./auth/app-token.ts";
 import type { AuthVerifier } from "./auth/verifier.ts";
 import { type WorldVerifier, nullWorldVerifier } from "./auth/world.ts";
-import { type AgentIdentity, nullAgentIdentity } from "./lib/agent-identity.ts";
+import type { AgentIdentity } from "./lib/agent-identity.ts";
+import { createAgentIdentity } from "./lib/agent-identity-impl.ts";
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
 
@@ -51,16 +52,21 @@ export interface CreateContextDeps {
   headers: Headers;
 }
 
-export const createContext = (deps: CreateContextDeps): ApiContext => ({
-  db: deps.db,
-  logger: deps.logger,
-  auth: deps.auth,
-  rateLimiter: deps.rateLimiter,
-  issuer: deps.issuer ?? nullAppTokenIssuer,
-  onchain: deps.onchain ?? nullOnchain,
-  oracle: deps.oracle ?? nullOracle,
-  world: deps.world ?? nullWorldVerifier,
-  agentIdentity: deps.agentIdentity ?? nullAgentIdentity,
-  treasuryAddress: deps.treasuryAddress,
-  headers: deps.headers,
-});
+export const createContext = (deps: CreateContextDeps): ApiContext => {
+  const onchain = deps.onchain ?? nullOnchain;
+  return {
+    db: deps.db,
+    logger: deps.logger,
+    auth: deps.auth,
+    rateLimiter: deps.rateLimiter,
+    issuer: deps.issuer ?? nullAppTokenIssuer,
+    onchain,
+    oracle: deps.oracle ?? nullOracle,
+    world: deps.world ?? nullWorldVerifier,
+    // Defaults to the live ENS-minting identity over whatever onchain we have
+    // (nullOnchain ⇒ mints reject ⇒ provision returns {} — still best-effort).
+    agentIdentity: deps.agentIdentity ?? createAgentIdentity(onchain),
+    treasuryAddress: deps.treasuryAddress,
+    headers: deps.headers,
+  };
+};
