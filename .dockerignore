@@ -1,0 +1,20 @@
+# Shared build context for the Railway images (server now; web later).
+node_modules
+**/node_modules
+.git
+.turbo
+**/.turbo
+**/.next
+**/dist
+**/*.log
+.env
+.env.*
+!.env.example
+
+# Mini-app template + example app deploy to Vercel via the builder, NOT to
+# Railway (pivot §11). Keep their package.json so `bun install --frozen-lockfile`
+# can still resolve the workspace graph, but drop their source from the image.
+packages/app-template/**
+!packages/app-template/package.json
+apps/example-app/**
+!apps/example-app/package.json
