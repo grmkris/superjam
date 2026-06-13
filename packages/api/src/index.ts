@@ -24,6 +24,15 @@ export {
   type CreateExternalAppInput,
 } from "./routers/apps.ts";
 export { commonErrors, type CommonErrorCode } from "./errors.ts";
+// Onchain wiring re-exported so the composition root (apps/server) gets it
+// without a second direct dependency (§15).
+export {
+  createOnchainFromConfig,
+  nullOnchain,
+  type Onchain,
+  type OnchainConfig,
+} from "@superjam/onchain";
+export { type PotOracle, nullOracle } from "./lib/oracle.ts";
 export { createRateLimiter, type RateLimiter } from "./lib/rate-limit.ts";
 export { createCounterService } from "./services/counter-service.ts";
 export { createStorageService } from "./services/storage-service.ts";

@@ -5,7 +5,9 @@ import { appsRouter } from "./routers/apps.ts";
 import { authRouter } from "./routers/auth.ts";
 import { bridgeRouter } from "./routers/bridge.ts";
 import { inboxRouter } from "./routers/inbox.ts";
+import { paymentsRouter } from "./routers/payments.ts";
 import { profileRouter } from "./routers/profile.ts";
+import { publishRouter } from "./routers/publish.ts";
 
 export const appRouter = {
   health: publicProcedure.handler(() => "OK"),
@@ -14,6 +16,8 @@ export const appRouter = {
   inbox: inboxRouter,
   auth: authRouter,
   apps: appsRouter,
+  publish: publishRouter,
+  payments: paymentsRouter,
 };
 
 export type AppRouter = typeof appRouter;

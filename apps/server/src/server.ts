@@ -7,7 +7,9 @@ import {
   createAppTokenIssuer,
   createContext,
   createDynamicVerifier,
+  createOnchainFromConfig,
   createRateLimiter,
+  nullOnchain,
 } from "@superjam/api";
 import { createDb, runMigrations } from "@superjam/db";
 import { createLogger } from "@superjam/logger";
@@ -29,7 +31,7 @@ const { db } = createDb(env.DATABASE_URL);
 await runMigrations(db);
 logger.info("migrations applied");
 
-const auth = createDynamicVerifier(env.DYNAMIC_ENVIRONMENT_ID ?? "");
+const auth = createDynamicVerifier(env.DYNAMIC_ENVIRONMENT_ID);
 const rateLimiter = createRateLimiter();
 // Platform identity-token issuer (pivot §1) — keyless unless APP_JWT_* set.
 const issuer = await createAppTokenIssuer({
@@ -38,6 +40,18 @@ const issuer = await createAppTokenIssuer({
   kid: env.APP_JWT_KID,
   issuer: SERVICE_URLS[env.APP_ENV].web,
 });
+// The chain adapter (§15/§16) — the single reused server-wallet signer. No
+// signer key ⇒ nullOnchain (boot stays green; payments return INTERNAL until
+// configured). Unlink stays degraded until its transport is wired (§23).
+const onchain =
+  createOnchainFromConfig({
+    serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
+    baseSepoliaRpcUrl: env.BASE_SEPOLIA_RPC_URL,
+    arcRpcUrl: env.ARC_RPC_URL,
+    unlink: { apiKey: env.UNLINK_API_KEY, appId: env.UNLINK_APP_ID },
+  }) ?? nullOnchain;
+const treasuryAddress = env.TREASURY_ADDRESS as `0x${string}` | undefined;
+
 const rpc = new RPCHandler(appRouter);
 
 const app = new Hono();
@@ -73,6 +87,8 @@ app.use("/rpc/*", async (c, next) => {
       auth,
       rateLimiter,
       issuer,
+      onchain,
+      treasuryAddress,
       headers: c.req.raw.headers,
     }),
   });

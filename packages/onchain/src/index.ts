@@ -4,13 +4,25 @@
 // resolution — resolution / quotas / "which user" live in the api services;
 // resolved addresses are passed in. A failed §23 rehearsal degrades behind this
 // seam (tips→public, payX402 disabled) with no change to the call shape.
-import type { Address, Hex, PublicClient } from "viem";
-import { type ChainKey, PRIVATE_CHAIN, USDC } from "./chains.ts";
+import {
+  type Address,
+  type Hex,
+  type PublicClient,
+  createPublicClient,
+  http,
+} from "viem";
+import { CHAINS, type ChainKey, PRIVATE_CHAIN, USDC } from "./chains.ts";
 import { OnchainError } from "./errors.ts";
 import { type Usdc } from "./money.ts";
-import { type UnlinkClient, nullUnlink } from "./privacy.ts";
+import {
+  type UnlinkClient,
+  type UnlinkConfig,
+  createUnlinkClient,
+  nullUnlink,
+} from "./privacy.ts";
 import type { ServerWallet } from "./server-wallet.ts";
 import type { TransferAuthMessage } from "./transfer-auth.ts";
+import { createServerWalletFromKey } from "./viem-server-wallet.ts";
 import {
   type VerifyTransferParams,
   usdcBalanceOf,
@@ -78,6 +90,57 @@ export const createOnchain = ({
 };
 
 export type Onchain = ReturnType<typeof createOnchain>;
+
+export interface OnchainConfig {
+  /** The privileged signer key. Absent ⇒ null (boot stays green; payments
+   *  return INTERNAL until configured). Swap for a Dynamic account to go TSS. */
+  serverWalletPrivateKey?: string;
+  baseSepoliaRpcUrl?: string;
+  arcRpcUrl?: string;
+  unlink?: UnlinkConfig;
+}
+
+/** Compose a live Onchain from env-style config — the composition-root wiring
+ *  (apps/server). Returns null when no signer key is set so the caller falls
+ *  back to nullOnchain. Unlink stays degraded until a transport is wired (§23). */
+export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
+  if (!cfg.serverWalletPrivateKey) return null;
+  const publicClient = createPublicClient({
+    chain: CHAINS.baseSepolia,
+    transport: http(cfg.baseSepoliaRpcUrl),
+  });
+  const serverWallet = createServerWalletFromKey({
+    privateKey: cfg.serverWalletPrivateKey as Hex,
+    rpcUrl: cfg.baseSepoliaRpcUrl,
+    chainKey: "baseSepolia",
+  });
+  const arcClient = cfg.arcRpcUrl
+    ? createPublicClient({ chain: CHAINS.arcTestnet, transport: http(cfg.arcRpcUrl) })
+    : undefined;
+  return createOnchain({
+    publicClient,
+    serverWallet,
+    arcClient,
+    unlink: cfg.unlink ? createUnlinkClient(cfg.unlink) : nullUnlink,
+  });
+};
+
+/** Degraded onchain — every chain op rejects with CHAIN_UNAVAILABLE so the api
+ *  layer maps it to a clean error and boot/tests stay green without chain
+ *  config (mirrors nullUnlink / nullAppTokenIssuer). The server injects the
+ *  real instance; tests inject a mock. */
+export const nullOnchain: Onchain = {
+  serverAddress: "0x0000000000000000000000000000000000000000",
+  unlink: nullUnlink,
+  verifyUsdcTransfer: () =>
+    Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
+  usdcBalance: () =>
+    Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
+  relayTransfer: () =>
+    Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
+  sendUsdc: () =>
+    Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
+};
 
 // --- public surface (the cross-lane seams) ---
 export * from "./money.ts";
