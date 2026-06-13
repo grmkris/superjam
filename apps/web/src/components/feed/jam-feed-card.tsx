@@ -5,8 +5,10 @@
 //   playing  the jam runs LIVE in-feed via %67's <AppHost> (a real app, not a
 //            video — the differentiator vs TikTok)
 // The ENS name tag lives on the jam PAGE, not the card (design round 6).
+import type { AppId } from "@superjam/shared";
 import { useState } from "react";
 import { useLogin } from "../login";
+import { usePlatformClient } from "../use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { AppHost } from "../app-host";
 import { FriendPicker } from "../chat/friend-picker";
@@ -45,9 +47,33 @@ export function JamFeedCard({
 }) {
   const { isLoggedIn } = useHostAuth();
   const { openLogin } = useLogin();
+  const client = usePlatformClient();
   const [playing, setPlaying] = useState(false);
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(jam.likedByMe);
+  const [likes, setLikes] = useState(jam.likes);
   const [picking, setPicking] = useState(false);
+
+  // Like requires identity. Optimistic toggle, reconciled with the server's
+  // authoritative {liked, likes}; revert on failure.
+  const onLike = () => {
+    if (!isLoggedIn) {
+      openLogin();
+      return;
+    }
+    const nextLiked = !liked;
+    setLiked(nextLiked);
+    setLikes((n) => n + (nextLiked ? 1 : -1));
+    client.apps
+      .like({ appId: jam.id as AppId })
+      .then((r) => {
+        setLiked(r.liked);
+        setLikes(r.likes);
+      })
+      .catch(() => {
+        setLiked(!nextLiked);
+        setLikes((n) => n + (nextLiked ? -1 : 1));
+      });
+  };
 
   // toggle play AND notify the feed page so it can hide the floating tab pills
   const setPlay = (v: boolean) => {
@@ -124,20 +150,20 @@ export function JamFeedCard({
         ▸ Play now
       </button>
 
-      {jam.friendsPlayed > 0 && (
+      {jam.friendsLiked > 0 && (
         <div className="flex items-center gap-1.5 text-small font-bold text-white [text-shadow:0_1px_0_var(--color-ink)]">
           <span className="size-2 rounded-full bg-green border-[1.5px] border-ink" />
-          {jam.friendsPlayed} friends played today
+          {jam.friendsLiked} {jam.friendsLiked === 1 ? "friend likes" : "friends like"} this
         </div>
       )}
 
       {/* right action rail */}
       <div className="absolute right-3.5 bottom-32 z-10">
         <FeedActionRail
-          likes={jam.likes}
+          likes={likes}
           comments={jam.comments}
           liked={liked}
-          onLike={() => setLiked((v) => !v)}
+          onLike={onLike}
           onComments={() => onComments(jam)}
           onShare={() => setPicking(true)}
           onRemix={() => onRemix(jam)}

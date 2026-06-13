@@ -9,7 +9,7 @@ import { schema } from "@superjam/db";
 import type { Logger } from "@superjam/logger";
 import type { Onchain } from "@superjam/onchain";
 import {
-  type AppId,
+  AppId,
   type AppManifest,
   AppManifestSchema,
   type BuildId,
@@ -20,17 +20,18 @@ import {
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
 import type { Address } from "viem";
-import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import {
+  optionalAuthProcedure,
   protectedProcedure,
   publicProcedure,
   worldVerifiedProcedure,
 } from "../orpc.ts";
 import { decodeCursor, encodeCursor } from "../lib/cursor.ts";
 
-const { app, user, appCounter, appReview, build } = schema;
+const { app, user, appCounter, appReview, build, appLike, friendship } = schema;
 
 const isReserved = (slug: string): boolean =>
   (RESERVED_LABELS as readonly string[]).includes(slug);
@@ -191,10 +192,11 @@ export const appsRouter = {
   // Public viewer lookup (pivot §3): the host shell resolves a slug to the
   // external entryUrl + capabilities it frames, and the entryOrigin it puts in
   // that page's frame-src CSP. Only live apps are viewable.
-  get: publicProcedure
+  get: optionalAuthProcedure
     .input(z.object({ slug: z.string() }))
     .handler(async ({ context, input }) => {
-      const row = await context.db.query.app.findFirst({
+      const db = context.db;
+      const row = await db.query.app.findFirst({
         where: and(
           eq(app.slug, input.slug),
           inArray(app.status, ["listed", "deployed"])
@@ -203,6 +205,21 @@ export const appsRouter = {
       if (!row || !row.entryUrl) {
         throw new ORPCError("NOT_FOUND", { message: "App not found" });
       }
+      const counted = await db
+        .select({ cnt: sql<number>`count(*)::int` })
+        .from(appLike)
+        .where(eq(appLike.appId, row.id));
+      const likeTotal = Number(counted[0]?.cnt ?? 0);
+      const viewerId = context.user?.id ?? null;
+      const likedByMe = viewerId
+        ? (
+            await db
+              .select({ appId: appLike.appId })
+              .from(appLike)
+              .where(and(eq(appLike.appId, row.id), eq(appLike.userId, viewerId)))
+              .limit(1)
+          ).length > 0
+        : false;
       return {
         id: row.id,
         slug: row.slug,
@@ -213,17 +230,20 @@ export const appsRouter = {
         entryUrl: row.entryUrl,
         entryOrigin: row.entryOrigin,
         ensName: row.ensName,
+        likes: likeTotal,
+        likedByMe,
       };
     }),
 
   // Discover feed (DESIGN_BRIEF §3b). Lists live jams with the social meta the
-  // feed card needs: maker (✓-human), play total, review count, remix lineage.
-  // "foryou" = most-played first; "new" = newest. No "friends" tab (no friends
-  // graph yet). likes/friendsPlayed are 0 until those surfaces exist.
-  explore: publicProcedure
+  // feed card needs: maker (✓-human), play total, review count, remix lineage,
+  // real like total + (when signed in) liked-by-me and how many friends liked it.
+  // "foryou"/"friends" = most-played first; "new" = newest. "friends" filters to
+  // jams made by the viewer's friends.
+  explore: optionalAuthProcedure
     .input(
       z.object({
-        tab: z.enum(["foryou", "new"]).default("foryou"),
+        tab: z.enum(["foryou", "new", "friends"]).default("foryou"),
         cursor: z.string().optional(),
         limit: z.number().int().min(1).max(LIST_MAX).default(20),
       })
@@ -232,6 +252,20 @@ export const appsRouter = {
       const db = context.db;
       const offset = decodeCursor(input.cursor);
       const limit = input.limit;
+
+      // Viewer (when signed in) + their friend set — powers liked-by-me, the
+      // "N friends liked" signal, and the Friends tab. Anonymous → empty.
+      const viewerId = context.user?.id ?? null;
+      let friendIds: UserId[] = [];
+      if (viewerId) {
+        const fr = await db
+          .select({ a: friendship.userAId, b: friendship.userBId })
+          .from(friendship)
+          .where(
+            or(eq(friendship.userAId, viewerId), eq(friendship.userBId, viewerId))
+          );
+        friendIds = fr.map((f) => (f.a === viewerId ? f.b : f.a));
+      }
 
       // play totals (SUM over the _plays counter's per-key rows) + review counts
       const plays = db
@@ -279,18 +313,68 @@ export const appsRouter = {
         .leftJoin(reviews, eq(reviews.appId, app.id))
         .leftJoin(remixBase, eq(app.remixOfAppId, remixBase.id))
         .where(
-          and(inArray(app.status, ["listed", "deployed"]), isNotNull(app.entryUrl))
+          and(
+            inArray(app.status, ["listed", "deployed"]),
+            isNotNull(app.entryUrl),
+            // Friends tab → only jams made by the viewer's friends (empty when
+            // logged out or friendless).
+            input.tab === "friends"
+              ? friendIds.length
+                ? inArray(app.ownerUserId, friendIds)
+                : sql`false`
+              : undefined
+          )
         )
         .orderBy(
-          ...(input.tab === "foryou"
-            ? [desc(playsTotal), desc(app.createdAt)]
-            : [desc(app.createdAt)])
+          ...(input.tab === "new"
+            ? [desc(app.createdAt)]
+            : [desc(playsTotal), desc(app.createdAt)])
         )
         .limit(limit + 1)
         .offset(offset);
 
       const hasMore = rows.length > limit;
       const page = hasMore ? rows.slice(0, limit) : rows;
+
+      // Like signals for just this page (small, indexed lookups — codec-safe via
+      // the query builder, so no raw-SQL id binding). Total likes, whether the
+      // viewer liked each, and how many of the viewer's friends liked each.
+      const appIds = page.map((r) => r.id);
+      const likeCount = new Map<string, number>();
+      const likedByMe = new Set<string>();
+      const friendsLikedCount = new Map<string, number>();
+      if (appIds.length) {
+        const totals = await db
+          .select({ appId: appLike.appId, cnt: sql<number>`count(*)::int` })
+          .from(appLike)
+          .where(inArray(appLike.appId, appIds))
+          .groupBy(appLike.appId);
+        for (const t of totals) likeCount.set(t.appId, Number(t.cnt));
+
+        if (viewerId) {
+          const mine = await db
+            .select({ appId: appLike.appId })
+            .from(appLike)
+            .where(
+              and(eq(appLike.userId, viewerId), inArray(appLike.appId, appIds))
+            );
+          for (const m of mine) likedByMe.add(m.appId);
+        }
+        if (friendIds.length) {
+          const fl = await db
+            .select({ appId: appLike.appId, cnt: sql<number>`count(*)::int` })
+            .from(appLike)
+            .where(
+              and(
+                inArray(appLike.appId, appIds),
+                inArray(appLike.userId, friendIds)
+              )
+            )
+            .groupBy(appLike.appId);
+          for (const f of fl) friendsLikedCount.set(f.appId, Number(f.cnt));
+        }
+      }
+
       return {
         jams: page.map((r) => ({
           id: r.id,
@@ -304,15 +388,56 @@ export const appsRouter = {
           entryOrigin: r.entryOrigin,
           ensName: r.ensName,
           maker: { username: r.makerUsername, verified: r.makerVerified },
-          likes: 0,
+          likes: likeCount.get(r.id) ?? 0,
+          likedByMe: likedByMe.has(r.id),
           comments: Number(r.reviewCount),
           reviewCount: Number(r.reviewCount),
           plays: Number(r.plays),
-          friendsPlayed: 0,
+          friendsLiked: friendsLikedCount.get(r.id) ?? 0,
           remixOf: r.remixOfName ? { name: r.remixOfName } : null,
         })),
         cursor: hasMore ? encodeCursor(offset + limit) : undefined,
       };
+    }),
+
+  // Toggle the caller's like on a jam (DESIGN_BRIEF §3b heart). Idempotent —
+  // PK(appId,userId) — returns the new state + recomputed total for optimistic UI.
+  like: protectedProcedure
+    .input(z.object({ appId: AppId }))
+    .handler(async ({ context, input }) => {
+      const db = context.db;
+      const uid = context.user.id;
+      const found = await db
+        .select({ id: app.id })
+        .from(app)
+        .where(eq(app.id, input.appId))
+        .limit(1);
+      if (found.length === 0) {
+        throw new ORPCError("NOT_FOUND", { message: "App not found" });
+      }
+      const existing = await db
+        .select({ appId: appLike.appId })
+        .from(appLike)
+        .where(and(eq(appLike.appId, input.appId), eq(appLike.userId, uid)))
+        .limit(1);
+      let liked: boolean;
+      if (existing.length > 0) {
+        await db
+          .delete(appLike)
+          .where(and(eq(appLike.appId, input.appId), eq(appLike.userId, uid)));
+        liked = false;
+      } else {
+        await db
+          .insert(appLike)
+          .values({ appId: input.appId, userId: uid })
+          .onConflictDoNothing();
+        liked = true;
+      }
+      const counted = await db
+        .select({ cnt: sql<number>`count(*)::int` })
+        .from(appLike)
+        .where(eq(appLike.appId, input.appId));
+      return { liked, likes: Number(counted[0]?.cnt ?? 0) };
     }),
 
   // The caller's own jams (DESIGN_BRIEF §3c-i shelf, §3f /me). Includes

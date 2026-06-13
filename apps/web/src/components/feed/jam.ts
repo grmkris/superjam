@@ -13,8 +13,9 @@ export interface FeedJam extends ViewerApp {
   tagline: string;
   accent: Accent;
   likes: number;
+  likedByMe: boolean;
   comments: number;
-  friendsPlayed: number;
+  friendsLiked: number;
   remixOf: { name: string } | null;
 }
 
@@ -30,10 +31,8 @@ export async function loadFeed(
   client: AppRouterClient,
   tab: FeedTab = "foryou"
 ): Promise<FeedJam[]> {
-  // No friends graph yet → the Friends pill falls back to the foryou ranking.
-  const apiTab = tab === "new" ? "new" : "foryou";
   try {
-    const res = await client.apps.explore({ tab: apiTab });
+    const res = await client.apps.explore({ tab });
     return res.jams.map((j) => ({
       id: j.id,
       slug: j.slug,
@@ -50,8 +49,9 @@ export async function loadFeed(
       tagline: j.description || "a little app, made on superjam ✨",
       accent: accentFor(j.slug),
       likes: j.likes,
+      likedByMe: j.likedByMe,
       comments: j.comments,
-      friendsPlayed: j.friendsPlayed,
+      friendsLiked: j.friendsLiked,
       remixOf: j.remixOf,
     }));
   } catch {

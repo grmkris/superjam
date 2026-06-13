@@ -59,7 +59,7 @@ export function FeedActionRail({
     <div className="flex flex-col items-center gap-3.5">
       <RailButton
         emoji="❤️"
-        label={compactCount(likes + (liked ? 1 : 0))}
+        label={compactCount(likes)}
         active={liked}
         onClick={onLike}
       />
