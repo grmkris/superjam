@@ -1,0 +1,22 @@
+# Single public origin (§17, pivot-adjusted). Platform API + identity + file
+# serving -> server; everything else -> web (Next host shell). Railway injects
+# $PORT for the public listener; services reach each other over the private
+# network ($SERVER_URL / $WEB_URL = *.railway.internal).
+#
+# PIVOT: mini-apps are EXTERNAL (developer/builder-hosted on Vercel), loaded by
+# the host shell as cross-origin iframes — so there is NO apps-origin /a bundle
+# route here. The gateway only fronts the platform (web + server).
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT} {
+	@server path /rpc/* /api/* /f/* /health /.well-known/*
+	handle @server {
+		reverse_proxy {$SERVER_URL}
+	}
+	handle {
+		reverse_proxy {$WEB_URL}
+	}
+}
