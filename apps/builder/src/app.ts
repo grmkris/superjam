@@ -33,7 +33,7 @@ const BuildRequest = z.object({
 });
 
 const TeardownRequest = z.object({
-  vercelProjectId: z.string().min(1).optional(),
+  vercelProject: z.string().min(1).optional(),
   neonProjectId: z.string().min(1).optional(),
 });
 
@@ -85,11 +85,11 @@ export const createBuilderApp = (deps: BuilderAppDeps): Hono => {
     if (!parsed.success) {
       return c.json({ error: "bad request", detail: z.prettifyError(parsed.error) }, 400);
     }
-    const { vercelProjectId, neonProjectId } = parsed.data;
-    if (!vercelProjectId && !neonProjectId) {
+    const { vercelProject, neonProjectId } = parsed.data;
+    if (!vercelProject && !neonProjectId) {
       return c.json({ error: "no project ids to tear down" }, 400);
     }
-    const result = await deps.teardown({ vercelProjectId, neonProjectId });
+    const result = await deps.teardown({ vercelProject, neonProjectId });
     return c.json(result);
   });
 

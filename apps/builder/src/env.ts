@@ -10,11 +10,14 @@ const builderEnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4710),
   // Shared bearer that gates the public build protocol.
   BUILDER_TOKEN: z.string().min(1),
-  // Vercel operator creds (the builder's own team).
-  VERCEL_TOKEN: z.string().min(1),
+  // Vercel operator token — OPTIONAL: the deploy is the `vercel` CLI, which uses
+  // the box's logged-in session if no token is set (a token is only needed for a
+  // headless systemd service).
+  VERCEL_TOKEN: z.string().min(1).optional(),
   VERCEL_TEAM_ID: z.string().min(1).optional(),
-  // Neon org-scoped key (org_id inferred ⇒ one billing org for all app DBs).
-  NEON_API_KEY: z.string().min(1),
+  // Neon org key — OPTIONAL: only data apps need a per-app DB; zero-backend
+  // builds (the demo path) skip Neon entirely.
+  NEON_API_KEY: z.string().min(1).optional(),
   NEON_REGION_ID: z.string().min(1).default("aws-us-east-1"),
   // Public JWKS the deployed apps verify SuperJam user tokens against (§1).
   SUPERJAM_JWKS_URL: z

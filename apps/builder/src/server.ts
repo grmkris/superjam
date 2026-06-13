@@ -4,12 +4,14 @@
 // unit repoints WorkingDirectory/ExecStart here and restarts (SPEC §11 deploy).
 import {
   createNeonClient,
-  createVercelClient,
+  type DeployPort,
   teardownApp,
+  type VercelTeardown,
 } from "@superjam/builder/deploy";
 import { createLogger } from "@superjam/logger";
 import { serve } from "@hono/node-server";
 import { createBuilderApp } from "./app.ts";
+import { cliDeploy, vercelRemove } from "./cli-deploy.ts";
 import { parseBuilderEnv } from "./env.ts";
 import { createTemplateGenerator } from "./generate.ts";
 import { createBuildRunner } from "./queue.ts";
@@ -17,18 +19,21 @@ import { createBuildRunner } from "./queue.ts";
 const env = parseBuilderEnv(process.env);
 const logger = createLogger({ level: "info" });
 
-const vercel = createVercelClient({
-  token: env.VERCEL_TOKEN,
-  teamId: env.VERCEL_TEAM_ID,
-});
-const neon = createNeonClient({
-  apiKey: env.NEON_API_KEY,
-  regionId: env.NEON_REGION_ID,
-});
+// Deploy = the Vercel CLI (authed on the box; optional VERCEL_TOKEN for systemd).
+const deploy: DeployPort = (args) =>
+  cliDeploy({ files: args.files, name: args.name, token: env.VERCEL_TOKEN });
+const teardownVercel: VercelTeardown = (name) =>
+  vercelRemove(name, { token: env.VERCEL_TOKEN });
+
+// Neon only when the org key is set (data apps); zero-backend builds skip it.
+const neon = env.NEON_API_KEY
+  ? createNeonClient({ apiKey: env.NEON_API_KEY, regionId: env.NEON_REGION_ID })
+  : undefined;
 
 const runner = createBuildRunner({
   generate: createTemplateGenerator(),
-  vercel,
+  deploy,
+  teardownVercel,
   neon,
   jwksUrl: env.SUPERJAM_JWKS_URL,
   maxConcurrent: env.MAX_CONCURRENT_BUILDS,
@@ -54,7 +59,7 @@ const claudeAuth = async (): Promise<boolean> => {
 const app = createBuilderApp({
   token: env.BUILDER_TOKEN,
   runner,
-  teardown: (args) => teardownApp(args, { vercel, neon }),
+  teardown: (args) => teardownApp(args, { teardownVercel, neon }),
   claudeAuth,
 });
 

@@ -218,7 +218,7 @@ const deployResult: DeployResult = {
     category: "tool",
     capabilities: ["payments"],
   },
-  vercelProjectId: "prj_1",
+  vercelProject: "prj_1",
   durationMs: 1234,
 };
 

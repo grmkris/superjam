@@ -5,18 +5,22 @@
 // (it owns durability, the builder owns execution).
 import {
   type DeployEvent,
+  type DeployPort,
   type DeployResult,
   type Generator,
   type NeonClient,
   projectNameFor,
   runDeploy,
-  type VercelClient,
+  type VercelTeardown,
 } from "@superjam/builder/deploy";
 import type { AppSpec } from "@superjam/shared";
 
 export interface BuildRunnerDeps {
   generate: Generator;
-  vercel: VercelClient;
+  /** Ships the generated files to Vercel (cliDeploy). */
+  deploy: DeployPort;
+  /** `vercel rm` for reaping a failed build's project. */
+  teardownVercel?: VercelTeardown;
   neon?: NeonClient;
   jwksUrl: string;
   maxConcurrent?: number;
@@ -62,7 +66,8 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
         { spec, buildId, appId, projectName: projectNameFor(appId) },
         {
           generate: deps.generate,
-          vercel: deps.vercel,
+          deploy: deps.deploy,
+          teardownVercel: deps.teardownVercel,
           neon: deps.neon,
           jwksUrl: deps.jwksUrl,
           onEvent: (e) => state.events.push(e),

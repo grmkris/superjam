@@ -7,7 +7,13 @@
 // server.ts.
 import type { AppManifest, AppSpec } from "@superjam/shared";
 import { specNeedsData } from "@superjam/builder/deploy";
-import type { GeneratedApp, Generator } from "@superjam/builder/deploy";
+import type {
+  GenerateContext,
+  GeneratedApp,
+  Generator,
+} from "@superjam/builder/deploy";
+
+const DEFAULT_JWKS_URL = "https://superjam.fun/.well-known/jwks.json";
 
 // Generated apps depend on the PUBLISHED SDK (npm `superjam-sdk`), aliased to
 // the `@superjam/sdk` import path so recipe/agent code is unchanged. Standalone
@@ -113,16 +119,27 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 `;
 
+// Identity BAKED into source — the builder knows the appId at generate time and
+// `vercel deploy` (CLI) sets no env, so SUPERJAM_APP_ID + the platform JWKS URL
+// live in the source, not process.env.
+const configLib = (appId: string, jwksUrl: string): string =>
+  `// Baked by the SuperJam builder — the app's identity (token audience) + the
+// platform JWKS. No runtime env needed.
+export const SUPERJAM_APP_ID = ${JSON.stringify(appId)};
+export const SUPERJAM_JWKS_URL = ${JSON.stringify(jwksUrl)};
+`;
+
 // Verify the SuperJam user token against the public JWKS (deploy doc §D.3) —
 // no shared secret, no cookie. aud binds the token to THIS app.
 const authLib = (): string => `import { createRemoteJWKSet, jwtVerify } from "jose";
+import { SUPERJAM_APP_ID, SUPERJAM_JWKS_URL } from "./superjam-config";
 
-const JWKS = createRemoteJWKSet(new URL(process.env.SUPERJAM_JWKS_URL!));
+const JWKS = createRemoteJWKSet(new URL(SUPERJAM_JWKS_URL));
 
 export async function verifyUser(token: string) {
   const { payload } = await jwtVerify(token, JWKS, {
     issuer: "https://superjam.fun",
-    audience: process.env.SUPERJAM_APP_ID,
+    audience: SUPERJAM_APP_ID,
   });
   return payload;
 }
@@ -178,14 +195,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 `;
 
-/** Build the deterministic file map for one app. */
-export const generateApp = (spec: AppSpec): GeneratedApp => {
+/** Build the deterministic file map for one app. `ctx` carries the baked
+ * identity (appId + JWKS); absent in unit tests that don't deploy. */
+export const generateApp = (spec: AppSpec, ctx?: GenerateContext): GeneratedApp => {
   const needsData = specNeedsData(spec);
   const files: Record<string, string> = {
     "package.json": packageJson(spec, needsData),
     "tsconfig.json": tsconfig(),
     "next.config.ts": nextConfig(),
     "superjam.json": JSON.stringify(manifestOf(spec), null, 2),
+    "lib/superjam-config.ts": configLib(
+      ctx?.appId ?? "",
+      ctx?.jwksUrl ?? DEFAULT_JWKS_URL
+    ),
     "app/layout.tsx": layout(spec),
     "app/page.tsx": page(spec),
     "lib/auth.ts": authLib(),
@@ -198,5 +220,5 @@ export const generateApp = (spec: AppSpec): GeneratedApp => {
 };
 
 /** The `Generator` port impl. Async to match the agent-fill signature. */
-export const createTemplateGenerator = (): Generator => async (spec) =>
-  generateApp(spec);
+export const createTemplateGenerator = (): Generator => async (spec, ctx) =>
+  generateApp(spec, ctx);

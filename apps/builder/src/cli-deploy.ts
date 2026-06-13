@@ -131,3 +131,21 @@ export const cliDeploy = async (
     await rm(ws, { recursive: true, force: true });
   }
 };
+
+/**
+ * `vercel project rm <name>` — idempotent teardown of a deployed app's project.
+ * A missing project is treated as success (already gone). Throws on other errors.
+ */
+export const vercelRemove = async (
+  projectName: string,
+  opts: { token?: string } = {},
+  run: DeployRunner = bunRunner
+): Promise<void> => {
+  const name = vercelProjectName(projectName);
+  const argv = ["vercel", "project", "rm", name, "--yes"];
+  if (opts.token) argv.push("--token", opts.token);
+  const { code, stderr } = await run(argv, tmpdir());
+  if (code !== 0 && !/not found|does not exist|no project/i.test(stderr)) {
+    throw new Error(`vercel project rm failed (exit ${code}): ${stderr.slice(-300)}`);
+  }
+};

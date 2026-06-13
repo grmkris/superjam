@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { AppSpec } from "@superjam/shared";
 import type {
+  DeployPort,
   GeneratedApp,
   NeonClient,
   TeardownArgs,
   TeardownResult,
-  VercelClient,
-  VercelDeployment,
 } from "@superjam/builder/deploy";
 import { createBuilderApp } from "./app.ts";
 import { generateApp } from "./generate.ts";
@@ -39,19 +38,9 @@ const dataSpec: AppSpec = {
   },
 };
 
-const okDeployment: VercelDeployment = {
+const stubDeploy: DeployPort = async ({ name }) => ({
+  entryUrl: `https://${name}.vercel.app`,
   deploymentId: "dpl_1",
-  url: "x.vercel.app",
-  readyState: "READY",
-};
-
-const stubVercel = (): VercelClient => ({
-  createProject: async () => ({ projectId: "prj_1" }),
-  setEnv: async () => {},
-  deploy: async () => okDeployment,
-  getDeployment: async () => okDeployment,
-  productionUrl: (_p, name) => `https://${name}.vercel.app`,
-  deleteProject: async () => {},
 });
 
 const stubNeon = (): NeonClient => ({
@@ -70,7 +59,8 @@ const makeApp = (overrides?: {
 }) => {
   const runner = createBuildRunner({
     generate: overrides?.generate ?? (async (s) => generateApp(s)),
-    vercel: stubVercel(),
+    deploy: stubDeploy,
+    teardownVercel: async () => {},
     neon: stubNeon(),
     jwksUrl: "https://superjam.fun/.well-known/jwks.json",
     maxConcurrent: overrides?.maxConcurrent,
@@ -122,11 +112,11 @@ describe("builder service", () => {
     });
     const body = (await status.json()) as {
       status: string;
-      result?: { entryUrl: string; vercelProjectId: string };
+      result?: { entryUrl: string; vercelProject: string };
     };
     expect(body.status).toBe("done");
     expect(body.result?.entryUrl).toBe("https://superjam-app-1.vercel.app");
-    expect(body.result?.vercelProjectId).toBe("prj_1");
+    expect(body.result?.vercelProject).toBe("superjam-app-1");
   });
 
   test("provisions Neon for a data app", async () => {
@@ -222,7 +212,7 @@ describe("POST /teardown", () => {
     const res = await app.request("http://b/teardown", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ vercelProjectId: "prj_1" }),
+      body: JSON.stringify({ vercelProject: "superjam-x" }),
     });
     expect(res.status).toBe(401);
   });
@@ -231,11 +221,11 @@ describe("POST /teardown", () => {
     const { app, teardownCalls } = makeApp();
     const res = await app.request(
       "http://b/teardown",
-      teardownReq({ vercelProjectId: "prj_1", neonProjectId: "neon_1" })
+      teardownReq({ vercelProject: "superjam-x", neonProjectId: "neon_1" })
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ vercel: "deleted", neon: "skipped" });
-    expect(teardownCalls).toEqual([{ vercelProjectId: "prj_1", neonProjectId: "neon_1" }]);
+    expect(teardownCalls).toEqual([{ vercelProject: "superjam-x", neonProjectId: "neon_1" }]);
   });
 
   test("400 when the body carries no project ids", async () => {
@@ -248,7 +238,7 @@ describe("POST /teardown", () => {
     const { app } = makeApp({ noTeardown: true });
     const res = await app.request(
       "http://b/teardown",
-      teardownReq({ vercelProjectId: "prj_1" })
+      teardownReq({ vercelProject: "superjam-x" })
     );
     expect(res.status).toBe(501);
   });

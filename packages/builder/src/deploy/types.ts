@@ -31,8 +31,11 @@ export type Generator = (
 
 export interface GenerateContext {
   buildId: string;
-  /** Pre-generated app id, injected as SUPERJAM_APP_ID (JWT `aud`). */
+  /** Pre-generated app id, BAKED into the source as SUPERJAM_APP_ID (JWT `aud`). */
   appId: string;
+  /** Platform JWKS the app verifies tokens against, baked as SUPERJAM_JWKS_URL.
+   * Optional so generators may default it (https://superjam.fun/...). */
+  jwksUrl?: string;
 }
 
 // --- Neon ---
@@ -51,45 +54,30 @@ export interface NeonClient {
   deleteProject(projectId: string): Promise<void>;
 }
 
-// --- Vercel ---
+// --- Vercel (CLI deploy) ---
 
-export interface VercelEnvVar {
-  key: string;
-  value: string;
-  type: "plain" | "encrypted";
-}
+/**
+ * Deploy a generated app (file map) to Vercel and return its PUBLIC production
+ * URL. Backed by `vercel deploy --prod` (apps/builder/cli-deploy.ts); injected
+ * so the orchestration is unit-tested without a live deploy. Identity is baked
+ * into the source, so there is no env-injection step.
+ */
+export type DeployPort = (args: {
+  files: Record<string, string>;
+  /** DNS-safe project name → its production alias `https://<name>.vercel.app`. */
+  name: string;
+}) => Promise<{ entryUrl: string; deploymentId: string }>;
 
-export interface VercelDeployment {
-  deploymentId: string;
-  /** `<name>-<hash>.vercel.app` deployment URL. */
-  url: string;
-  readyState: "QUEUED" | "INITIALIZING" | "BUILDING" | "READY" | "ERROR" | "CANCELED";
-}
-
-export interface VercelClient {
-  createProject(name: string): Promise<{ projectId: string }>;
-  /** Upsert env — MUST run before deploy; env is baked at build time. */
-  setEnv(projectId: string, vars: VercelEnvVar[]): Promise<void>;
-  /** Upload files + create the production deployment. */
-  deploy(args: {
-    projectId: string;
-    name: string;
-    files: Record<string, string>;
-    prebuilt: boolean;
-  }): Promise<VercelDeployment>;
-  getDeployment(deploymentId: string): Promise<VercelDeployment>;
-  /** The project's production URL once a deployment is READY. */
-  productionUrl(projectId: string, name: string): string;
-  /** Idempotent teardown. */
-  deleteProject(projectId: string): Promise<void>;
-}
+/** Idempotent `vercel rm <projectName>` — reaping a failed build / teardown. */
+export type VercelTeardown = (projectName: string) => Promise<void>;
 
 // --- orchestration result ---
 
 export interface DeployResult {
   entryUrl: string;
   manifest: AppManifest;
-  vercelProjectId: string;
+  /** The Vercel project NAME (stable, for teardown via `vercel rm`). */
+  vercelProject: string;
   /** Only set when the app declared data (its own Neon project). */
   neonProjectId?: string;
   durationMs: number;
