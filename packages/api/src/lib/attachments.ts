@@ -5,6 +5,7 @@
 // platform resolves bytes by key (objectStore.get).
 import { ATTACH_MAX_MB } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
+import sharp from "sharp";
 import type { ObjectStore } from "../services/object-store.ts";
 
 const MAX_BYTES = ATTACH_MAX_MB * 1024 * 1024;
@@ -79,6 +80,31 @@ export const sniffImageMime = (bytes: Uint8Array): string | null => {
   return null;
 };
 
+/** Longest-edge cap for stored images — Claude/Gemini's effective vision resolution. */
+const IMAGE_MAX_EDGE = 1568;
+
+// Downscale + re-encode images to a vision-friendly size before storage. Capping the
+// longest edge at 1568px and re-encoding to webp q80 turns a multi-MB phone photo into
+// a few hundred KB, which keeps the Gemini refine call (inline bytes) and the builder
+// agent's curl-fetch lean. Animated GIFs are left untouched (sharp would flatten them),
+// and any decode failure falls back to the original bytes rather than rejecting upload.
+const optimizeImage = async (
+  bytes: Uint8Array,
+  mime: string
+): Promise<{ bytes: Uint8Array; mime: string }> => {
+  if (!isImageMime(mime) || mime === "image/gif") return { bytes, mime };
+  try {
+    const out = await sharp(bytes)
+      .rotate() // honor EXIF orientation, then strip it
+      .resize(IMAGE_MAX_EDGE, IMAGE_MAX_EDGE, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+    return { bytes: new Uint8Array(out), mime: "image/webp" };
+  } catch {
+    return { bytes, mime };
+  }
+};
+
 const safeName = (name: string): string =>
   name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80) || "file";
 
@@ -99,6 +125,8 @@ export const storeAttachment = async (
   if (args.bytes.length === 0) {
     throw new ORPCError("BAD_REQUEST", { message: "Empty file." });
   }
+  // Reject oversized originals before spending CPU re-encoding them. (The router's Zod
+  // .max() already bounds the base64 payload, but bridge.files.upload comes in raw too.)
   if (args.bytes.length > MAX_BYTES) {
     throw new ORPCError("BAD_REQUEST", {
       message: `File too large — max ${ATTACH_MAX_MB}MB.`,
@@ -109,8 +137,9 @@ export const storeAttachment = async (
       message: `Unsupported file type: ${args.mime}.`,
     });
   }
-  const ext = ALLOWED_UPLOAD_MIME[args.mime];
+  const { bytes, mime } = await optimizeImage(args.bytes, args.mime);
+  const ext = ALLOWED_UPLOAD_MIME[mime];
   const key = `attachments/${args.owner}/${crypto.randomUUID()}/${safeName(args.fileName)}.${ext}`;
-  await store.put(key, args.bytes, args.mime);
-  return { key, url: store.presignGet(key, ATTACHMENT_URL_TTL_SEC), mime: args.mime };
+  await store.put(key, bytes, mime);
+  return { key, url: store.presignGet(key, ATTACHMENT_URL_TTL_SEC), mime };
 };

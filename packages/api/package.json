@@ -24,6 +24,7 @@
     "ai": "catalog:",
     "drizzle-orm": "catalog:",
     "jose": "catalog:",
+    "sharp": "catalog:",
     "viem": "catalog:",
     "zod": "catalog:"
   },

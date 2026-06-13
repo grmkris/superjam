@@ -30,7 +30,7 @@ export const RESERVED_LABELS = [
 // --- builds / trial ---
 export const FREE_BUILDS = 1;
 export const BUILD_ATTACH_MAX = 4; // user file attachments per make
-export const ATTACH_MAX_MB = 2; // per attachment
+export const ATTACH_MAX_MB = 10; // per attachment (images are downscaled server-side before storage)
 
 // --- payments (USDC, decimal strings) ---
 export const PUBLISH_FEE_USDC = "1";
