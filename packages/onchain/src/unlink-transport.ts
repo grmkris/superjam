@@ -10,7 +10,12 @@
 // behind injected interfaces (`UnlinkSdk`, `CircleGateway`) so the composition is
 // testable offline; the live wiring is filled at the Thursday §23 rehearsal.
 import type { Hex } from "viem";
-import { type CircleGateway } from "./circle-gateway.ts";
+import type { ClientEvmSigner } from "@x402/evm";
+import {
+  type CircleGateway,
+  createCircleGateway,
+  createLiveCircleGatewayTransport,
+} from "./circle-gateway.ts";
 import type { Usdc } from "./money.ts";
 import type {
   FaucetArgs,
@@ -80,11 +85,28 @@ export interface LiveUnlinkEnv {
  * from null. Returning null until that live test keeps the public fallback (never
  * ship an unverified @canary shape into the demo path).
  */
-export const loadLiveUnlinkTransport = (env: LiveUnlinkEnv): UnlinkTransport | null => {
-  const ready = Boolean(
-    env.UNLINK_API_KEY && env.CIRCLE_GATEWAY_API_KEY && env.ARC_PAYER_EOA_KEY
-  );
-  if (!ready) return null;
-  // Real SDK composition deferred to the rehearsal (see TODO above).
-  return null;
+/** Injected live pieces (built by the server: the x402 signer from the Dynamic
+ *  server wallet, and the `UnlinkSdk` adapter over the per-user Unlink service).
+ *  Optional so the existing call site `loadLiveUnlinkTransport(env)` stays gated. */
+export interface LoadLiveUnlinkDeps {
+  /** x402 payment signer — `toClientEvmSigner(serverWallet.account, publicClient)`. */
+  signer: ClientEvmSigner;
+  /** Shielded-pool ops over the live per-user Unlink service. */
+  unlink: UnlinkSdk;
+}
+
+export const loadLiveUnlinkTransport = (
+  env: LiveUnlinkEnv,
+  deps?: LoadLiveUnlinkDeps
+): UnlinkTransport | null => {
+  // GATED: live only when the Circle key is set AND the server injected the
+  // signer + the unlink adapter. Otherwise null → payX402 degrades to
+  // PAYMENT_REQUIRED and the public path is unaffected (never ship unverified).
+  if (!env.UNLINK_API_KEY || !env.CIRCLE_GATEWAY_API_KEY || !deps) return null;
+  return createUnlinkTransport({
+    unlink: deps.unlink,
+    gateway: createCircleGateway({
+      transport: createLiveCircleGatewayTransport({ signer: deps.signer }),
+    }),
+  });
 };
