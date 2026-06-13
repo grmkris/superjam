@@ -1,5 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "types": ["bun"] },
-  "include": ["src"]
+  "compilerOptions": {
+    "jsx": "preserve",
+    "module": "esnext",
+    "plugins": [{ "name": "next" }],
+    "incremental": true,
+    "types": ["bun", "node"]
+  },
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
 }

@@ -124,3 +124,34 @@ describe("apps.registerExternal", () => {
     ).rejects.toBeInstanceOf(ORPCError);
   });
 });
+
+describe("apps.get (public viewer lookup)", () => {
+  test("returns a listed external app's entryUrl + caps", async () => {
+    const { db, ctxFor } = await harness();
+    const schema = (await import("@superjam/db")).schema;
+    const [u] = await db
+      .insert(schema.user)
+      .values({ dynamicUserId: "dyn_g", email: "g@test.io", username: "g" })
+      .returning();
+    await createExternalApp(db, {
+      manifest,
+      entryUrl: "https://tipjar.vercel.app",
+      ownerUserId: u!.id,
+    });
+    const res = await call(
+      appRouter.apps.get,
+      { slug: "tip-jar" },
+      { context: ctxFor() }
+    );
+    expect(res.entryUrl).toBe("https://tipjar.vercel.app");
+    expect(res.entryOrigin).toBe("https://tipjar.vercel.app");
+    expect(res.capabilities).toEqual(["payments"]);
+  });
+
+  test("404 for an unknown slug", async () => {
+    const { ctxFor } = await harness();
+    await expect(
+      call(appRouter.apps.get, { slug: "nope" }, { context: ctxFor() })
+    ).rejects.toBeInstanceOf(ORPCError);
+  });
+});

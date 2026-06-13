@@ -14,9 +14,9 @@ import {
   type UserId,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { worldVerifiedProcedure } from "../orpc.ts";
+import { publicProcedure, worldVerifiedProcedure } from "../orpc.ts";
 
 const { app } = schema;
 
@@ -78,6 +78,34 @@ export const createExternalApp = async (
 };
 
 export const appsRouter = {
+  // Public viewer lookup (pivot §3): the host shell resolves a slug to the
+  // external entryUrl + capabilities it frames, and the entryOrigin it puts in
+  // that page's frame-src CSP. Only live apps are viewable.
+  get: publicProcedure
+    .input(z.object({ slug: z.string() }))
+    .handler(async ({ context, input }) => {
+      const row = await context.db.query.app.findFirst({
+        where: and(
+          eq(app.slug, input.slug),
+          inArray(app.status, ["listed", "deployed"])
+        ),
+      });
+      if (!row || !row.entryUrl) {
+        throw new ORPCError("NOT_FOUND", { message: "App not found" });
+      }
+      return {
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        iconEmoji: row.iconEmoji,
+        category: row.category,
+        capabilities: row.capabilities,
+        entryUrl: row.entryUrl,
+        entryOrigin: row.entryOrigin,
+        ensName: row.ensName,
+      };
+    }),
+
   // Register a developer-hosted app by URL. Human-gated (worldVerified) — one
   // human = one publisher (§14).
   registerExternal: worldVerifiedProcedure
