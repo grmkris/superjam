@@ -10,10 +10,8 @@ import type { AuthVerifier } from "./auth/verifier.ts";
 import { type WorldVerifier, nullWorldVerifier } from "./auth/world.ts";
 import type { AgentIdentity } from "./lib/agent-identity.ts";
 import { createAgentIdentity } from "./lib/agent-identity-impl.ts";
-import {
-  type AgentReputation,
-  nullAgentReputation,
-} from "./lib/agent-reputation.ts";
+import type { AgentReputation } from "./lib/agent-reputation.ts";
+import { createAgentReputation } from "./lib/agent-reputation-impl.ts";
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
 
@@ -74,9 +72,9 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     // Defaults to the live ENS-minting identity over whatever onchain we have
     // (nullOnchain ⇒ mints reject ⇒ provision returns {} — still best-effort).
     agentIdentity: deps.agentIdentity ?? createAgentIdentity(onchain),
-    // No-op until C's ERC-8004 write-path lands; then swap for
-    // createAgentReputation(onchain) (mirrors agentIdentity above).
-    agentReputation: deps.agentReputation ?? nullAgentReputation,
+    // Live ERC-8004 reputation over whatever onchain we have (nullOnchain ⇒
+    // writeReputation rejects ⇒ the reviews router's try/catch degrades it).
+    agentReputation: deps.agentReputation ?? createAgentReputation(onchain),
     treasuryAddress: deps.treasuryAddress,
     headers: deps.headers,
   };
