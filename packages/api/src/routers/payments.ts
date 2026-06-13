@@ -12,8 +12,10 @@ import {
   X402_CALLS_PER_USER_APP_DAY,
 } from "@superjam/shared";
 import {
+  OnchainError,
   PUBLIC_CHAIN,
   USDC,
+  formatUsdc,
   parseUsdc,
   usdc,
 } from "@superjam/onchain";
@@ -89,6 +91,23 @@ export const paymentsRouter = {
       );
       return { txHash };
     }),
+
+  /** The user's public-rail USDC balance — drives the confirm sheet's
+   *  insufficient-balance state + the top-up prompt (§15.1). Returns null when
+   *  onchain is unconfigured or unreadable (the UI shows "—", never an error). */
+  balance: protectedProcedure.handler(async ({ context }) => {
+    if (!context.user.walletAddress) return { publicUsdc: null };
+    try {
+      const bal = await context.onchain.usdcBalance(
+        PUBLIC_CHAIN,
+        context.user.walletAddress as `0x${string}`
+      );
+      return { publicUsdc: formatUsdc(bal) };
+    } catch (err) {
+      if (err instanceof OnchainError) return { publicUsdc: null };
+      throw err;
+    }
+  }),
 
   /** The caller's public-rail activity: publish fees paid + pot stakes (§12). */
   mine: protectedProcedure.handler(async ({ context }) => {

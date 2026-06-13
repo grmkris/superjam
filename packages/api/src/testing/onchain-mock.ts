@@ -58,6 +58,17 @@ export const createMockOnchain = (
       sends.push({ to, value });
       return fakeHash();
     },
+    ensureUserNode: async (username) => ({
+      name: `${username}.superjam.eth`,
+      node: `0x${"0".repeat(64)}` as Hex,
+      minted: true,
+    }),
+    mintApp: async ({ slug, username }) => ({
+      ensName: `${slug}.${username}.superjam.eth`,
+      node: `0x${"0".repeat(64)}` as Hex,
+      txHash: fakeHash(),
+    }),
+    listFromEns: async () => [],
   };
   return mock;
 };

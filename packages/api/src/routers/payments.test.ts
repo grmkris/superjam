@@ -100,6 +100,38 @@ describe("payments.relay", () => {
   });
 });
 
+describe("payments.balance", () => {
+  test("returns the public USDC balance for a wallet'd user", async () => {
+    const { token } = await seedUser();
+    const res = await call(appRouter.payments.balance, undefined, {
+      context: ctxFor(token),
+    });
+    expect(res.publicUsdc).toBe("0"); // mock usdcBalance returns 0
+  });
+
+  test("no wallet ⇒ null (UI shows —, never errors)", async () => {
+    const { token } = await seedUser({ walletAddress: null });
+    const res = await call(appRouter.payments.balance, undefined, {
+      context: ctxFor(token),
+    });
+    expect(res.publicUsdc).toBeNull();
+  });
+
+  test("unconfigured onchain ⇒ null, not an error", async () => {
+    const { token } = await seedUser();
+    // A context with the default (degraded) onchain — usdcBalance rejects.
+    const ctx = createContext({
+      db,
+      logger,
+      auth: auth.verifier,
+      rateLimiter: createRateLimiter(),
+      headers: new Headers({ authorization: `Bearer ${token}` }),
+    });
+    const res = await call(appRouter.payments.balance, undefined, { context: ctx });
+    expect(res.publicUsdc).toBeNull();
+  });
+});
+
 describe("profile.topup", () => {
   test("world-verified user tops up; second tap same day → QUOTA_EXCEEDED", async () => {
     const { token } = await seedUser({ worldVerified: true });
