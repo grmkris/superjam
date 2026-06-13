@@ -1,0 +1,32 @@
+{
+  "name": "Snack Poll",
+  "slug": "snack-poll",
+  "description": "Vote for your favorite half-time snack and watch a live bar chart update.",
+  "iconEmoji": "🍿",
+  "category": "social",
+  "capabilities": [],
+  "features": [
+    "Four snack options; one vote per user enforced client-side",
+    "Live recharts bar chart computed from the shared votes collection",
+    "Chart themed to the Toybox palette (candy bars, ink axes)",
+    "Vote count and 'one per person' note under the chart"
+  ],
+  "data": {
+    "collections": [
+      { "name": "votes", "doc": { "choice": "string" }, "writtenWhen": "the user taps a snack option" }
+    ],
+    "counters": [],
+    "storage": []
+  },
+  "ui": {
+    "layout": "single card with option buttons above a chart",
+    "sections": ["option buttons", "live bar chart", "vote tally"]
+  },
+  "skills": ["charts"],
+  "acceptance": [
+    "Tapping an option inserts a vote doc and disables further voting for that user",
+    "The bar chart reflects counts reduced from collection('votes').list()",
+    "The user's own choice is visually marked",
+    "Bars use the Toybox candy colors, not default recharts blue"
+  ]
+}

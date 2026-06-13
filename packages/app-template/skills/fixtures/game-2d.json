@@ -1,0 +1,34 @@
+{
+  "name": "Penalty Panic",
+  "slug": "penalty-panic",
+  "description": "Slide the keeper to catch falling footballs in a fast canvas arcade game.",
+  "iconEmoji": "🧤",
+  "category": "game",
+  "capabilities": [],
+  "features": [
+    "Canvas game loop with a keeper sprite moved by keyboard AND on-screen touch buttons",
+    "Footballs fall at increasing speed; catching scores, missing ends the round",
+    "Live score HUD with a pop animation on each catch",
+    "All-time saves leaderboard on game over with the player's row highlighted"
+  ],
+  "data": {
+    "collections": [],
+    "counters": [
+      { "name": "saves", "keyedBy": "username", "meaning": "all-time footballs caught per player" }
+    ],
+    "storage": [
+      { "key": "best", "meaning": "the player's personal best round score" }
+    ]
+  },
+  "ui": {
+    "layout": "full-bleed canvas stage with a HUD overlay",
+    "sections": ["canvas play area", "score HUD", "touch controls", "game-over leaderboard"]
+  },
+  "skills": ["game-2d"],
+  "acceptance": [
+    "The keeper moves via arrow keys and via on-screen ◀ ▶ buttons",
+    "Catching a football increments the score; a miss ends the round",
+    "On game over the score is added to the saves counter and top(10) is shown",
+    "All per-frame state lives in a ref; setState is only called on score/game-over events"
+  ]
+}

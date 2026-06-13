@@ -1,0 +1,34 @@
+{
+  "name": "Hype List",
+  "slug": "hype-list",
+  "description": "A shared bucket list of match-day plans that springs in and out with motion.",
+  "iconEmoji": "🎉",
+  "category": "social",
+  "capabilities": [],
+  "features": [
+    "Add an item to a shared list; rows spring in and fade out with motion/react",
+    "Tap feedback (whileTap) on the add button",
+    "Each item shows its author username",
+    "Authors can remove their own items with an animated exit"
+  ],
+  "data": {
+    "collections": [
+      { "name": "items", "doc": { "text": "string" }, "writtenWhen": "the user adds a plan" }
+    ],
+    "counters": [],
+    "storage": [
+      { "key": "draft", "meaning": "in-progress text so it survives a reload" }
+    ]
+  },
+  "ui": {
+    "layout": "single card with an input and an animated list",
+    "sections": ["add input", "animated list"]
+  },
+  "skills": ["motion"],
+  "acceptance": [
+    "New items animate in with an AnimatePresence spring keyed by doc id",
+    "Removing an own item animates it out",
+    "Only the author sees a delete control on their rows",
+    "Animations use transform/opacity only"
+  ]
+}

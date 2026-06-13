@@ -1,0 +1,34 @@
+{
+  "name": "Comet Catcher",
+  "slug": "comet-catcher",
+  "description": "Tap glowing comets in a 3D starfield before the timer runs out.",
+  "iconEmoji": "☄️",
+  "category": "game",
+  "capabilities": [],
+  "features": [
+    "Full-bleed 3D stage with a tappable comet that relocates on each hit",
+    "20-second round timer and a live score in the HUD",
+    "Game-over card shows the all-time leaderboard with the player's row highlighted",
+    "Confetti + win chime when the player tops the board"
+  ],
+  "data": {
+    "collections": [],
+    "counters": [
+      { "name": "scores", "keyedBy": "username", "meaning": "all-time comets caught per player" }
+    ],
+    "storage": [
+      { "key": "best", "meaning": "the player's personal best round score" }
+    ]
+  },
+  "ui": {
+    "layout": "full-bleed 3D stage with a HUD overlay",
+    "sections": ["3D play area", "score + timer HUD", "game-over leaderboard card"]
+  },
+  "skills": ["game-3d"],
+  "acceptance": [
+    "Tapping the comet increments the score and moves it to a new position",
+    "When the timer hits zero the round score is added to the scores counter",
+    "The game-over card lists counter('scores').top(10) with the player highlighted",
+    "A new top placement triggers confetti and sfx.win()"
+  ]
+}
