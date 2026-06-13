@@ -1,11 +1,14 @@
 // ERC-8004 "Trustless Agents" bindings (§14/§16) — the typed wrapper the platform
 // calls to give a builder agent a real on-chain identity + reputation, against the
-// CANONICAL reference registries (erc-8004/erc-8004-contracts), already deployed on
-// Base Sepolia at deterministic CREATE2 addresses (same as Sepolia):
+// CANONICAL reference registries (erc-8004/erc-8004-contracts). Chain-agnostic: the
+// client + signer are injected by the factory, so this rides the platform's
+// IDENTITY CHAIN (Sepolia, post Base-Sepolia→Sepolia move — the registries are at
+// the SAME deterministic CREATE2 addresses on both, so the addresses below are
+// unchanged). The identity NFT + the agent's ENS name live on that one chain.
 //   IdentityRegistry   0x8004A818BFB912233c491871b3d84c89A494BD9e  (ERC-721 agent NFTs)
 //   ReputationRegistry 0x8004B663056A597Dffe9eCcC1965A193B7388713  (feedback signals)
 // We DON'T deploy anything — we bind to the standard. Writes go through C's
-// ServerWallet (the sole privileged signer); reads through the Base-Sepolia client.
+// ServerWallet (the sole privileged signer); reads through the injected client.
 //
 // Self-feedback guard: ReputationRegistry rejects `giveFeedback` from the agent
 // NFT's owner/operator. So on register we mint (to the server wallet, the only
@@ -16,10 +19,11 @@ import { type Address, type Hex, type PublicClient, parseEventLogs } from "viem"
 import { OnchainError } from "./errors.ts";
 import type { ServerWallet } from "./server-wallet.ts";
 
-/** Canonical reference-registry addresses (Base Sepolia / Sepolia, CREATE2). */
-export const ERC8004_IDENTITY_BASE_SEPOLIA: Address =
+/** Canonical reference-registry addresses — same CREATE2 address on Sepolia and
+ *  Base Sepolia, so chain-neutral. The chain is set by the injected client. */
+export const ERC8004_IDENTITY_REGISTRY: Address =
   "0x8004A818BFB912233c491871b3d84c89A494BD9e";
-export const ERC8004_REPUTATION_BASE_SEPOLIA: Address =
+export const ERC8004_REPUTATION_REGISTRY: Address =
   "0x8004B663056A597Dffe9eCcC1965A193B7388713";
 
 export interface Erc8004Config {
@@ -129,7 +133,7 @@ export const createErc8004 = (
   config: Erc8004Config
 ) => {
   const identity = config.identityRegistry;
-  const reputation = config.reputationRegistry ?? ERC8004_REPUTATION_BASE_SEPOLIA;
+  const reputation = config.reputationRegistry ?? ERC8004_REPUTATION_REGISTRY;
 
   return {
     /** Mint the agent's ERC-8004 identity NFT and hand it to the builder. */

@@ -1,8 +1,8 @@
 // Live AgentIdentity (§14/§16) — the concrete impl of the agent-identity.ts seam,
 // wired by default in createContext when onchain is configured. On register it
 // mints the agent's ENS subname UNDER its human owner (`slug.username.superjam.eth`)
-// via C's onchain ENS helper (Durin L2Registry) AND registers the agent in the
-// ERC-8004 IdentityRegistry (the canonical reference registry on Base Sepolia).
+// via C's onchain ENS helper AND registers the agent in the ERC-8004
+// IdentityRegistry (the canonical reference registry on the identity chain).
 // Best-effort BY CONTRACT: each step is independent and any failure resolves to a
 // missing field, never failing agent registration (agents.register wraps this in
 // try/catch too).

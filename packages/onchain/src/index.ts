@@ -93,9 +93,11 @@ export const createOnchain = ({
     return ensAdapter;
   };
 
-  // ERC-8004 also lives on Base Sepolia (canonical reference registries) — reuse
-  // the dedicated ENS client+signer. Absent config ⇒ ops throw so callers degrade
-  // (a register/feedback failure never fails the agent register / the review).
+  // ERC-8004 shares the platform's IDENTITY CHAIN with ENS (the canonical
+  // reference registries are at the same CREATE2 address on Sepolia + Base
+  // Sepolia) — so it reuses the dedicated identity client+signer. Absent config ⇒
+  // ops throw so callers degrade (a register/feedback failure never fails the
+  // agent register / the review).
   const erc8004Adapter = erc8004
     ? createErc8004(ensClient ?? publicClient, ensWallet ?? serverWallet, erc8004)
     : null;
