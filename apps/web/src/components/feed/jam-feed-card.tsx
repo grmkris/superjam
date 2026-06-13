@@ -7,6 +7,7 @@
 // The ENS name tag lives on the jam PAGE, not the card (design round 6).
 import { useState } from "react";
 import { AppHost } from "../app-host";
+import { FriendPicker } from "../chat/friend-picker";
 import { Handle } from "../verified-badge";
 import { cx } from "../ui/cx";
 import { EmojiToken } from "../ui/sticker";
@@ -31,17 +32,16 @@ export function JamFeedCard({
   jam,
   next,
   onComments,
-  onShare,
   onRemix,
 }: {
   jam: FeedJam;
   next: FeedJam | null;
   onComments: (j: FeedJam) => void;
-  onShare: (j: FeedJam) => void;
   onRemix: (j: FeedJam) => void;
 }) {
   const [playing, setPlaying] = useState(false);
   const [liked, setLiked] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   if (playing) {
     return (
@@ -117,7 +117,7 @@ export function JamFeedCard({
           liked={liked}
           onLike={() => setLiked((v) => !v)}
           onComments={() => onComments(jam)}
-          onShare={() => onShare(jam)}
+          onShare={() => setPicking(true)}
           onRemix={() => onRemix(jam)}
         />
       </div>
@@ -137,6 +137,10 @@ export function JamFeedCard({
             <span className="text-xs font-bold text-green-deep">↑ swipe for the next jam</span>
           </span>
         </button>
+      )}
+
+      {picking && (
+        <FriendPicker jamSlug={jam.slug} onClose={() => setPicking(false)} />
       )}
     </section>
   );

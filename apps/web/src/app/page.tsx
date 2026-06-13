@@ -17,16 +17,6 @@ const TABS: { key: FeedTab; label: string }[] = [
   { key: "new", label: "New" },
 ];
 
-async function shareJam(j: FeedJam) {
-  const url = `${window.location.origin}/app/${j.slug}`;
-  try {
-    if (navigator.share) await navigator.share({ title: j.name, url });
-    else await navigator.clipboard.writeText(url);
-  } catch {
-    /* user dismissed */
-  }
-}
-
 export default function DiscoverPage() {
   const router = useRouter();
   const client = usePlatformClient();
@@ -76,7 +66,6 @@ export default function DiscoverPage() {
               jam={jam}
               next={jams[i + 1] ?? null}
               onComments={(j) => router.push(`/j/${j.slug}`)}
-              onShare={shareJam}
               onRemix={(j) => router.push(`/build?remix=${j.slug}`)}
             />
           ))}

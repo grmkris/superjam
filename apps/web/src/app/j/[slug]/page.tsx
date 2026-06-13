@@ -8,6 +8,7 @@ import type { AppId } from "@superjam/shared";
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NameTag } from "../../../components/name-tag";
+import { FriendPicker } from "../../../components/chat/friend-picker";
 import { VerifiedBadge } from "../../../components/verified-badge";
 import { WorldGate } from "../../../components/world-gate";
 import { basescan } from "../../../components/ui/brand";
@@ -51,6 +52,7 @@ export default function JamPage({
   const [gate, setGate] = useState(false);
   const [draftRating, setDraftRating] = useState(0);
   const [draftText, setDraftText] = useState("");
+  const [sendKind, setSendKind] = useState<"share" | "challenge" | null>(null);
 
   useEffect(() => {
     setVerified(Boolean(hostUser?.worldVerified));
@@ -183,6 +185,16 @@ export default function JamPage({
         )}
       </div>
 
+      {/* send / challenge a friend */}
+      <div className="flex gap-2">
+        <StickerButton color="white" size="sm" onClick={() => setSendKind("share")}>
+          📣 Send to a friend
+        </StickerButton>
+        <StickerButton color="pink" size="sm" onClick={() => setSendKind("challenge")}>
+          ⚔ Challenge
+        </StickerButton>
+      </div>
+
       <div className="flex bg-card border-2 border-ink rounded-full p-1">
         <div className="flex-1 rounded-full py-2 text-center text-[13.5px] font-extrabold bg-ink text-cream">
           ★ Reviews · {reviews.length}
@@ -252,6 +264,14 @@ export default function JamPage({
             prove you're human once with World ID — no bots in here
           </div>
         </div>
+      )}
+
+      {sendKind && (
+        <FriendPicker
+          jamSlug={jam.slug}
+          challenge={sendKind === "challenge"}
+          onClose={() => setSendKind(null)}
+        />
       )}
     </div>
   );
