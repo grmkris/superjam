@@ -55,6 +55,14 @@ export interface AllocateExternalAppInput {
   ownerUserId: UserId;
   /** Set when a build produced this app (platform-built path). */
   buildId?: BuildId;
+  /**
+   * Pin the app id instead of letting the DB mint a fresh one. Used by the
+   * demo re-seeder so a wiped DB re-creates apps with their ORIGINAL ids — the
+   * deployed app bakes its id as SUPERJAM_APP_ID (the token audience), so a
+   * fresh id would break that app's identity verification (401). Normal
+   * registration omits this and gets a generated id.
+   */
+  id?: AppId;
 }
 
 /**
@@ -68,11 +76,12 @@ export const allocateExternalApp = async (
   db: Database,
   input: AllocateExternalAppInput
 ): Promise<typeof schema.app.$inferSelect> => {
-  const { manifest, ownerUserId, buildId } = input;
+  const { manifest, ownerUserId, buildId, id } = input;
   const slug = await dedupeSlug(db, manifest.slug);
   const [row] = await db
     .insert(app)
     .values({
+      ...(id ? { id } : {}),
       slug,
       name: manifest.name,
       description: manifest.description,
@@ -162,6 +171,8 @@ export interface CreateExternalAppInput {
   ownerUserId: UserId;
   /** Set when a build produced this app (platform-built path). */
   buildId?: BuildId;
+  /** Pin the app id (re-seeder path) — see AllocateExternalAppInput.id. */
+  id?: AppId;
 }
 
 /**
@@ -179,6 +190,7 @@ export const createExternalApp = async (
     manifest: input.manifest,
     ownerUserId: input.ownerUserId,
     buildId: input.buildId,
+    id: input.id,
   });
   return finalizeExternalApp(
     db,
