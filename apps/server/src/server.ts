@@ -21,6 +21,11 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createS3Store } from "./bucket.ts";
+import { createDelegatedUnlinkService } from "./delegated-signer.ts";
+import {
+  loadDelegationCreds,
+  registerDelegationWebhook,
+} from "./delegation-webhook.ts";
 import {
   createDynamicServerWallet,
   dynamicWalletEnv,
@@ -126,6 +131,20 @@ const onchain =
     sepoliaRpcUrl: env.SEPOLIA_RPC_URL,
     ensV2SignerKey: env.ENS_V2_SIGNER_KEY,
   }) ?? nullOnchain;
+// Per-user private-payments rail (§23): the server signs AS the user via Dynamic
+// delegated access (no per-tx popup). Live only when the delegation private key +
+// Unlink key + Dynamic env are all present; else createContext defaults to
+// nullUnlinkService (private payments return CHAIN_UNAVAILABLE until configured).
+const unlink =
+  dynEnv && env.DYNAMIC_DELEGATION_PRIVATE_KEY && env.UNLINK_API_KEY
+    ? createDelegatedUnlinkService({
+        environmentId: env.DYNAMIC_ENVIRONMENT_ID,
+        dynamicApiKey: dynEnv.authToken,
+        unlinkApiKey: env.UNLINK_API_KEY,
+        rpcUrl: env.ARC_RPC_URL,
+        loadCreds: (userId) => loadDelegationCreds(db, userId),
+      })
+    : undefined;
 // World ID 4.0 backend verifier (§14) — the human gate behind publish/reviews/
 // register-builder. Keyless (rpContext/verify reject) unless app_id + rp_id +
 // signing key are all set. WORLD_ENVIRONMENT=staging runs against the simulator.
@@ -169,6 +188,18 @@ app.get("/.well-known/jwks.json", (c) => {
 // Bundle serving (§17): /a/:slug/* from S3 with the _plays bump.
 registerServeRoutes(app, { db, store: createS3Store(env), logger });
 
+// Dynamic delegation webhook (§23) — receives wallet.delegation.created/revoked,
+// decrypts + stores the per-user MPC share so the server can sign privately on the
+// user's behalf. Gateway routes /api/* → server. Mounted only when configured.
+if (env.DYNAMIC_DELEGATION_PRIVATE_KEY && env.DYNAMIC_WEBHOOK_SECRET) {
+  registerDelegationWebhook(app, {
+    db,
+    logger,
+    privateKeyPem: env.DYNAMIC_DELEGATION_PRIVATE_KEY,
+    webhookSecret: env.DYNAMIC_WEBHOOK_SECRET,
+  });
+}
+
 app.use("/rpc/*", async (c, next) => {
   const { matched, response } = await rpc.handle(c.req.raw, {
     prefix: "/rpc",
@@ -180,6 +211,7 @@ app.use("/rpc/*", async (c, next) => {
       issuer,
       onchain,
       oracle,
+      unlink,
       world,
       treasuryAddress,
       headers: c.req.raw.headers,

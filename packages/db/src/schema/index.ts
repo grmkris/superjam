@@ -9,3 +9,4 @@ export * from "./review.db.ts";
 export * from "./message.db.ts";
 export * from "./friend.db.ts";
 export * from "./dm.db.ts";
+export * from "./delegation.db.ts";
