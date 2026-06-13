@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import { AppChrome } from "../components/app-chrome";
-import { ConfirmProvider } from "../components/confirm/confirm-provider";
-import { Providers } from "../components/providers";
+import { ClientRoot } from "../components/client-root";
 import "./globals.css";
 
 export const metadata = {
@@ -33,11 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
-        <Providers>
-          <ConfirmProvider>
-            <AppChrome>{children}</AppChrome>
-          </ConfirmProvider>
-        </Providers>
+        <ClientRoot>{children}</ClientRoot>
       </body>
     </html>
   );
