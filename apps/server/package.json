@@ -14,6 +14,7 @@
     "@superjam/shared": "workspace:*",
     "@ai-sdk/google": "catalog:",
     "@dynamic-labs-wallet/core": "1.0.38",
+    "@dynamic-labs-wallet/node": "1.0.38",
     "@dynamic-labs-wallet/node-evm": "1.0.38",
     "@hono/node-server": "catalog:",
     "@orpc/server": "catalog:",

@@ -143,7 +143,7 @@ describe("payments.privateSend", () => {
     expect(res.txHash).toBe(HASH);
     const t = mock.transfers.at(-1)!;
     expect(t.from).toBe(sender.user.id);
-    expect(t.to).toBe(friend.user.unlinkAddress);
+    expect(t.to).toBe("unlink1bob"); // the recipient's seeded unlinkAddress
     expect(t.amount).toBe(parseUsdc("0.001"));
   });
 
