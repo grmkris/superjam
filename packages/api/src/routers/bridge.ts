@@ -12,6 +12,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { requireApp } from "../lib/app-context.ts";
 import { protectedProcedure } from "../orpc.ts";
+import { createAiBridge } from "./bridge-ai.ts";
 import { createCounterService } from "../services/counter-service.ts";
 import { createDataService } from "../services/data-service.ts";
 import { createMessageService } from "../services/message-service.ts";
@@ -289,4 +290,5 @@ export const bridgeRouter = {
   messages,
   pot: potBridge,
   payments: paymentsBridge,
+  ai: createAiBridge(),
 };
