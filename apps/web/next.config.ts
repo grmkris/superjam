@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 // Per-app frame-src for the viewer is set dynamically in middleware.ts.
+// (Bundler = webpack via the apps/web scripts; see the note below.)
 //
 // BUNDLER: built with webpack (apps/web `dev`/`build` use `--webpack`), NOT the
 // Next 16 default Turbopack. Reason: the @dynamic-labs wallet SDK duplicates its
