@@ -10,8 +10,10 @@ import {
 } from "@superjam/builder/deploy";
 import { createLogger } from "@superjam/logger";
 import { serve } from "@hono/node-server";
+import { createAgentGenerator } from "./agent-generate.ts";
 import { createBuilderApp } from "./app.ts";
 import { cliDeploy, vercelRemove } from "./cli-deploy.ts";
+import { createClaudeAgentRunner } from "./claude-runner.ts";
 import { parseBuilderEnv } from "./env.ts";
 import { createTemplateGenerator } from "./generate.ts";
 import { createBuildRunner } from "./queue.ts";
@@ -30,15 +32,6 @@ const neon = env.NEON_API_KEY
   ? createNeonClient({ apiKey: env.NEON_API_KEY, regionId: env.NEON_REGION_ID })
   : undefined;
 
-const runner = createBuildRunner({
-  generate: createTemplateGenerator(),
-  deploy,
-  teardownVercel,
-  neon,
-  jwksUrl: env.SUPERJAM_JWKS_URL,
-  maxConcurrent: env.MAX_CONCURRENT_BUILDS,
-});
-
 // `claude auth status` is the only truthful auth signal — Bun.which lies.
 let authCache: { t: number; ok: boolean } | undefined;
 const claudeAuth = async (): Promise<boolean> => {
@@ -55,6 +48,27 @@ const claudeAuth = async (): Promise<boolean> => {
   }
   return authCache.ok;
 };
+
+// Agent fill when `claude` is subscription-authed on the box (richer, real
+// interactive apps); deterministic skeleton otherwise. The agent only generates
+// files — cliDeploy ships them; agent-generate falls back to the skeleton on any
+// agent error, so a flaky agent never fails a build.
+const generate = (await claudeAuth())
+  ? createAgentGenerator({
+      runAgent: createClaudeAgentRunner(),
+      onEvent: (label) => logger.debug({ agent: label }, "agent-generate"),
+    })
+  : createTemplateGenerator();
+logger.info({ mode: (await claudeAuth()) ? "agent" : "deterministic" }, "generator");
+
+const runner = createBuildRunner({
+  generate,
+  deploy,
+  teardownVercel,
+  neon,
+  jwksUrl: env.SUPERJAM_JWKS_URL,
+  maxConcurrent: env.MAX_CONCURRENT_BUILDS,
+});
 
 const app = createBuilderApp({
   token: env.BUILDER_TOKEN,
