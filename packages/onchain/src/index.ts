@@ -272,6 +272,7 @@ export * from "./viem-server-wallet.ts";
 export * from "./privacy.ts";
 export * from "./circle-gateway.ts";
 export * from "./unlink-transport.ts";
+export * from "./unlink-user.ts";
 export * from "./cctp.ts";
 export * from "./ens.ts";
 export * from "./erc8004.ts";
