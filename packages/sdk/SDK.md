@@ -40,6 +40,7 @@ The SDK is your only IO.
 | Generate text / JSON / judge an image | `sdk.ai.chat` |
 | Let the user upload a photo / take a camera shot | `sdk.files.upload` |
 | An escrowed group wager (predictions, match pots, sweepstakes) | `sdk.pot` |
+| Read/write THIS game's own on-chain Arc contract (the builder deployed it) | `sdk.onchain` |
 | A quick host toast | `sdk.ui.toast` |
 | 3D, canvas games, charts, animation, generated art | your loaded `skills/*.md` |
 
@@ -213,6 +214,29 @@ Creator must be `worldVerified`. `resolver:"ai"` ⇒ at the deadline the PLATFOR
 resolves from live data (search-grounded) and auto-pays winners pro-rata + inbox
 "you won X USDC 🎉"; the creator can override any time. Unresolved 48h past
 deadline ⇒ void = full refunds. Requires capability **"payments"**.
+
+## sdk.onchain — read/write THIS game's own Arc contract (onchain games)
+
+Only for jams the builder deployed a contract for (skill `onchain`, capability
+**"onchain"**). The platform resolves YOUR contract by appId — you never pass an
+address. Writes are **gasless** (the platform server wallet, the contract's
+operator, signs + pays Arc gas) and **player-stamped** (it injects the caller as
+the contract fn's first `address player` arg — you pass only the trailing args).
+
+```tsx
+// write a move — returns a real tx hash. fn(address player, …yourArgs); pass only yourArgs.
+const { hash } = await sdk.onchain.write({ fn: "flip", args: [/* guess */ 1] });
+
+// read a view fn — pass any args yourself (these are NOT stamped).
+const [last, won] = await sdk.onchain.read<[string, string]>({
+  fn: "statsOf", args: [ctx.user.walletAddress],
+});
+const wins = BigInt(won);   // big integers come back as decimal STRINGS
+```
+Writes take seconds (server relays) — show a pending state, then re-`read` the new
+state. Wrap in try/catch (`USER_REJECTED`/`BAD_REQUEST`). Gate value-ish or mint
+actions on `ctx.user.worldVerified`. In standalone mode reads/writes hit a local
+mock (fake hashes) so the app still runs.
 
 ## sdk.ui.toast — a quick host-rendered toast
 
@@ -400,6 +424,8 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
 | `pot.stake` | `{ txHash: string }` |
 | `pot.get` | `Pot = { question, options:string[], totals:Record<string,string>, myStake:{option,amount}\|null, status:"open"\|"resolved"\|"void", resolvedOption:string\|null }` |
 | `pot.resolve` | `null` (void) |
+| `onchain.read` | the decoded view result (bigints stringified; tuples as arrays). Params `{ fn, args }` — `appId` host-injected, the contract resolved server-side |
+| `onchain.write` | `{ hash: string }`. Params `{ fn, args }` — the server prepends the verified player as the contract fn's first arg |
 | `ui.toast` | `null` (fire-and-forget) |
 
 Request params per method are defined by `makeBridgeSdk` in `src/index.ts`; the

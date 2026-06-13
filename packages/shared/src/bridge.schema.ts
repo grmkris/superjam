@@ -36,6 +36,12 @@ export const BRIDGE_METHODS = [
   "pot.stake",
   "pot.get",
   "pot.resolve",
+  // onchain games: read/write the jam's OWN deployed Arc contract. Writes are
+  // operator-relayed (the platform server wallet signs + pays gas); the player
+  // is stamped server-side. The target address is resolved by appId, never
+  // passed by the jam (host can't make the operator sign against any address).
+  "onchain.read",
+  "onchain.write",
   "messages.send",
   "messages.list",
   "social.send",

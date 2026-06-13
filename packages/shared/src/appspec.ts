@@ -15,6 +15,9 @@ export const SKILLS = [
   "art",
   "judge",
   "market",
+  // onchain games: the builder deploys a bespoke Solidity contract to Arc and
+  // the jam plays against it via sdk.onchain (implies the "onchain" capability).
+  "onchain",
 ] as const;
 export const SkillName = z.enum(SKILLS);
 export type SkillName = z.infer<typeof SkillName>;

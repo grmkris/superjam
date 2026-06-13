@@ -353,6 +353,87 @@ const files = {
     }),
 };
 
+// onchain games (§ builder-deploys-contracts) — a jam reads/writes its OWN
+// Arc contract (the builder deployed it; address+abi live on the app row).
+//   read  → a plain view call (no signing).
+//   write → OPERATOR-relayed: the server wallet signs + pays Arc gas. We PIN the
+//           target to the app's own contract (a jam can't make the operator key
+//           sign against USDC/StakeSlash/anything else) and PREPEND the verified
+//           player address as arg 0, so the contract's `fn(address player, …)`
+//           is stamped server-side — the jam supplies only the trailing args.
+const resolveGameContract = (
+  appRow: Awaited<ReturnType<typeof requireApp>>
+): { address: `0x${string}`; abi: readonly unknown[] } => {
+  if (!appRow.gameContractAddress || !appRow.gameContractAbi) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "This jam has no on-chain game contract",
+    });
+  }
+  return {
+    address: appRow.gameContractAddress as `0x${string}`,
+    abi: appRow.gameContractAbi,
+  };
+};
+
+// view results can contain bigint (uint returns), which JSON/oRPC can't carry —
+// stringify deeply so the jam gets decimal strings it can BigInt() back.
+const jsonSafe = (v: unknown): unknown =>
+  typeof v === "bigint"
+    ? v.toString()
+    : Array.isArray(v)
+      ? v.map(jsonSafe)
+      : v && typeof v === "object"
+        ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, jsonSafe(x)]))
+        : v;
+
+const onchain = {
+  read: protectedProcedure
+    .input(
+      z.object({
+        appId: AppId,
+        fn: z.string().min(1).max(64),
+        args: z.array(z.unknown()).max(16).optional(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const appRow = await requireApp(context.db, input.appId);
+      const { address, abi } = resolveGameContract(appRow);
+      const result = await context.onchain.game.read({
+        address,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        abi: abi as any,
+        functionName: input.fn,
+        args: input.args ?? [],
+      });
+      return jsonSafe(result);
+    }),
+
+  write: protectedProcedure
+    .input(
+      z.object({
+        appId: AppId,
+        fn: z.string().min(1).max(64),
+        args: z.array(z.unknown()).max(16).optional(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const appRow = await requireApp(context.db, input.appId);
+      const { address, abi } = resolveGameContract(appRow);
+      if (!context.user.walletAddress) {
+        throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
+      }
+      // Stamp the player as arg 0 — the jam never passes "who".
+      const hash = await context.onchain.game.write({
+        address,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        abi: abi as any,
+        functionName: input.fn,
+        args: [context.user.walletAddress, ...(input.args ?? [])],
+      });
+      return { hash };
+    }),
+};
+
 export const bridgeRouter = {
   storage,
   data,
@@ -363,4 +444,5 @@ export const bridgeRouter = {
   pot: potBridge,
   payments: paymentsBridge,
   ai: createAiBridge(),
+  onchain,
 };

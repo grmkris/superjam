@@ -55,6 +55,10 @@ const ReportBody = z.discriminatedUnion("kind", [
     entryUrl: z.string().url(),
     vercelProject: z.string().min(1),
     neonProjectId: z.string().min(1).optional(),
+    // Onchain games: the Arc contract the agent deployed (address + ABI). The
+    // platform stores them on the app row so sdk.onchain resolves the contract.
+    contractAddress: z.string().min(1).optional(),
+    contractAbi: z.array(z.unknown()).optional(),
   }),
   z.object({ kind: z.literal("failed"), error: z.string().min(1) }),
 ]);

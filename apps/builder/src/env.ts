@@ -25,6 +25,14 @@ const builderEnvSchema = z.object({
     .url()
     .default("https://superjam.fun/.well-known/jwks.json"),
   MAX_CONCURRENT_BUILDS: z.coerce.number().int().positive().default(2),
+  // Onchain games (§ builder-deploys-contracts) — read by contracts/deploy.sh in
+  // the build workspace (the agent's Bash inherits this process env). All
+  // OPTIONAL: absent ⇒ only non-onchain jams build; an onchain build fails at the
+  // deploy step. ARC_OPERATOR_ADDRESS MUST equal the platform server wallet
+  // (context.onchain) so operator-relayed sdk.onchain.write passes onlyOperator.
+  ARC_DEPLOYER_KEY: z.string().min(1).optional(), // funded with Arc USDC for gas
+  ARC_OPERATOR_ADDRESS: z.string().min(1).optional(), // = SuperJam server wallet
+  ARC_RPC_URL: z.string().url().optional(), // defaults to the Arc testnet RPC
   // x402 "hire" resource (§14) — when these are set, `POST /` becomes an
   // x402-protected endpoint that settles the build fee to THIS builder's wallet
   // via Circle Gateway (Arc, batched). All OPTIONAL: absent ⇒ the route stays off

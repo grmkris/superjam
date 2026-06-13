@@ -17,6 +17,7 @@ Pick the recipe by intent:
 | `data.md` | an explainer/analysis over an attached/relational dataset | own Neon (Drizzle), `ai.chat` | **Neon** |
 | `social.md` | a wall/guestbook/feed of user posts | `data.collection` or own Neon | optional |
 | `realtime.md` | a live-updating board / lightweight multiplayer | `data.subscribe` (poll fallback) | none |
+| `onchain.md` | a game whose state/rewards live **on Arc** (you deploy a contract) | `sdk.onchain` + a Foundry contract | none |
 
 Rules of thumb:
 - **Default to platform primitives** (`sdk.data` / `counter` / `pot` / `ai`) — zero-backend,

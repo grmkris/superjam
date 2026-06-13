@@ -80,6 +80,9 @@ export interface DeployResult {
   vercelProject: string;
   /** Only set when the app declared data (its own Neon project). */
   neonProjectId?: string;
+  /** Only set for an onchain game: the Arc contract the builder deployed. The
+   *  platform stores it on the app row so sdk.onchain read/write resolve it. */
+  gameContract?: { address: string; abi: readonly unknown[] };
   durationMs: number;
 }
 

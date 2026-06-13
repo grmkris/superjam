@@ -174,6 +174,81 @@ const schemaLib = (spec: AppSpec): string => {
   return imports + (tables.join("\n\n") || "// no collections declared");
 };
 
+// --- Onchain games (§ builder-deploys-contracts) ---------------------------
+// When the spec carries the "onchain" skill we seed a self-contained Foundry
+// project the agent customizes + deploys to Arc. Everything is dependency-free
+// (no OpenZeppelin / forge install) so `forge build` works offline. The deployed
+// contract's OPERATOR is the platform server wallet (passed as a constructor
+// arg), which is what makes sdk.onchain.write gasless + player-stamped.
+const isOnchain = (spec: AppSpec): boolean => spec.skills?.includes("onchain") ?? false;
+
+const foundryToml = (): string => `[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc = "0.8.24"
+`;
+
+// A minimal operator-gated coinflip — the base the agent adapts per the onchain
+// recipe. Mutators take \`address player\` FIRST (the platform stamps it) and are
+// onlyOperator; reads are open. Self-contained: no imports.
+const gameSol = (): string => `// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+/// SuperJam onchain game. The platform server wallet is the \`operator\`: it relays
+/// player moves (sdk.onchain.write) and stamps the real \`player\`. Reads are open
+/// (sdk.onchain.read). Adapt this contract to your game; keep it operator-gated.
+contract Game {
+    address public operator;
+    mapping(address => uint8) public lastFlip; // 0 none, 1 heads, 2 tails
+    mapping(address => uint256) public wins;
+    uint256 public totalFlips;
+
+    event Flipped(address indexed player, uint8 guess, uint8 result, bool won);
+
+    constructor(address operator_) { operator = operator_; }
+    modifier onlyOperator() { require(msg.sender == operator, "not operator"); _; }
+
+    /// guess: 1 = heads, 2 = tails. Block-based pseudo-random — fine for a toy.
+    function flip(address player, uint8 guess) external onlyOperator {
+        uint8 result = uint8(uint256(keccak256(abi.encodePacked(block.prevrandao, player, totalFlips))) % 2) + 1;
+        bool won = guess == result;
+        lastFlip[player] = result;
+        if (won) wins[player] += 1;
+        totalFlips += 1;
+        emit Flipped(player, guess, result, won);
+    }
+
+    function statsOf(address player) external view returns (uint8 last, uint256 won) {
+        return (lastFlip[player], wins[player]);
+    }
+}
+`;
+
+// Compile + deploy to Arc, print {"address","abi"} as JSON (the agent reads this,
+// writes lib/contract.ts, and reports contractAddress/contractAbi). Operator =
+// ARC_OPERATOR_ADDRESS (the platform server wallet) so relayed writes pass onlyOperator.
+const deploySh = (): string => `#!/usr/bin/env bash
+# Deploy the game contract to Arc and print {"address","abi"} as JSON.
+# Env: ARC_DEPLOYER_KEY (funded with Arc USDC for gas),
+#      ARC_OPERATOR_ADDRESS (the SuperJam server wallet = the contract operator),
+#      ARC_RPC_URL (optional; defaults to the Arc testnet RPC).
+set -euo pipefail
+cd "$(dirname "$0")"
+# forge lives in ~/.foundry/bin, which isn't on the builder service PATH.
+export PATH="$HOME/.foundry/bin:$PATH"
+: "\${ARC_RPC_URL:=https://rpc.testnet.arc.network}"
+forge build --silent
+ADDR=$(forge create src/Game.sol:Game \\
+  --rpc-url "$ARC_RPC_URL" \\
+  --private-key "$ARC_DEPLOYER_KEY" \\
+  --broadcast \\
+  --constructor-args "$ARC_OPERATOR_ADDRESS" \\
+  --json | jq -r '.deployedTo')
+jq -nc --arg a "$ADDR" --argjson abi "$(jq -c '.abi' out/Game.sol/Game.json)" \\
+  '{address:$a, abi:$abi}'
+`;
+
 const page = (spec: AppSpec): string => `export default function Page() {
   return (
     <main style={{ fontFamily: "system-ui", padding: 24 }}>
@@ -218,6 +293,13 @@ export const generateApp = (spec: AppSpec, ctx?: GenerateContext): GeneratedApp 
   if (needsData) {
     files["lib/db.ts"] = dbLib();
     files["lib/schema.ts"] = schemaLib(spec);
+  }
+  if (isOnchain(spec)) {
+    files["contracts/foundry.toml"] = foundryToml();
+    files["contracts/src/Game.sol"] = gameSol();
+    files["contracts/deploy.sh"] = deploySh();
+    // Keep the Solidity project + forge artifacts out of the Vercel upload.
+    files[".vercelignore"] = "contracts/\n";
   }
   return { files, manifest: manifestOf(spec), needsData, prebuilt: false };
 };

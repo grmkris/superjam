@@ -3,7 +3,7 @@
 // capability is absent, BEFORE rendering any UI or touching a router.
 import type { BridgeMethod } from "./bridge.schema.ts";
 
-export const CAPABILITIES = ["payments", "ai", "social"] as const;
+export const CAPABILITIES = ["payments", "ai", "social", "onchain"] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 
 export const isCapability = (x: unknown): x is Capability =>
@@ -13,6 +13,7 @@ export const isCapability = (x: unknown): x is Capability =>
 //   payments → wallet.sendTransaction + payments.* + pot.* (the money surface)
 //   ai       → ai.chat (cost-bearing)
 //   social   → messages.send (the spam-bearing user-to-user push)
+//   onchain  → onchain.read/write (the jam's own Arc game contract)
 // storage / data / counter / profile / ui / messages.list / share.link /
 // files.upload / wallet.getAddress / app.context are implicit (§6).
 export const METHOD_CAPABILITY: Record<BridgeMethod, Capability | null> = {
@@ -42,6 +43,8 @@ export const METHOD_CAPABILITY: Record<BridgeMethod, Capability | null> = {
   "pot.stake": "payments",
   "pot.get": "payments",
   "pot.resolve": "payments",
+  "onchain.read": "onchain",
+  "onchain.write": "onchain",
   "messages.send": "social",
   "messages.list": null,
   "social.send": "social",

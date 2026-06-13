@@ -62,6 +62,9 @@ export type AgentReport =
       vercelProject: string;
       /** Neon project id, when the agent provisioned a DB (for teardown). */
       neonProjectId?: string;
+      /** For onchain games: the Arc contract address + ABI the agent deployed. */
+      contractAddress?: string;
+      contractAbi?: readonly unknown[];
     }
   | { kind: "failed"; error: string };
 
@@ -160,6 +163,10 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
           manifest: manifestFromSpec(c?.spec ?? ({} as AppSpec)),
           vercelProject: report.vercelProject,
           neonProjectId: report.neonProjectId,
+          gameContract:
+            report.contractAddress && report.contractAbi
+              ? { address: report.contractAddress, abi: report.contractAbi }
+              : undefined,
           durationMs: c ? now() - c.startedAt : 0,
         };
       } else {

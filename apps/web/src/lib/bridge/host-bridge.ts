@@ -81,6 +81,11 @@ const SERVER_METHODS = new Set<BridgeMethod>([
   "pot.create",
   "pot.get",
   "pot.resolve",
+  // onchain games: read = view call, write = operator-relayed (server-stamped
+  // player, target pinned to the jam's own contract by appId). Both are
+  // server-bridged — no signing/key logic in the browser.
+  "onchain.read",
+  "onchain.write",
 ]);
 
 // Not yet routable. pot.stake / payX402 / wallet.sendTransaction: money-out

@@ -24,6 +24,7 @@ import {
   createCctp,
 } from "./cctp.ts";
 import { type EnsV2, type EnsV2Config, createEnsV2 } from "./ens-v2.ts";
+import { type GameContract, createGameContract } from "./game.ts";
 import { type Erc8004Config, createErc8004 } from "./erc8004.ts";
 import { type StakeSlash, createStakeSlash } from "./staking/stake-slash.ts";
 import { type AgentBook, createAgentBook, nullAgentBook } from "./agentbook/agent-book.ts";
@@ -218,6 +219,12 @@ export const createOnchain = ({
     //     Always present (null stub when unconfigured), so callers can call
     //     `onchain.agentBook.lookupHuman(addr)` without a guard. ---
     agentBook,
+
+    // --- Onchain games (§ builder-deploys-contracts) — read/write a jam's OWN
+    //     deployed Arc contract. Reads via the Arc public client, writes via the
+    //     server wallet (operator). The api bridge resolves the address+abi from
+    //     the app row and stamps the player; this is just the chain I/O. ---
+    game: createGameContract(publicClient, serverWallet),
   };
 };
 
@@ -400,6 +407,12 @@ export const nullOnchain: Onchain = {
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),
   stakeSlash: null,
   agentBook: nullAgentBook,
+  game: {
+    read: () =>
+      Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
+    write: () =>
+      Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
+  },
   registerAgentIdentity: () =>
     Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
   writeReputation: () =>
@@ -412,6 +425,7 @@ export const nullOnchain: Onchain = {
 export * from "./money.ts";
 export * from "./chains.ts";
 export * from "./ens-v2.ts";
+export * from "./game.ts";
 export * from "./transfer-auth.ts";
 export * from "./payment-intent.ts";
 export * from "./server-wallet.ts";

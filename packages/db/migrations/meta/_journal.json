@@ -71,6 +71,13 @@
       "when": 1781391616082,
       "tag": "0009_black_nightmare",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781393857654,
+      "tag": "0010_boring_quicksilver",
+      "breakpoints": true
     }
   ]
 }

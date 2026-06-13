@@ -136,7 +136,11 @@ const manifestFromSpec = (spec: AppSpec): AppManifest => ({
   description: spec.description,
   iconEmoji: spec.iconEmoji,
   category: spec.category,
-  capabilities: spec.capabilities,
+  // An onchain-game skill implies the "onchain" capability (sdk.onchain is
+  // capability-gated by the host) — guarantee it even if the refiner forgot.
+  capabilities: spec.skills?.includes("onchain")
+    ? [...new Set([...spec.capabilities, "onchain" as const])]
+    : spec.capabilities,
 });
 
 /**
@@ -200,6 +204,18 @@ export const runBuild = async (
         durationMs: result.durationMs,
       })
       .where(eq(build.id, buildId));
+
+    // Onchain game: persist the Arc contract the builder deployed so the bridge
+    // can resolve it for sdk.onchain read/write (writes are pinned to it).
+    if (result.gameContract) {
+      await db
+        .update(app)
+        .set({
+          gameContractAddress: result.gameContract.address,
+          gameContractAbi: result.gameContract.abi,
+        })
+        .where(eq(app.id, appId));
+    }
 
     // Credit the marketplace agent a build + link the minted app to it
     // (§14/§16) on successful dispatch. builtByAgentId is the basis for

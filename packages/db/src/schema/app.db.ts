@@ -50,6 +50,13 @@ export const app = pgTable("app", {
   treasuryAddress: text("treasury_address"),
   ensName: text("ens_name"),
   ensTxHash: text("ens_tx_hash"),
+  // Onchain games (§ builder-deploys-contracts): the bespoke Arc contract the
+  // builder deployed for this jam. sdk.onchain.read/write resolve THIS address
+  // (the bridge pins writes to it so a jam can't make the operator wallet sign
+  // against any other contract); the ABI lets the bridge encode/decode calls.
+  // Null for non-onchain jams.
+  gameContractAddress: text("game_contract_address"),
+  gameContractAbi: jsonb("game_contract_abi").$type<readonly unknown[]>(),
   /** @deprecated pivot §2 — IPFS pinning dropped; left nullable, stop writing. */
   ipfsCid: text("ipfs_cid"),
   currentBuildId: typeId("build", "current_build_id"),

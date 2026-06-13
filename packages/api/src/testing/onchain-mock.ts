@@ -11,6 +11,11 @@ export interface MockOnchain extends Onchain {
   bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[];
   /** Every unlink.payX402 (private→x402 build fee) call, in order. */
   x402Pays: { url: string; amount: Usdc; fromUnlinkAddress: string }[];
+  /** Every game.write (onchain-game move) call, in order — assert the player
+   *  was stamped + the target address pinned to the app's own contract. */
+  gameWrites: { address: Address; functionName: string; args: readonly unknown[] }[];
+  /** Override what game.read returns (default: 0n). */
+  setGameRead(fn: () => unknown): void;
   /** Override the next verifyUsdcTransfer result (or make it throw). */
   setVerify(fn: NonNullable<MockOnchainOptions["verify"]>): void;
 }
@@ -37,6 +42,8 @@ export const createMockOnchain = (
   const sends: { to: Address; value: Usdc }[] = [];
   const bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[] = [];
   const x402Pays: { url: string; amount: Usdc; fromUnlinkAddress: string }[] = [];
+  const gameWrites: { address: Address; functionName: string; args: readonly unknown[] }[] = [];
+  let gameRead: () => unknown = () => 0n;
   let verify =
     opts.verify ??
     (async () => {
@@ -49,8 +56,19 @@ export const createMockOnchain = (
     sends,
     bridges,
     x402Pays,
+    gameWrites,
     stakeSlash: null,
     agentBook: { lookupHuman: async () => null },
+    game: {
+      read: async () => gameRead(),
+      write: async ({ address, functionName, args = [] }) => {
+        gameWrites.push({ address, functionName, args });
+        return fakeHash();
+      },
+    },
+    setGameRead(fn) {
+      gameRead = fn;
+    },
     setVerify(fn) {
       verify = fn;
     },
