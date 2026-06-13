@@ -340,6 +340,8 @@ describe("finalizeExternalApp — best-effort ENS mint (§16)", () => {
       {
         slug: "tip-jar",
         owner: "0x" + "a".repeat(40),
+        // nested ENSv2 name: <slug>.<owner-username>.superjam.eth
+        under: "kris",
         records: { url: "https://tip-jar.vercel.app/" },
       },
     ]);
