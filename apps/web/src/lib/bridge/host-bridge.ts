@@ -39,6 +39,9 @@ export interface BridgeHandlers {
   shareLink(appId: string, slug: string, data: unknown): string;
   toast(message: string): void;
   getAddress(): Promise<string>;
+  /** Mint the platform identity token for this app + the session user (§1).
+   *  Server-side (auth.mintAppToken) — the signing key never reaches the host. */
+  getToken(appId: string): Promise<{ token: string; exp: number }>;
 }
 
 // Methods routed to the oRPC bridge router (server-stamped identity). Wired in
@@ -149,6 +152,9 @@ export const dispatch = async (
     }
     if (method === "wallet.getAddress") {
       return tjOk(id, await handlers.getAddress());
+    }
+    if (method === "auth.getToken") {
+      return tjOk(id, await handlers.getToken(reg.appId));
     }
     if (SERVER_METHODS.has(method)) {
       return tjOk(id, await handlers.call(method, reg.appId, p));

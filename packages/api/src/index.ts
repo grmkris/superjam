@@ -8,6 +8,21 @@ export {
   createDynamicVerifier,
   createJoseVerifier,
 } from "./auth/verifier.ts";
+export {
+  type AppTokenIssuer,
+  type AppIdentityClaims,
+  AppTokenNotConfiguredError,
+  APP_TOKEN_TTL_SECONDS,
+  createAppTokenIssuer,
+  createAppTokenVerifier,
+  createRemoteAppTokenVerifier,
+  createLocalAppTokenVerifier,
+  nullAppTokenIssuer,
+} from "./auth/app-token.ts";
+export {
+  createExternalApp,
+  type CreateExternalAppInput,
+} from "./routers/apps.ts";
 export { commonErrors, type CommonErrorCode } from "./errors.ts";
 export { createRateLimiter, type RateLimiter } from "./lib/rate-limit.ts";
 export { createCounterService } from "./services/counter-service.ts";

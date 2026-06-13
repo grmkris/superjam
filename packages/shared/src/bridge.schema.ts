@@ -41,6 +41,9 @@ export const BRIDGE_METHODS = [
   "share.link",
   "files.upload",
   "ui.toast",
+  // identity: a short-lived platform-signed token the app's own backend
+  // verifies against /.well-known/jwks.json (pivot §1).
+  "auth.getToken",
   // stretch S1 realtime:
   "data.subscribe",
   "data.unsubscribe",

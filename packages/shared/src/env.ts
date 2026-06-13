@@ -38,6 +38,13 @@ export const serverEnvSchema = z.object({
   DYNAMIC_ENVIRONMENT_ID: optionalStr,
   DYNAMIC_API_TOKEN: optionalStr,
 
+  // app identity token — the platform MINTS these (ES256) so an external,
+  // developer-hosted mini-app's backend can verify the SuperJam user against
+  // our /.well-known/jwks.json (pivot §1). Optional ⇒ keyless boot stays green.
+  APP_JWT_PRIVATE_KEY: optionalStr, // ES256 PKCS8 PEM (server-only secret)
+  APP_JWT_PUBLIC_KEY: optionalStr, // ES256 SPKI PEM (published in the JWKS)
+  APP_JWT_KID: optionalStr, // stable key id for rotation
+
   // World
   WORLD_APP_ID: optionalStr,
   WORLD_ACTION: z.string().default("publish-app"),

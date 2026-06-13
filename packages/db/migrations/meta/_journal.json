@@ -8,6 +8,13 @@
       "when": 1781319179546,
       "tag": "0000_bumpy_gressill",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781322905600,
+      "tag": "0001_daily_jack_murdock",
+      "breakpoints": true
     }
   ]
 }

@@ -130,6 +130,11 @@ export type SuperJamSdk = {
   };
   share: { link(args?: { data?: Json }): Promise<{ url: string }> };
   files: { upload(dataUrl: string): Promise<{ id: string; url: string }> };
+  /** Identity for YOUR backend: a short-lived ({exp} epoch-seconds) platform
+   *  token. Send it `Authorization: Bearer` to your own API and verify it
+   *  against `${SUPERJAM_JWKS_URL}` (aud = your appId). Re-fetch on 401. In
+   *  standalone mode the token is empty — gate on `sdk.standalone`. */
+  auth: { getToken(): Promise<{ token: string; exp: number }> };
   pot: {
     create(args: { question: string; options: string[]; deadline?: number; resolver?: "creator" | "ai" }): Promise<{ id: string }>;
     stake(args: { id: string; option: string; amount: number }): Promise<{ txHash: string }>;
@@ -290,6 +295,7 @@ function makeBridgeSdk(call: CallFn, ctx: AppContext): SuperJamSdk {
     },
     share: { link: (a) => call("share.link", a ?? {}) },
     files: { upload: (dataUrl) => bridgeUpload(call, dataUrl) },
+    auth: { getToken: () => call("auth.getToken") },
     pot: {
       create: (a) => call("pot.create", a),
       stake: (a) => call("pot.stake", a),
@@ -476,6 +482,8 @@ function makeStandalone(): SuperJamSdk {
       },
     },
     files: { upload: async (dataUrl) => ({ id: "local", url: dataUrl }) },
+    // No host ⇒ no real identity token. The app must gate on `sdk.standalone`.
+    auth: { getToken: async () => ({ token: "", exp: 0 }) },
     pot: {
       create: async ({ question, options }) => {
         const id = rid("pot");

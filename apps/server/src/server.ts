@@ -4,6 +4,7 @@
 import { serve } from "@hono/node-server";
 import {
   appRouter,
+  createAppTokenIssuer,
   createContext,
   createDynamicVerifier,
   createRateLimiter,
@@ -30,6 +31,13 @@ logger.info("migrations applied");
 
 const auth = createDynamicVerifier(env.DYNAMIC_ENVIRONMENT_ID ?? "");
 const rateLimiter = createRateLimiter();
+// Platform identity-token issuer (pivot §1) — keyless unless APP_JWT_* set.
+const issuer = await createAppTokenIssuer({
+  privateKeyPem: env.APP_JWT_PRIVATE_KEY,
+  publicKeyPem: env.APP_JWT_PUBLIC_KEY,
+  kid: env.APP_JWT_KID,
+  issuer: SERVICE_URLS[env.APP_ENV].web,
+});
 const rpc = new RPCHandler(appRouter);
 
 const app = new Hono();
@@ -46,6 +54,13 @@ app.use(
 
 app.get("/health", (c) => c.text("OK"));
 
+// Public key set external app backends verify our identity tokens against (§1).
+app.get("/.well-known/jwks.json", (c) => {
+  c.header("cache-control", "public, max-age=300");
+  c.header("access-control-allow-origin", "*");
+  return c.json(issuer.jwks());
+});
+
 // Bundle serving (§17): /a/:slug/* from S3 with the _plays bump.
 registerServeRoutes(app, { db, store: createS3Store(env), logger });
 
@@ -57,6 +72,7 @@ app.use("/rpc/*", async (c, next) => {
       logger,
       auth,
       rateLimiter,
+      issuer,
       headers: c.req.raw.headers,
     }),
   });

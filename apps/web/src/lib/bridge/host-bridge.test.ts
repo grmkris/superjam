@@ -39,6 +39,7 @@ const handlers = (over: Partial<BridgeHandlers> = {}): BridgeHandlers => ({
   shareLink: () => "https://superjam.fun/app/tipjar?d=abc",
   toast: () => {},
   getAddress: async () => "0xabc",
+  getToken: async () => ({ token: "tok", exp: 0 }),
   ...over,
 });
 
@@ -89,6 +90,19 @@ describe("dispatch", () => {
 
     const addr = await dispatch(req("wallet.getAddress"), reg(), h, always);
     expect(addr.ok && addr.result).toBe("0xabc");
+  });
+
+  test("auth.getToken is host-local and mints for the registered appId", async () => {
+    let gotAppId = "";
+    const h = handlers({
+      getToken: async (appId) => {
+        gotAppId = appId;
+        return { token: "jwt.abc", exp: 123 };
+      },
+    });
+    const r = await dispatch(req("auth.getToken"), reg(), h, always);
+    expect(r.ok && (r.result as { token: string }).token).toBe("jwt.abc");
+    expect(gotAppId).toBe("app_x");
   });
 
   test("capability gate fires before work (FORBIDDEN_CAPABILITY)", async () => {

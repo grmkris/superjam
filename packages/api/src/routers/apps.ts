@@ -1,0 +1,105 @@
+// apps router (pivot §2/§4) — registers an EXTERNAL, developer/builder-hosted
+// mini-app (a Next.js app on Vercel, etc.). The platform no longer hosts a
+// bundle: it stores entryUrl + manifest, frames it (apps/web), and mints
+// identity tokens (§1). createExternalApp is the shared core the builder's
+// terminal "deploy → register" step also calls (it produces an entryUrl, not a
+// bundle); registerExternal is the public bring-your-own-URL entry.
+import type { Database } from "@superjam/db";
+import { schema } from "@superjam/db";
+import {
+  type AppManifest,
+  AppManifestSchema,
+  type BuildId,
+  RESERVED_LABELS,
+  type UserId,
+} from "@superjam/shared";
+import { ORPCError } from "@orpc/server";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+import { worldVerifiedProcedure } from "../orpc.ts";
+
+const { app } = schema;
+
+const isReserved = (slug: string): boolean =>
+  (RESERVED_LABELS as readonly string[]).includes(slug);
+
+/** First free slug among base, base-2, base-3, … skipping reserved labels. */
+const dedupeSlug = async (db: Database, base: string): Promise<string> => {
+  for (let i = 1; ; i += 1) {
+    const candidate = i === 1 ? base : `${base}-${i}`;
+    if (isReserved(candidate)) continue;
+    const taken = await db
+      .select({ id: app.id })
+      .from(app)
+      .where(eq(app.slug, candidate))
+      .limit(1);
+    if (taken.length === 0) return candidate;
+  }
+};
+
+export interface CreateExternalAppInput {
+  manifest: AppManifest;
+  entryUrl: string;
+  ownerUserId: UserId;
+  /** Set when a build produced this app (platform-built path). */
+  buildId?: BuildId;
+}
+
+/**
+ * Insert a listed external app from a validated manifest + deployed URL. Shared
+ * by registerExternal and the builder's post-deploy step. ENS minting (§11
+ * step 5) is layered on AFTER and must never fail registration — left to a
+ * follow-up so a key-less/ENS-down environment still registers apps.
+ */
+export const createExternalApp = async (
+  db: Database,
+  input: CreateExternalAppInput
+): Promise<typeof schema.app.$inferSelect> => {
+  const { manifest, entryUrl, ownerUserId, buildId } = input;
+  const entryOrigin = new URL(entryUrl).origin;
+  const slug = await dedupeSlug(db, manifest.slug);
+  const [row] = await db
+    .insert(app)
+    .values({
+      slug,
+      name: manifest.name,
+      description: manifest.description,
+      iconEmoji: manifest.iconEmoji,
+      category: manifest.category,
+      capabilities: manifest.capabilities,
+      ownerUserId,
+      entryUrl,
+      entryOrigin,
+      currentBuildId: buildId,
+      status: "listed",
+    })
+    .returning();
+  return row!;
+};
+
+export const appsRouter = {
+  // Register a developer-hosted app by URL. Human-gated (worldVerified) — one
+  // human = one publisher (§14).
+  registerExternal: worldVerifiedProcedure
+    .input(
+      z.object({
+        manifest: AppManifestSchema,
+        entryUrl: z.string().url(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      // https only — the iframe is framed under TLS and the app sets cookies
+      // Secure (§5 template). Reject plaintext entry points early.
+      if (!input.entryUrl.startsWith("https://")) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "entryUrl must be https",
+        });
+      }
+      const row = await createExternalApp(context.db, {
+        manifest: input.manifest,
+        entryUrl: input.entryUrl,
+        ownerUserId: context.user.id,
+      });
+      return { id: row.id, slug: row.slug, ensName: row.ensName };
+    }),
+};
