@@ -47,12 +47,14 @@
     "apps/server": {
       "name": "server",
       "dependencies": {
+        "@ai-sdk/google": "catalog:",
         "@hono/node-server": "catalog:",
         "@orpc/server": "catalog:",
         "@superjam/api": "workspace:*",
         "@superjam/db": "workspace:*",
         "@superjam/logger": "workspace:*",
         "@superjam/shared": "workspace:*",
+        "ai": "catalog:",
         "drizzle-orm": "catalog:",
         "hono": "catalog:",
         "pg": "^8.13.0",

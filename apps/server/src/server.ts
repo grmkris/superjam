@@ -19,6 +19,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createS3Store } from "./bucket.ts";
 import { env } from "./env.ts";
+import { createGeminiOracle } from "./oracle.ts";
 import { registerServeRoutes } from "./serve.ts";
 
 const logger = createLogger({
@@ -51,6 +52,11 @@ const onchain =
     unlink: { apiKey: env.UNLINK_API_KEY, appId: env.UNLINK_APP_ID },
   }) ?? nullOnchain;
 const treasuryAddress = env.TREASURY_ADDRESS as `0x${string}` | undefined;
+// AI pot-resolution oracle (§9) — only when a Gemini key is present; else
+// nullOracle (creators resolve with an explicit outcome).
+const oracle = env.GOOGLE_GENERATIVE_AI_API_KEY
+  ? createGeminiOracle()
+  : undefined;
 
 const rpc = new RPCHandler(appRouter);
 
@@ -88,6 +94,7 @@ app.use("/rpc/*", async (c, next) => {
       rateLimiter,
       issuer,
       onchain,
+      oracle,
       treasuryAddress,
       headers: c.req.raw.headers,
     }),
