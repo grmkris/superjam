@@ -43,13 +43,7 @@ import {
   type BuildDeployer,
   createRemoteDeployer,
 } from "../lib/builder-dispatch.ts";
-import {
-  ATTACHMENT_URL_TTL_SEC,
-  extOf,
-  isImageKey,
-  nameOf,
-  presignAll,
-} from "../lib/attachments.ts";
+import { modelMimeOf, presignAll } from "../lib/attachments.ts";
 import { isUniqueViolation } from "../lib/db-errors.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
 import { protectedProcedure } from "../orpc.ts";
@@ -298,19 +292,19 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           ? await loadBaseSpec(context.db, input.remixOfAppId)
           : undefined;
 
-        // Images → Gemini vision (presigned URLs the AI SDK fetches). Non-image docs
-        // (CSV/PDF/…) → presigned descriptors the refiner hands to its url_context
-        // tool so the spec is planned around the file contents.
-        const keys = input.attachmentKeys ?? [];
-        const imageUrls = presignAll(context.objectStore, keys.filter(isImageKey));
-        const docKeys = keys.filter((k) => !isImageKey(k));
-        const attachments = context.objectStore.configured
-          ? docKeys.map((k) => ({
-              name: nameOf(k),
-              type: extOf(k),
-              url: context.objectStore.presignGet(k, ATTACHMENT_URL_TTL_SEC),
-            }))
-          : [];
+        // Resolve attachment bytes from the store and hand them to the refiner as
+        // content parts (images → vision, PDF/CSV/text → read natively), so the spec
+        // is planned around the file contents. Unreadable types (.xlsx) are skipped
+        // here — they still reach the builder agent as URLs from `create`.
+        const attachments: { mediaType: string; data: Uint8Array }[] = [];
+        if (context.objectStore.configured) {
+          for (const key of input.attachmentKeys ?? []) {
+            const mediaType = modelMimeOf(key);
+            if (!mediaType) continue;
+            const data = await context.objectStore.get(key);
+            if (data) attachments.push({ mediaType, data });
+          }
+        }
 
         try {
           return await runRefine({
@@ -318,7 +312,6 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             answers: input.answers,
             baseSpec,
             catalog,
-            images: imageUrls.length ? imageUrls : undefined,
             attachments: attachments.length ? attachments : undefined,
           });
         } catch (err) {

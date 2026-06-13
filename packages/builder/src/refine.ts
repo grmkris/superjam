@@ -16,13 +16,7 @@ import {
   SIMILAR_MAX,
 } from "@superjam/shared";
 import { google } from "@ai-sdk/google";
-import {
-  generateObject,
-  generateText,
-  type LanguageModel,
-  Output,
-  stepCountIs,
-} from "ai";
+import { generateObject, type LanguageModel } from "ai";
 
 // Gemini, fast. Overridable for tests / model bumps. 2.0-flash was retired by Google
 // (generateContent → 404); flash-lite is the fastest GA 2.5 model — the wizard's
@@ -53,16 +47,13 @@ export interface RefineInput {
    */
   catalog?: RefineCatalogApp[];
   /**
-   * Reference images the user attached to the build prompt (data URLs or http
-   * URLs). Fed to Gemini as vision so the spec reflects a sketch/mockup.
+   * Files the user attached to the build prompt, as raw bytes + MIME. Sent to
+   * Gemini as content parts — images become vision, PDFs/CSVs/text are read
+   * natively — so the spec is planned around the actual contents (e.g. an
+   * infographic over a CSV's columns, or a layout matching a mockup). The platform
+   * resolves these from the object store; (Gemini-readable MIME types only).
    */
-  images?: string[];
-  /**
-   * Non-image reference docs (CSV/PDF/…) the user attached, as presigned GET URLs.
-   * Gemini reads them via its url_context tool (it fetches URLs found in the prompt)
-   * so the spec is planned around the data — e.g. an infographic over a CSV's columns.
-   */
-  attachments?: { name: string; type: string; url: string }[];
+  attachments?: { mediaType: string; data: Uint8Array }[];
 }
 
 /**
@@ -73,9 +64,7 @@ export interface RefineInput {
 export type RefineGenerator = (args: {
   system: string;
   prompt: string;
-  images?: string[];
-  /** Presence enables the url_context tool so Gemini fetches the doc URLs in the prompt. */
-  hasAttachments?: boolean;
+  attachments?: { mediaType: string; data: Uint8Array }[];
 }) => Promise<RefineResult>;
 
 const SYSTEM = `You are SuperJam's app-idea refiner. The user wants a small,
@@ -145,14 +134,14 @@ export const buildPrompt = (input: RefineInput): { system: string; prompt: strin
   }
 
   if (input.attachments?.length) {
-    // The url_context tool fetches URLs that appear in the prompt text. Tell the
-    // model to read them and shape the spec around their contents (e.g. a chart/
-    // infographic over a CSV's columns) — the build agent gets these files too.
+    // The files themselves ride as content parts (images = vision, PDF/CSV/text read
+    // natively). Tell the model to plan around their contents — e.g. for tabular data,
+    // a 'charts' skill + collections matching the columns. The build agent gets them too.
     parts.push(
-      `\nATTACHED FILES — the user attached these for context. READ each one with` +
-        ` your url_context tool and design the spec around its actual contents (e.g.` +
-        ` if it's tabular data, plan a 'charts' skill + collections matching the columns):\n` +
-        input.attachments.map((a) => `- ${a.name} (${a.type}): ${a.url}`).join("\n")
+      `\nATTACHED FILES — the user attached ${input.attachments.length} file(s) ` +
+        `(provided alongside this message). READ them and design the spec around their ` +
+        `actual contents (e.g. if it's tabular data, plan a 'charts' skill + collections ` +
+        `matching the columns; if it's a mockup, match its layout).`
     );
   }
 
@@ -189,48 +178,36 @@ export const filterSimilar = (
   return { ...result, similar: kept.length ? kept : undefined };
 };
 
-// data URL passes through; an http(s) URL becomes a URL the AI SDK fetches.
-const toImageData = (s: string): string | URL =>
-  s.startsWith("data:") ? s : new URL(s);
-
 const geminiGenerator =
   (model: LanguageModel): RefineGenerator =>
-  async ({ system, prompt, images, hasAttachments }) => {
-    const content = [
-      { type: "text" as const, text: prompt },
-      ...(images ?? []).map((img) => ({ type: "image" as const, image: toImageData(img) })),
-    ];
-
-    // Doc attachments → generateText with the url_context tool (Gemini fetches the
-    // doc URLs that appear in the prompt) + structured output via experimental_output
-    // (the generateObject path can't carry tools). Fall back to the plain structured
-    // path if the tool+output combo errors, so a flaky fetch never breaks refine.
-    if (hasAttachments) {
-      try {
-        const { experimental_output } = await generateText({
-          model,
-          system,
-          messages: [{ role: "user", content }],
-          tools: { url_context: google.tools.urlContext({}) },
-          experimental_output: Output.object({ schema: RefineResultSchema }),
-          stopWhen: stepCountIs(5),
-        });
-        if (experimental_output) return experimental_output as RefineResult;
-      } catch {
-        // fall through to the plain structured path (docs dropped, images kept)
-      }
-    }
-
-    // With reference images, send a multimodal user message; otherwise the plain
-    // prompt string (cheaper, unchanged behaviour).
+  async ({ system, prompt, attachments }) => {
     const common = { model, schema: RefineResultSchema, system } as const;
-    if (content.length > 1) {
+
+    // Attachments ride as content parts in a multimodal generateObject call —
+    // images as vision, PDF/CSV/text read natively. (url_context can't be combined
+    // with structured output on Gemini — "Tool use with a response mime type
+    // 'application/json' is unsupported" — and we already hold the bytes, so we send
+    // them inline rather than have the model fetch a URL.)
+    if (attachments?.length) {
       const { object } = await generateObject({
         ...common,
-        messages: [{ role: "user", content }],
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              ...attachments.map((a) =>
+                a.mediaType.startsWith("image/")
+                  ? ({ type: "image", image: a.data } as const)
+                  : ({ type: "file", data: a.data, mediaType: a.mediaType } as const)
+              ),
+            ],
+          },
+        ],
       });
       return object;
     }
+
     const { object } = await generateObject({ ...common, prompt });
     return object;
   };
@@ -246,11 +223,6 @@ export const refine = async (
   const generate =
     deps.generate ?? geminiGenerator(deps.model ?? google(DEFAULT_REFINE_MODEL));
   const { system, prompt } = buildPrompt(input);
-  const result = await generate({
-    system,
-    prompt,
-    images: input.images,
-    hasAttachments: (input.attachments?.length ?? 0) > 0,
-  });
+  const result = await generate({ system, prompt, attachments: input.attachments });
   return filterSimilar(result, input.catalog);
 };

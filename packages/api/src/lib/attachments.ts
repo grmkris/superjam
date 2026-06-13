@@ -37,6 +37,21 @@ export const extOf = (key: string): string => key.split(".").pop()?.toLowerCase(
 /** The original filename portion of a stored key (`attachments/<u>/<uuid>/<name>.<ext>`). */
 export const nameOf = (key: string): string => key.split("/").pop() ?? key;
 
+// Ext → MIME for the types Gemini can read as a content part (image vision + native
+// PDF + text). `.xlsx` (binary spreadsheet) isn't readable inline → omitted (null).
+const EXT_MIME: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  pdf: "application/pdf",
+  csv: "text/csv",
+  txt: "text/plain",
+};
+/** The MIME Gemini can ingest for this key's type, or null if not model-readable. */
+export const modelMimeOf = (key: string): string | null => EXT_MIME[extOf(key)] ?? null;
+
 /** Presign GET URLs for a set of keys (skips silently if the store is unconfigured). */
 export const presignAll = (
   store: ObjectStore,

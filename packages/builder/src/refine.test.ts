@@ -64,16 +64,13 @@ describe("buildPrompt", () => {
     expect(withCatalog.system).toContain("poll | Poll");
   });
 
-  test("lists attachment urls + names so url_context can fetch them", () => {
+  test("notes attached files so the model reads them (they ride as content parts)", () => {
     const { prompt } = buildPrompt({
       prompt: "an infographic",
-      attachments: [
-        { name: "ev.csv", type: "csv", url: "https://blob.test/a/ev.csv" },
-      ],
+      attachments: [{ mediaType: "text/csv", data: new Uint8Array([1, 2, 3]) }],
     });
     expect(prompt).toContain("ATTACHED FILES");
-    expect(prompt).toContain("url_context");
-    expect(prompt).toContain("ev.csv (csv): https://blob.test/a/ev.csv");
+    expect(prompt).toContain("1 file(s)");
   });
 });
 
