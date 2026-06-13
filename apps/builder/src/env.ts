@@ -25,6 +25,13 @@ const builderEnvSchema = z.object({
     .url()
     .default("https://superjam.fun/.well-known/jwks.json"),
   MAX_CONCURRENT_BUILDS: z.coerce.number().int().positive().default(2),
+  // x402 "hire" resource (§14) — when these are set, `POST /` becomes an
+  // x402-protected endpoint that settles the build fee to THIS builder's wallet
+  // via Circle Gateway (Arc, batched). All OPTIONAL: absent ⇒ the route stays off
+  // and the paid path degrades to a clean 402, so the box always boots.
+  AGENT_WALLET_ADDRESS: z.string().min(1).optional(), // x402 payTo
+  AGENT_PRICE_USDC: z.string().min(1).optional(), // dollar amount, e.g. "0.50"
+  CIRCLE_GATEWAY_API_KEY: z.string().min(1).optional(), // optional Bearer for the facilitator
 });
 
 export type BuilderEnv = z.infer<typeof builderEnvSchema>;

@@ -7,6 +7,7 @@
 // `createBuilderApp` takes its deps (token + runner) so tests drive it with
 // stubbed Vercel/Neon clients — no live deploy in CI.
 import type { TeardownArgs, TeardownResult } from "@superjam/builder/deploy";
+import type { X402HireHandler } from "@superjam/onchain/x402-resource";
 import { AppSpecSchema } from "@superjam/shared";
 import { type Context, Hono, type Next } from "hono";
 import { z } from "zod";
@@ -23,6 +24,13 @@ export interface BuilderAppDeps {
   teardown?: (args: TeardownArgs) => Promise<TeardownResult>;
   /** Optional truthful `claude auth status` probe for /health. */
   claudeAuth?: () => Promise<boolean>;
+  /**
+   * The x402 "hire" resource (§14) — when present, `POST /` answers the platform's
+   * `gateway.pay(endpointUrl)` with a 402 and settles the build fee to THIS
+   * builder's wallet via Circle Gateway. Bound over env in server.ts; absent ⇒
+   * `POST /` returns a clean 501 (the paid path degrades, the box still boots).
+   */
+  hire?: X402HireHandler;
 }
 
 const BuildRequest = z.object({
@@ -71,6 +79,25 @@ export const createBuilderApp = (deps: BuilderAppDeps): Hono => {
   app.use("/builds", gate);
   app.use("/builds/*", gate);
   app.use("/teardown", gate);
+
+  // The x402 "hire" resource — the bare root, since the platform pays the agent's
+  // bare `endpointUrl` (build dispatch hits `${endpointUrl}/builds`). NOT behind
+  // the Bearer gate: payment is the auth here (the x402 handshake settles to the
+  // builder's wallet). Absent `hire` ⇒ 501 so the paid path degrades cleanly.
+  app.post("/", async (c) => {
+    if (!deps.hire) {
+      return c.json({ error: "x402 hire endpoint not configured" }, 501);
+    }
+    const result = await deps.hire({
+      method: "POST",
+      path: "/",
+      url: c.req.url,
+      header: (name) => c.req.header(name),
+      body: await c.req.json().catch(() => undefined),
+    });
+    for (const [k, v] of Object.entries(result.headers)) c.header(k, v);
+    return c.json(result.body as never, result.status as never);
+  });
 
   // Agent → builder: progress + the terminal done/failed for one build. Auth is
   // the per-build reportToken (handed only to that build's agent).

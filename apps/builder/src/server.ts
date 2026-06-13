@@ -8,6 +8,7 @@ import {
   type VercelTeardown,
 } from "@superjam/builder/deploy";
 import { createLogger } from "@superjam/logger";
+import { createX402HireResource } from "@superjam/onchain/x402-resource";
 import { serve } from "@hono/node-server";
 import { runAgentBuild } from "./agent-build.ts";
 import { createBuilderApp } from "./app.ts";
@@ -53,11 +54,25 @@ const runner = createBuildRunner({
   maxConcurrent: env.MAX_CONCURRENT_BUILDS,
 });
 
+// The x402 "hire" resource (§14): when this builder has a wallet + price set, the
+// platform's `payBuildFee` settles the build fee here (Circle Gateway, Arc) before
+// dispatching to /builds. Absent the config ⇒ undefined ⇒ POST / answers 501 and
+// the paid path degrades cleanly (the box still boots + builds for free flows).
+const hire =
+  env.AGENT_WALLET_ADDRESS && env.AGENT_PRICE_USDC
+    ? createX402HireResource({
+        payTo: env.AGENT_WALLET_ADDRESS,
+        priceUsdc: env.AGENT_PRICE_USDC,
+        circleApiKey: env.CIRCLE_GATEWAY_API_KEY,
+      })
+    : undefined;
+
 const app = createBuilderApp({
   token: env.BUILDER_TOKEN,
   runner,
   teardown: (args) => teardownApp(args, { teardownVercel, neon }),
   claudeAuth,
+  hire,
 });
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {

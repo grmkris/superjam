@@ -8,7 +8,8 @@
     "./transfer-auth": "./src/transfer-auth.ts",
     "./payment-intent": "./src/payment-intent.ts",
     "./staking": "./src/staking/index.ts",
-    "./unlink-user": "./src/unlink-user.ts"
+    "./unlink-user": "./src/unlink-user.ts",
+    "./x402-resource": "./src/x402-resource.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit"
