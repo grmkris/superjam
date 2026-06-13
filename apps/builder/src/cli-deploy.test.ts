@@ -6,6 +6,7 @@ import {
   type DeployRunner,
   parseDeployOutput,
   type RunResult,
+  vercelRemove,
 } from "./cli-deploy.ts";
 
 const OK_JSON = JSON.stringify({
@@ -79,5 +80,35 @@ describe("cliDeploy", () => {
     await expect(cliDeploy({ files, name: "n" }, run)).rejects.toThrow(
       /vercel deploy failed.*build failed/
     );
+  });
+});
+
+describe("vercelRemove", () => {
+  test("runs `vercel remove <project> --yes`", async () => {
+    let seenArgv: string[] = [];
+    const run: DeployRunner = async (argv) => {
+      seenArgv = argv;
+      return { code: 0, stdout: "Removed 1 project", stderr: "" };
+    };
+    await vercelRemove("Superjam-App_1", {}, run);
+    expect(seenArgv).toEqual(["vercel", "remove", "superjam-app_1", "--yes"]);
+  });
+
+  test("treats a missing project as success (idempotent)", async () => {
+    const run: DeployRunner = async () => ({
+      code: 1,
+      stdout: "",
+      stderr: "Error: Project not found",
+    });
+    await expect(vercelRemove("gone", {}, run)).resolves.toBeUndefined();
+  });
+
+  test("throws on a real failure", async () => {
+    const run: DeployRunner = async () => ({
+      code: 1,
+      stdout: "",
+      stderr: "Error: rate limited",
+    });
+    await expect(vercelRemove("x", {}, run)).rejects.toThrow(/vercel remove failed/);
   });
 });

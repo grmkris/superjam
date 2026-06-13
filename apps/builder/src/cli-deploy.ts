@@ -133,8 +133,10 @@ export const cliDeploy = async (
 };
 
 /**
- * `vercel project rm <name>` — idempotent teardown of a deployed app's project.
- * A missing project is treated as success (already gone). Throws on other errors.
+ * `vercel remove <project> --yes` — idempotent teardown of a deployed app's
+ * project. A missing project is treated as success (already gone). Throws on
+ * other errors. (`vercel remove <name>` removes the whole project; `project rm`
+ * has no non-interactive flag.)
  */
 export const vercelRemove = async (
   projectName: string,
@@ -142,10 +144,10 @@ export const vercelRemove = async (
   run: DeployRunner = bunRunner
 ): Promise<void> => {
   const name = vercelProjectName(projectName);
-  const argv = ["vercel", "project", "rm", name, "--yes"];
+  const argv = ["vercel", "remove", name, "--yes"];
   if (opts.token) argv.push("--token", opts.token);
   const { code, stderr } = await run(argv, tmpdir());
-  if (code !== 0 && !/not found|does not exist|no project/i.test(stderr)) {
-    throw new Error(`vercel project rm failed (exit ${code}): ${stderr.slice(-300)}`);
+  if (code !== 0 && !/not found|does not exist|no project|no deployments/i.test(stderr)) {
+    throw new Error(`vercel remove failed (exit ${code}): ${stderr.slice(-300)}`);
   }
 };
