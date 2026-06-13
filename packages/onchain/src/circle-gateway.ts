@@ -5,6 +5,10 @@
 // seam so this wrapper (URL/amount validation, error mapping) is testable offline;
 // the live transport is composed at the Thursday §23 rehearsal ("live docs win").
 import type { Hex } from "viem";
+import { decodePaymentResponseHeader } from "@x402/core/http";
+import { ExactEvmScheme, type ClientEvmSigner } from "@x402/evm";
+import { wrapFetchWithPayment, x402Client } from "@x402/fetch";
+import { arcTestnet } from "./chains.ts";
 import { OnchainError } from "./errors.ts";
 import { formatUsdc, type Usdc, ZERO_USDC } from "./money.ts";
 
@@ -51,3 +55,46 @@ export const createCircleGateway = ({
     }
   },
 });
+
+/** The Arc-testnet x402 network id (`eip155:5042002`). */
+const ARC_X402_NETWORK = `eip155:${arcTestnet.id}` as const;
+
+/**
+ * The LIVE Circle Gateway transport: an x402 client that pays an x402-protected
+ * resource (the agent's build endpoint) on Arc and returns the on-chain settlement
+ * hash. The payment authorization is signed by the injected `signer` — the Dynamic
+ * SERVER WALLET (no raw payer key). The facilitator is the RESOURCE server's concern
+ * (the agent), so the client side needs only the signer + scheme.
+ */
+export const createLiveCircleGatewayTransport = ({
+  signer,
+}: {
+  signer: ClientEvmSigner;
+}): CircleGatewayTransport => {
+  const client = new x402Client().register(
+    ARC_X402_NETWORK,
+    new ExactEvmScheme(signer)
+  );
+  const paidFetch = wrapFetchWithPayment(fetch, client);
+  return {
+    async pay({ url }) {
+      // POST = "hire this agent to build"; x402 turns the 402 into a signed,
+      // settled USDC payment to the agent (payTo), returning the settlement tx.
+      const res = await paidFetch(url, { method: "POST" });
+      const header = res.headers.get("x-payment-response");
+      if (!header) {
+        throw new OnchainError(
+          "RELAY_FAILED",
+          "x402: no settlement response header"
+        );
+      }
+      const settlement = decodePaymentResponseHeader(header) as {
+        transaction?: Hex;
+      };
+      if (!settlement.transaction) {
+        throw new OnchainError("RELAY_FAILED", "x402: settlement missing tx hash");
+      }
+      return { hash: settlement.transaction };
+    },
+  };
+};
