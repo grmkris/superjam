@@ -64,7 +64,12 @@ export const paymentsRouter = {
       if (raw.startsWith("@")) {
         const handle = raw.slice(1).toLowerCase();
         const u = await context.db.query.user.findFirst({
-          columns: { walletAddress: true, username: true, ensName: true },
+          columns: {
+            walletAddress: true,
+            username: true,
+            ensName: true,
+            unlinkAddress: true,
+          },
           where: eq(user.username, handle),
         });
         if (!u) {
@@ -78,6 +83,8 @@ export const paymentsRouter = {
         return {
           address: getAddress(u.walletAddress),
           displayName: u.ensName ?? `@${u.username}`,
+          // present ⇒ this friend can receive a PRIVATE send (the default path).
+          unlinkAddress: u.unlinkAddress ?? undefined,
         };
       }
 
@@ -215,6 +222,101 @@ export const paymentsRouter = {
       })),
     };
   }),
+
+  // --- private rail (§23, Unlink) — the SHIELDED-DEFAULT wallet + the ONE send
+  // primitive (chat-send + miniapp payUSDC + sub-cent tips all route here). ---
+
+  /** Enable the caller's shielded balance: derive + register their Unlink account
+   *  (server-executed via the delegated signer) and persist the address. Idempotent. */
+  enablePrivacy: protectedProcedure.handler(async ({ context }) => {
+    const { unlinkAddress } = await tryOnchain(() =>
+      context.unlink.enable(context.user.id)
+    );
+    await context.db
+      .update(user)
+      .set({ unlinkAddress })
+      .where(eq(user.id, context.user.id));
+    return { unlinkAddress };
+  }),
+
+  /** The caller's SHIELDED balance — the in-app wallet (private by default).
+   *  Returns null when privacy isn't enabled/configured (UI shows "—"). */
+  privateBalance: protectedProcedure.handler(async ({ context }) => {
+    try {
+      const bal = await context.unlink.balance(context.user.id);
+      return { shieldedUsdc: formatUsdc(bal) };
+    } catch (err) {
+      if (err instanceof OnchainError) return { shieldedUsdc: null };
+      throw err;
+    }
+  }),
+
+  /** Fund the shielded balance: deposit native USDC (public→private). Amount is a
+   *  decimal string ("1.00"); sub-cent ("0.001") is fine. */
+  depositPrivate: protectedProcedure
+    .input(z.object({ amount: z.string().min(1) }))
+    .handler(async ({ context, input }) => {
+      const amount = parseUsdc(input.amount);
+      if (amount > TX_CAP) {
+        throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
+      }
+      const txHash = await tryOnchain(() =>
+        context.unlink.deposit(context.user.id, amount)
+      );
+      return { txHash };
+    }),
+
+  /** THE send primitive: a private transfer (tip / pay-a-friend / miniapp payUSDC,
+   *  sub-cent capable). `to` = a `@username` or a raw `unlink1…` address. */
+  privateSend: protectedProcedure
+    .input(z.object({ to: z.string().min(1), amount: z.string().min(1) }))
+    .handler(async ({ context, input }) => {
+      const amount = parseUsdc(input.amount);
+      if (amount > TX_CAP) {
+        throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
+      }
+      const raw = input.to.trim();
+
+      // resolve the recipient's shielded (unlink1…) address.
+      let toUnlink: string;
+      if (raw.startsWith("unlink1")) {
+        toUnlink = raw;
+      } else if (raw.startsWith("@")) {
+        const handle = raw.slice(1).toLowerCase();
+        const u = await context.db.query.user.findFirst({
+          columns: { id: true, unlinkAddress: true, username: true },
+          where: eq(user.username, handle),
+        });
+        if (!u) {
+          throw new ORPCError("BAD_REQUEST", { message: `Unknown user @${handle}` });
+        }
+        if (u.unlinkAddress) {
+          toUnlink = u.unlinkAddress;
+        } else {
+          // Auto-provision the recipient — only possible if THEY have delegated
+          // (getUserSigner resolves); else a clean "hasn't enabled private payments".
+          try {
+            const enabled = await context.unlink.enable(u.id);
+            await context.db
+              .update(user)
+              .set({ unlinkAddress: enabled.unlinkAddress })
+              .where(eq(user.id, u.id));
+            toUnlink = enabled.unlinkAddress;
+          } catch {
+            throw new ORPCError("BAD_REQUEST", {
+              message: `@${handle} hasn't enabled private payments yet`,
+            });
+          }
+        }
+      } else {
+        throw new ORPCError("BAD_REQUEST", { message: "Unrecognized recipient" });
+      }
+
+      const txHash = await tryOnchain(() =>
+        context.unlink.transfer(context.user.id, toUnlink, amount)
+      );
+      return { txHash };
+    }),
 };
 
 // bridge.payments — host-called, capability "payments" (§12). payX402 is a

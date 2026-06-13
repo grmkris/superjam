@@ -14,6 +14,7 @@ import type { AgentReputation } from "./lib/agent-reputation.ts";
 import { createAgentReputation } from "./lib/agent-reputation-impl.ts";
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
+import { type UnlinkService, nullUnlinkService } from "./services/unlink-service.ts";
 
 export interface ApiContext {
   db: Database;
@@ -26,6 +27,9 @@ export interface ApiContext {
   onchain: Onchain;
   /** AI pot-resolution oracle (§9). Disabled by default. */
   oracle: PotOracle;
+  /** Per-user private-payments rail (§23, Unlink). Degraded by default — the
+   *  server injects the live service (UNLINK_API_KEY + Dynamic delegated signer). */
+  unlink: UnlinkService;
   /** World ID backend verifier (§14, the human gate). Keyless by default. */
   world: WorldVerifier;
   /** Builder-agent onchain identity (ENS subname + ERC-8004, §14/§16). No-op default. */
@@ -48,6 +52,8 @@ export interface CreateContextDeps {
   onchain?: Onchain;
   /** Optional — defaults to the null oracle (AI-resolve unavailable). */
   oracle?: PotOracle;
+  /** Optional — defaults to the degraded Unlink service (private ops reject). */
+  unlink?: UnlinkService;
   /** Optional — defaults to the keyless World verifier (verify rejects). */
   world?: WorldVerifier;
   /** Optional — defaults to the no-op identity (register skips ENS/8004). */
@@ -68,6 +74,7 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     issuer: deps.issuer ?? nullAppTokenIssuer,
     onchain,
     oracle: deps.oracle ?? nullOracle,
+    unlink: deps.unlink ?? nullUnlinkService,
     world: deps.world ?? nullWorldVerifier,
     // Defaults to the live ENS-minting identity over whatever onchain we have
     // (nullOnchain ⇒ mints reject ⇒ provision returns {} — still best-effort).

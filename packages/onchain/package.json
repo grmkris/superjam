@@ -7,7 +7,8 @@
     "./chains": "./src/chains.ts",
     "./transfer-auth": "./src/transfer-auth.ts",
     "./payment-intent": "./src/payment-intent.ts",
-    "./staking": "./src/staking/index.ts"
+    "./staking": "./src/staking/index.ts",
+    "./unlink-user": "./src/unlink-user.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
