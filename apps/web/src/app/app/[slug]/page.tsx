@@ -1,26 +1,12 @@
 // The mini-app viewer (pivot §3). Resolves the slug to the external app via the
-// public apps.get, then frames its entryUrl. The per-app frame-src CSP is set by
-// middleware.ts. Identity: the viewer's Dynamic session supplies the auth token
-// the host uses to mint app tokens — wired with the login chrome (lane: web
-// login). Until then the frame loads and runs; sign-in-gated SDK calls reject.
+// public apps.get, then hands it to <AppHost> (%67's client seam) which wires
+// the signed-in identity (useHostAuth) + getAddress into the cross-origin
+// AppFrame. The per-app frame-src CSP is set by middleware (%67). Full-bleed:
+// AppChrome renders no tab bar on /app/* routes.
 import { notFound } from "next/navigation";
-import {
-  AppFrame,
-  type HostUser,
-  type ViewerApp,
-} from "../../../components/app-frame";
-import {
-  browserRpcUrl,
-  createPlatformClient,
-  serverRpcUrl,
-} from "../../../lib/orpc";
-
-const GUEST: HostUser = {
-  id: "guest",
-  username: "guest",
-  walletAddress: "0x0000000000000000000000000000000000000000",
-  worldVerified: false,
-};
+import { AppHost } from "../../../components/app-host";
+import type { ViewerApp } from "../../../components/app-frame";
+import { createPlatformClient, serverRpcUrl } from "../../../lib/orpc";
 
 export default async function AppViewerPage({
   params,
@@ -37,11 +23,9 @@ export default async function AppViewerPage({
     notFound();
   }
 
-  // TODO(web login): replace GUEST + null token with the Dynamic session user
-  // and JWT so auth.mintAppToken (and other protected bridge calls) work.
   return (
     <main style={{ height: "100dvh", margin: 0 }}>
-      <AppFrame app={app} user={GUEST} rpcUrl={browserRpcUrl()} authToken={null} />
+      <AppHost app={app} />
     </main>
   );
 }
