@@ -9,3 +9,8 @@ dist
 .DS_Store
 *.tsbuildinfo
 .mcp.json
+# secrets — never commit (RSA delegation keypair, PEMs, key dumps)
+private.txt
+public.txt
+*.pem
+*.key

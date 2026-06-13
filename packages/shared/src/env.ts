@@ -40,6 +40,13 @@ export const serverEnvSchema = z.object({
   // server-wallet signer) stays optional until the chain lane provisions it.
   DYNAMIC_ENVIRONMENT_ID: z.string().min(1),
   DYNAMIC_API_TOKEN: optionalStr,
+  // Dynamic Delegated Access (§23, the blessed flow): the RSA private key (PEM)
+  // that decrypts the per-user delegated share from the `wallet.delegation.created`
+  // webhook; the matching public key lives in the Dynamic dashboard. The webhook
+  // secret verifies the event signature. Both optional — private payments degrade
+  // (nullUnlinkService) until set.
+  DYNAMIC_DELEGATION_PRIVATE_KEY: optionalStr, // RSA PKCS8 PEM (server-only secret)
+  DYNAMIC_WEBHOOK_SECRET: optionalStr,
 
   // app identity token — the platform MINTS these (ES256) so an external,
   // developer-hosted mini-app's backend can verify the SuperJam user against
@@ -60,6 +67,11 @@ export const serverEnvSchema = z.object({
   // ENS / onchain
   ENS_L2_REGISTRY: optionalStr,
   ENS_PARENT_NODE: optionalStr,
+  // ENSv2-native (resolvable in standard ENS tooling): SuperjamRegistry on
+  // Sepolia L1 + the dedicated ENS-admin signer that owns it (distinct from the
+  // Dynamic payment wallet). Absent ⇒ the v2 mint degrades (build unaffected).
+  ENS_V2_REGISTRY: optionalStr,
+  ENS_V2_SIGNER_KEY: optionalStr,
   ERC8004_REGISTRY: optionalStr,
   TREASURY_ADDRESS: optionalStr,
   BASE_SEPOLIA_RPC_URL: optionalStr,
