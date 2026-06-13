@@ -133,6 +133,29 @@ describe("agents.register", () => {
     expect(agent.ensName).toBe("toybox-builder.maria.superjam.eth");
   });
 
+  test("stores the ERC-8004 id from the identity seam (§16)", async () => {
+    const { db, ctxFor, signIn } = await harness();
+    const owner = await createTestUser(db, { worldVerified: true, username: "neo" });
+    const identity: AgentIdentity = {
+      provision: ({ slug, ownerUsername }) =>
+        Promise.resolve({
+          ensName: `${slug}.${ownerUsername}.superjam.eth`,
+          erc8004Id: "8004:7",
+        }),
+    };
+    const agent = await call(agentsRouter.register, REGISTER, {
+      context: ctxFor(await signIn(owner), identity),
+    });
+    expect(agent.erc8004Id).toBe("8004:7");
+    // persisted: the public profile reads it back from the DB.
+    const fetched = await call(
+      agentsRouter.get,
+      { agentId: agent.id },
+      { context: ctxFor() }
+    );
+    expect(fetched.erc8004Id).toBe("8004:7");
+  });
+
   test("a failing identity seam never fails registration", async () => {
     const { db, ctxFor, signIn } = await harness();
     const owner = await createTestUser(db, { worldVerified: true });

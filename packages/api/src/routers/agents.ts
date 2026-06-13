@@ -38,6 +38,7 @@ export const toAgent = (a: BuilderAgent) => ({
   capabilities: a.capabilities,
   walletAddress: a.walletAddress,
   ensName: a.ensName,
+  erc8004Id: a.erc8004Id,
   buildsCount: a.buildsCount,
   status: a.status,
   createdAt: a.createdAt,
@@ -115,6 +116,7 @@ export const agentsRouter = {
       // Best-effort onchain identity (ENS subname + ERC-8004). A failure here
       // never fails registration — the agent is just un-named until a retry.
       let ensName = agent.ensName;
+      let erc8004Id = agent.erc8004Id;
       try {
         const identity = await context.agentIdentity.provision({
           agentId: agent.id,
@@ -123,11 +125,19 @@ export const agentsRouter = {
           ownerWallet: context.user.walletAddress ?? undefined,
           walletAddress: agent.walletAddress,
         });
+        const patch: Partial<typeof builderAgent.$inferInsert> = {};
         if (identity.ensName) {
           ensName = identity.ensName;
+          patch.ensName = ensName;
+        }
+        if (identity.erc8004Id) {
+          erc8004Id = identity.erc8004Id;
+          patch.erc8004Id = erc8004Id;
+        }
+        if (Object.keys(patch).length > 0) {
           await context.db
             .update(builderAgent)
-            .set({ ensName })
+            .set(patch)
             .where(eq(builderAgent.id, agent.id));
         }
       } catch (err) {
@@ -137,7 +147,7 @@ export const agentsRouter = {
         );
       }
 
-      return toAgent({ ...agent, ensName });
+      return toAgent({ ...agent, ensName, erc8004Id });
     }),
 
   // Public marketplace listing — active agents, busiest first, with backer.

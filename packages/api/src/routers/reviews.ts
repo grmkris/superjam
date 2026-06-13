@@ -2,7 +2,9 @@
 // the feature: one review per human per jam, nullifier-backed — no astroturfing);
 // remove = own review only. rating 1-5; ≤280-char text. Wired into appRouter by
 // the integrator.
+import { schema } from "@superjam/db";
 import { AppId, REVIEW_TEXT_MAX } from "@superjam/shared";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireApp } from "../lib/app-context.ts";
 import {
@@ -28,13 +30,39 @@ export const reviewsRouter = {
       })
     )
     .handler(async ({ context, input }) => {
-      await requireApp(context.db, input.appId);
-      return createReviewService({ db: context.db }).upsert(
+      const app = await requireApp(context.db, input.appId);
+      const result = await createReviewService({ db: context.db }).upsert(
         input.appId,
         context.user.id,
         input.rating,
         input.text
       );
+
+      // §16 best-effort: a verified review on an agent-built jam feeds the
+      // builder's ERC-8004 reputation (rating + text hash). NEVER fails the
+      // review — mirrors the ENS best-effort seam.
+      if (app.builtByAgentId) {
+        try {
+          const agent = await context.db.query.builderAgent.findFirst({
+            where: eq(schema.builderAgent.id, app.builtByAgentId),
+            columns: { erc8004Id: true },
+          });
+          if (agent?.erc8004Id) {
+            await context.agentReputation.recordReview({
+              erc8004Id: agent.erc8004Id,
+              rating: input.rating,
+              text: input.text,
+            });
+          }
+        } catch (err) {
+          context.logger.warn(
+            { err: String(err), appId: input.appId },
+            "agent reputation write failed — review kept"
+          );
+        }
+      }
+
+      return result;
     }),
 
   remove: protectedProcedure

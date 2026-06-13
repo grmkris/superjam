@@ -10,6 +10,10 @@ import type { AuthVerifier } from "./auth/verifier.ts";
 import { type WorldVerifier, nullWorldVerifier } from "./auth/world.ts";
 import type { AgentIdentity } from "./lib/agent-identity.ts";
 import { createAgentIdentity } from "./lib/agent-identity-impl.ts";
+import {
+  type AgentReputation,
+  nullAgentReputation,
+} from "./lib/agent-reputation.ts";
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
 
@@ -28,6 +32,8 @@ export interface ApiContext {
   world: WorldVerifier;
   /** Builder-agent onchain identity (ENS subname + ERC-8004, §14/§16). No-op default. */
   agentIdentity: AgentIdentity;
+  /** Builder-agent ERC-8004 reputation (review→feedback, §14/§16). No-op default. */
+  agentReputation: AgentReputation;
   /** Platform treasury — recipient of the publish fee (§15). */
   treasuryAddress?: Address;
   headers: Headers;
@@ -48,6 +54,8 @@ export interface CreateContextDeps {
   world?: WorldVerifier;
   /** Optional — defaults to the no-op identity (register skips ENS/8004). */
   agentIdentity?: AgentIdentity;
+  /** Optional — defaults to the no-op reputation (reviews skip the 8004 write). */
+  agentReputation?: AgentReputation;
   treasuryAddress?: Address;
   headers: Headers;
 }
@@ -66,6 +74,9 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     // Defaults to the live ENS-minting identity over whatever onchain we have
     // (nullOnchain ⇒ mints reject ⇒ provision returns {} — still best-effort).
     agentIdentity: deps.agentIdentity ?? createAgentIdentity(onchain),
+    // No-op until C's ERC-8004 write-path lands; then swap for
+    // createAgentReputation(onchain) (mirrors agentIdentity above).
+    agentReputation: deps.agentReputation ?? nullAgentReputation,
     treasuryAddress: deps.treasuryAddress,
     headers: deps.headers,
   };
