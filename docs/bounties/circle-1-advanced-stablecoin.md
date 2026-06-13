@@ -58,6 +58,23 @@ sequenceDiagram
 - USDC `0x3600…0000` (native gas) / EURC `0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a` — multi-currency ready.
 - Redeploy: `packages/contracts` → `forge script script/Deploy.s.sol:Deploy --rpc-url $ARC_RPC_URL --private-key $SERVER_WALLET_PRIVATE_KEY --broadcast` (ARBITER=server wallet).
 
+## Live lifecycle proof (real Arc txs, 2026-06-13)
+The full escrow + yield lifecycle, run on the deployed contract (`resolve(false)`
+skips the 24h window). Final state: `totalPrincipal = 0`, vault `assetsOf(escrow) = 0`
+— **principal returned exactly, yield swept to treasury**.
+
+| step | tx |
+|---|---|
+| deposit(10 USDC stake) | `0xa2b0247248cf55ee1ab4eda58b9fad12b4bfb87e73786178a21923d0b040d7d0` |
+| registerBuild (price 5, bond 10) | `0x4be328b7bdbf671e2309adfde89d1cd865e943312f33569add21f28514dfd4a9` |
+| markDelivered | `0x3bcb892b7a724ad9c75d6f8c9cda708495ec91cab5cdc1b6c133d582e6359799` |
+| accrue (2 USDC yield) | `0x03cfb9db70ad4a3cbb4aa6f44b35918b2eb20f9e2d8329f67cb3e46187728ec6` |
+| harvest → treasury | `0x0ac5ba2d671a330cd6fddffbea6b594264e0f2dcef508e2b6a40ee99357e1507` |
+| resolve → builder paid exact price | `0xe01fce07a00810dd22e15793abcd9cacbe38d3e0c9d305f55895c55400d49460` |
+| withdraw (stake back) | `0x9688537a421d4458519800823bc084c75309b5485e0c8ec2ad593e09b8d5e5ff` |
+
+(View on `https://testnet.arcscan.app`.)
+
 ## Why Arc
 Gas is paid in USDC, so the whole escrow runs without anyone holding ETH — a
 dollar-native marketplace with predictable, sub-cent fees and sub-second finality.
