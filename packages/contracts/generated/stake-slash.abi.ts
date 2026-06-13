@@ -28,6 +28,11 @@ export const stakeSlashAbi = [
         "name": "_challengeWindow",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "_yieldAdapter",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -148,6 +153,19 @@ export const stakeSlashAbi = [
   },
   {
     "type": "function",
+    "name": "harvest",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "yield",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "markDelivered",
     "inputs": [
       {
@@ -244,6 +262,19 @@ export const stakeSlashAbi = [
   },
   {
     "type": "function",
+    "name": "totalPrincipal",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "treasury",
     "inputs": [],
     "outputs": [
@@ -280,6 +311,19 @@ export const stakeSlashAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "yieldAdapter",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IYieldAdapter"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "event",
@@ -412,6 +456,25 @@ export const stakeSlashAbi = [
       },
       {
         "name": "price",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Harvested",
+    "inputs": [
+      {
+        "name": "treasury",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "yield",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"

@@ -14,6 +14,11 @@ const TARGETS = [
     constName: "stakeSlashAbi",
     out: "generated/stake-slash.abi.ts",
   },
+  {
+    artifact: "out/SimpleYieldVault.sol/SimpleYieldVault.json",
+    constName: "simpleYieldVaultAbi",
+    out: "generated/simple-yield-vault.abi.ts",
+  },
 ] as const;
 
 for (const t of TARGETS) {

@@ -71,6 +71,24 @@ contract SimpleYieldVault is IYieldAdapter {
         emit Redeemed(msg.sender, receiver, shares, assets);
     }
 
+    /// Withdraw an exact `assets` amount (the escrow's payout path). Burns the
+    /// ceil number of shares so the vault never under-collateralizes; rounding
+    /// dust stays as yield for remaining holders.
+    function withdraw(uint256 assets, address receiver) external returns (uint256 shares) {
+        uint256 ta = totalAssets();
+        shares = (ta == 0) ? assets : (assets * totalShares + ta - 1) / ta; // ceil
+        require(sharesOf[msg.sender] >= shares, "insufficient shares");
+        sharesOf[msg.sender] -= shares;
+        totalShares -= shares;
+        require(usdc.transfer(receiver, assets), "withdraw transfer failed");
+        emit Redeemed(msg.sender, receiver, shares, assets);
+    }
+
+    /// Underlying value currently held for `owner` (principal + accrued yield).
+    function assetsOf(address owner) external view returns (uint256) {
+        return convertToAssets(sharesOf[owner]);
+    }
+
     /// Inject yield (interest) into the vault — raises the share price for all
     /// holders. In production this is the lending protocol auto-accruing.
     function accrue(uint256 amount) external {

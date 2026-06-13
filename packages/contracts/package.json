@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./abi/stake-slash": "./generated/stake-slash.abi.ts"
+    "./abi/stake-slash": "./generated/stake-slash.abi.ts",
+    "./abi/simple-yield-vault": "./generated/simple-yield-vault.abi.ts"
   },
   "scripts": {
     "compile": "forge build",
