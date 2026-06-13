@@ -4,7 +4,7 @@
 // wizard: idea → follow-ups → plan → choose builder → (World gate, once) →
 // workshop → reveal. Machinery hidden throughout: no build logs, file names,
 // terminals, or "AI/agent" talk anywhere a user can see.
-import type { AppSpec, RefineResult, Similar } from "@superjam/shared";
+import type { AppSpec, BuildId, RefineResult, Similar } from "@superjam/shared";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useConfirm } from "../../components/confirm/confirm-provider";
@@ -12,6 +12,7 @@ import { jamEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { usePlatformClient } from "../../components/use-platform-client";
+import { WorldGate } from "../../components/world-gate";
 import { useHostAuth } from "../../lib/use-host-auth";
 
 type Step = "home" | "followups" | "plan" | "builder" | "worldgate" | "workshop" | "reveal";
@@ -61,6 +62,8 @@ function MakeFlow() {
   const [similar, setSimilar] = useState<Similar[]>([]);
   const [builders, setBuilders] = useState<Builder[]>([HOUSE]);
   const [exchange, setExchange] = useState<{ you: string; back: string }[]>([]);
+  const [buildId, setBuildId] = useState<string | null>(null);
+  const [revealSlug, setRevealSlug] = useState<string | null>(null);
 
   const handleRefine = useCallback(
     async (answers?: { q: string; a: string }[]) => {
@@ -159,11 +162,12 @@ function MakeFlow() {
   const startBuild = async () => {
     setStep("workshop");
     try {
-      // Fire the real build; the workshop animates while it runs server-side.
-      await client.builds.create({ spec: spec!, prompt: idea });
+      // Fire the real build; the workshop then polls builds.status for progress.
+      const res = await client.builds.create({ spec: spec!, prompt: idea });
+      setBuildId(res.buildId);
     } catch {
-      // The free build may be spent / sign-in needed — the workshop still
-      // plays for the demo; surfaced on the reveal if it never lands.
+      // The free build may be spent / sign-in needed — the workshop falls back
+      // to its animation and the reveal opens the spec slug.
     }
   };
 
@@ -212,19 +216,26 @@ function MakeFlow() {
         <BuilderBeat builders={builders} onPick={pickBuilder} />
       )}
 
-      {step === "worldgate" && (
-        <WorldGateBeat onVerified={startBuild} />
-      )}
+      {step === "worldgate" && <WorldGate onVerified={startBuild} />}
 
       {step === "workshop" && spec && (
-        <WorkshopBeat spec={spec} username={username} onDone={() => setStep("reveal")} />
+        <WorkshopBeat
+          spec={spec}
+          username={username}
+          buildId={buildId}
+          onDone={(slug) => {
+            setRevealSlug(slug);
+            setStep("reveal");
+          }}
+        />
       )}
 
       {step === "reveal" && spec && (
         <RevealBeat
           spec={spec}
           username={username}
-          onPlay={() => router.push(`/app/${spec.slug}`)}
+          slug={revealSlug ?? spec.slug}
+          onPlay={() => router.push(`/app/${revealSlug ?? spec.slug}`)}
         />
       )}
     </div>
@@ -596,29 +607,6 @@ function BuilderBeat({
   );
 }
 
-function WorldGateBeat({ onVerified }: { onVerified: () => void }) {
-  return (
-    <div className="flex flex-col items-center gap-4 py-6 text-center">
-      <EmojiToken emoji="🌍" color="green" size={64} />
-      <div className="text-2xl font-extrabold">Verify you're human to keep jamming</div>
-      {/* Big QR, legible across a table. TODO(seam K/world): wire @worldcoin/idkit
-          IDKitWidget → world.verify(proof); this gate fires once. */}
-      <div className="w-52 h-52 bg-card border-[3px] border-ink rounded-toy-lg grid place-items-center text-6xl shadow-sticker-lg">
-        ▦
-      </div>
-      <div className="text-sm font-semibold text-muted">
-        scan with World App · ~30 seconds, one time
-      </div>
-      <div className="text-xs font-medium text-muted max-w-[280px]">
-        keeps superjam human — no spam jams, no bot hi-scores.
-      </div>
-      <StickerButton color="green" size="lg" block onClick={onVerified}>
-        I'm verified ✓
-      </StickerButton>
-    </div>
-  );
-}
-
 const STEPS = [
   "Shaping the jar",
   "Fitting the coin slot",
@@ -629,23 +617,80 @@ const STEPS = [
 function WorkshopBeat({
   spec,
   username,
+  buildId,
   onDone,
 }: {
   spec: AppSpec;
   username: string;
-  onDone: () => void;
+  buildId: string | null;
+  onDone: (slug: string) => void;
 }) {
+  const client = usePlatformClient();
   const [done, setDone] = useState(0);
-  // TODO(seam S/%builder): poll build.events/status for real progress; until
-  // that procedure lands the workshop animates through the steps.
+  const [failed, setFailed] = useState<string | null>(null);
+
+  // Visual step animation — caps at the last step until the REAL build finishes.
   useEffect(() => {
-    if (done < STEPS.length) {
-      const t = setTimeout(() => setDone((d) => d + 1), 1100);
+    if (done >= STEPS.length - 1) return;
+    const t = setTimeout(() => setDone((d) => Math.min(d + 1, STEPS.length - 1)), 1100);
+    return () => clearTimeout(t);
+  }, [done]);
+
+  // Poll the real build; completion + the reveal slug come from the server.
+  useEffect(() => {
+    if (!buildId) {
+      // create() didn't land (free build spent / signed out) — finish as a demo.
+      const t = setTimeout(() => {
+        setDone(STEPS.length);
+        onDone(spec.slug);
+      }, STEPS.length * 1100 + 700);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(onDone, 900);
-    return () => clearTimeout(t);
-  }, [done, onDone]);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const s = await client.builds.status({ buildId: buildId as BuildId });
+        if (cancelled) return;
+        if (s.status === "failed") {
+          setFailed(s.error ?? "couldn't finish this jam");
+          return;
+        }
+        if (
+          s.status === "done" &&
+          (s.appStatus === "listed" || s.appStatus === "deployed")
+        ) {
+          setDone(STEPS.length);
+          onDone(s.slug ?? spec.slug);
+          return;
+        }
+      } catch {
+        /* transient — keep polling */
+      }
+      timer = setTimeout(poll, 1300);
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [buildId, client, onDone, spec.slug]);
+
+  if (failed) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-10 text-center">
+        <EmojiToken emoji="😖" color="pink" size={72} rounded="toy" />
+        <div className="text-xl font-extrabold">couldn't finish this jam</div>
+        <div className="text-sm font-semibold text-muted max-w-[260px]">
+          the workshop hit a snag — give it another go.
+        </div>
+        <StickerButton color="pink" size="lg" onClick={() => location.assign("/build")}>
+          Try again
+        </StickerButton>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center gap-4 py-4">
       <EmojiToken emoji={spec.iconEmoji} color="yellow" size={84} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
@@ -688,14 +733,16 @@ function WorkshopBeat({
 function RevealBeat({
   spec,
   username,
+  slug,
   onPlay,
 }: {
   spec: AppSpec;
   username: string;
+  slug: string;
   onPlay: () => void;
 }) {
-  const ens = jamEns(spec.slug, username);
-  const link = `superjam.fun/${username}/${spec.slug}`;
+  const ens = jamEns(slug, username);
+  const link = `superjam.fun/${username}/${slug}`;
   const copy = () => navigator.clipboard?.writeText(`https://${link}`).catch(() => {});
   return (
     <div className="flex flex-col items-center gap-4 py-4 text-center">
@@ -705,7 +752,7 @@ function RevealBeat({
       <div className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-l-md rounded-r-full pl-2.5 pr-3 py-1.5">
         <span className="w-[7px] h-[7px] rounded-full bg-yellow border-[1.5px] border-ink" />
         <span className="font-mono text-[12px] font-bold">
-          {spec.slug}
+          {slug}
           <span className="text-muted font-medium">.{username}.superjam.fun</span>
         </span>
         <span className="text-[10px] font-extrabold text-green-ink">✓</span>

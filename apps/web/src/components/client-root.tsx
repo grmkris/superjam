@@ -14,6 +14,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AppChrome } from "./app-chrome";
 import { ConfirmProvider } from "./confirm/confirm-provider";
+import { useRelayExecutor } from "./confirm/pay-executor";
 import { Providers } from "./providers";
 
 export function ClientRoot({ children }: { children: ReactNode }) {
@@ -24,11 +25,18 @@ export function ClientRoot({ children }: { children: ReactNode }) {
 
   return (
     <Providers>
-      <ConfirmProvider>
+      <WiredConfirm>
         <AppChrome>{children}</AppChrome>
-      </ConfirmProvider>
+      </WiredConfirm>
     </Providers>
   );
+}
+
+// Inside <Providers> so useRelayExecutor can reach the Dynamic wallet; injects
+// the real sign+relay executor into the confirm sheet.
+function WiredConfirm({ children }: { children: ReactNode }) {
+  const executor = useRelayExecutor();
+  return <ConfirmProvider executor={executor}>{children}</ConfirmProvider>;
 }
 
 function Splash() {

@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { JamFeedCard } from "../components/feed/jam-feed-card";
 import { type FeedJam, type FeedTab, loadFeed } from "../components/feed/jam";
 import { cx } from "../components/ui/cx";
+import { usePlatformClient } from "../components/use-platform-client";
 
 const TABS: { key: FeedTab; label: string }[] = [
   { key: "foryou", label: "For you" },
@@ -28,19 +29,20 @@ async function shareJam(j: FeedJam) {
 
 export default function DiscoverPage() {
   const router = useRouter();
+  const client = usePlatformClient();
   const [tab, setTab] = useState<FeedTab>("foryou");
   const [jams, setJams] = useState<FeedJam[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setJams(null);
-    loadFeed(tab).then((j) => {
+    loadFeed(client, tab).then((j) => {
       if (!cancelled) setJams(j);
     });
     return () => {
       cancelled = true;
     };
-  }, [tab]);
+  }, [client, tab]);
 
   return (
     <div className="relative h-full bg-blue">
