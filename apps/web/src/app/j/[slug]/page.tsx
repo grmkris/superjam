@@ -145,7 +145,7 @@ export default function JamPage({
       : null;
 
   return (
-    <div className="flex flex-col gap-3 px-5 pt-14 pb-6 bg-cream min-h-full">
+    <div className="flex flex-col gap-3 px-5 pt-5 pb-6 bg-cream min-h-full">
       <div className="flex items-center gap-2.5">
         <button onClick={() => router.push("/")} className="text-[15px] font-bold text-muted">
           ‹ Discover

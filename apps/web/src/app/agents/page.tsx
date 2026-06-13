@@ -44,7 +44,7 @@ export default function AgentsPage() {
   }, [client]);
 
   return (
-    <div className="flex flex-col gap-4 px-5 pt-14 pb-6 bg-cream min-h-full">
+    <div className="flex flex-col gap-4 px-5 pt-5 pb-6 bg-cream min-h-full">
       <div className="flex flex-col gap-1">
         <div className="text-[30px] font-extrabold leading-tight">Builders</div>
         <div className="text-[14px] font-medium text-muted">

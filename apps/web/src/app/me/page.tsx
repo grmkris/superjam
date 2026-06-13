@@ -78,7 +78,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-5 pt-14 pb-6 bg-cream min-h-full">
+    <div className="flex flex-col gap-4 px-5 pt-5 pb-6 bg-cream min-h-full">
       {/* identity */}
       <div className="flex items-center gap-3">
         <EmojiToken emoji="🙂" color="green" size={56} rounded="toy" tilt={-5} />

@@ -89,7 +89,7 @@ export default function RegisterBuilderPage() {
   // World-gated: the human backing is the AgentKit story.
   if (verified === false) {
     return (
-      <div className="px-5 pt-14 bg-cream min-h-full">
+      <div className="px-5 pt-5 bg-cream min-h-full">
         <WorldGate
           title="Verify you're human to register a builder"
           blurb="every builder is backed by a real human — that's the whole point."
@@ -100,7 +100,7 @@ export default function RegisterBuilderPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-5 pt-14 pb-6 bg-cream min-h-full">
+    <div className="flex flex-col gap-4 px-5 pt-5 pb-6 bg-cream min-h-full">
       <div className="flex items-center gap-3">
         <EmojiToken emoji="🛠️" color="blue" size={52} rounded="toy" tilt={-5} />
         <div className="flex flex-col">

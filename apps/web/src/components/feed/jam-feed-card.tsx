@@ -68,7 +68,7 @@ export function JamFeedCard({
   if (playing) {
     return (
       <section className={cx("relative h-full snap-start flex flex-col", ACCENT_BG[jam.accent])}>
-        <div className="flex items-center gap-2.5 px-4 pt-14 pb-2">
+        <div className="flex items-center gap-2.5 px-4 pt-5 pb-2">
           <span className="inline-flex items-center gap-2 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-[13.5px] font-bold">
             <span>{jam.iconEmoji}</span>
             <span>{jam.name}</span>

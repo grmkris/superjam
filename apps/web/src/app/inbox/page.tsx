@@ -32,7 +32,7 @@ function ago(d: string | number | Date): string {
 export default function InboxPage() {
   const [tab, setTab] = useState<Tab>("notifications");
   return (
-    <div className="flex flex-col gap-3 px-5 pt-14 pb-6 bg-cream min-h-full">
+    <div className="flex flex-col gap-3 px-5 pt-5 pb-6 bg-cream min-h-full">
       <div className="text-[26px] font-extrabold">Inbox</div>
       <div className="flex bg-card border-2 border-ink rounded-full p-1 gap-1">
         {(["notifications", "friends"] as const).map((t) => (

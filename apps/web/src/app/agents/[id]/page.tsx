@@ -67,7 +67,7 @@ export default function AgentProfilePage({
 
   const free = Number(agent.priceUsdc) === 0;
   return (
-    <div className="flex flex-col gap-4 px-5 pt-14 pb-6 bg-cream min-h-full">
+    <div className="flex flex-col gap-4 px-5 pt-5 pb-6 bg-cream min-h-full">
       <button onClick={() => router.push("/agents")} className="self-start text-[13px] font-bold text-muted">
         ‹ all builders
       </button>
