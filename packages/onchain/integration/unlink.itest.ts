@@ -68,4 +68,20 @@ suite("live Unlink per-user private rail (real shielded txs on Arc)", () => {
     },
     TWO_MIN
   );
+
+  test(
+    "SUB-CENT nanopayment: a 0.1¢ ($0.001) private tip moves EXACTLY, no fee",
+    async () => {
+      const nano = parseUsdc("0.001"); // 0.1 cent = 1000 base units (6-dec)
+      const sBefore = bal(await sender.getBalances());
+      const rBefore = bal(await recipient.getBalances());
+      await sender.privateTransfer(recipient.unlinkAddress, nano);
+      const sAfter = bal(await sender.getBalances());
+      const rAfter = bal(await recipient.getBalances());
+      // exact: recipient +0.001, sender -0.001 — no relayer fee skimmed.
+      expect(rAfter - rBefore).toBe(nano);
+      expect(sBefore - sAfter).toBe(nano);
+    },
+    TWO_MIN
+  );
 });
