@@ -2,7 +2,11 @@
 // subscription-authed. Parses operator env, wires the REAL Vercel + Neon clients
 // + the template generator, and serves. At M5 the `turbojam-builder` systemd
 // unit repoints WorkingDirectory/ExecStart here and restarts (SPEC §11 deploy).
-import { createNeonClient, createVercelClient } from "@superjam/builder/deploy";
+import {
+  createNeonClient,
+  createVercelClient,
+  teardownApp,
+} from "@superjam/builder/deploy";
 import { createLogger } from "@superjam/logger";
 import { serve } from "@hono/node-server";
 import { createBuilderApp } from "./app.ts";
@@ -47,7 +51,12 @@ const claudeAuth = async (): Promise<boolean> => {
   return authCache.ok;
 };
 
-const app = createBuilderApp({ token: env.BUILDER_TOKEN, runner, claudeAuth });
+const app = createBuilderApp({
+  token: env.BUILDER_TOKEN,
+  runner,
+  teardown: (args) => teardownApp(args, { vercel, neon }),
+  claudeAuth,
+});
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   logger.info({ port: info.port }, "builder listening");

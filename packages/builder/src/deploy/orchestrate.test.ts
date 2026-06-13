@@ -4,6 +4,7 @@ import {
   projectNameFor,
   runDeploy,
   specNeedsData,
+  teardownApp,
 } from "./orchestrate.ts";
 import type {
   DeployEvent,
@@ -294,5 +295,39 @@ describe("runDeploy — partial-failure reaper", () => {
     ).rejects.toThrow(/gen boom/);
     expect(calls.deleted).toEqual([]);
     expect(neon.calls.deleted).toEqual([]);
+  });
+});
+
+describe("teardownApp", () => {
+  test("deletes both projects and reports deleted/deleted", async () => {
+    const { client, calls } = makeVercel(["READY"]);
+    const neon = makeNeon();
+    const res = await teardownApp(
+      { vercelProjectId: "prj_1", neonProjectId: "neon_1" },
+      { vercel: client, neon: neon.client }
+    );
+    expect(res).toEqual({ vercel: "deleted", neon: "deleted" });
+    expect(calls.deleted).toEqual(["prj_1"]);
+    expect(neon.calls.deleted).toEqual(["neon_1"]);
+  });
+
+  test("skips a project whose id is absent", async () => {
+    const { client, calls } = makeVercel(["READY"]);
+    const res = await teardownApp(
+      { vercelProjectId: "prj_1" },
+      { vercel: client, neon: makeNeon().client }
+    );
+    expect(res).toEqual({ vercel: "deleted", neon: "skipped" });
+    expect(calls.deleted).toEqual(["prj_1"]);
+  });
+
+  test("a failed delete is reported, not thrown", async () => {
+    const { client } = makeVercel(["READY"], { failDelete: true });
+    const res = await teardownApp(
+      { vercelProjectId: "prj_1", neonProjectId: "neon_1" },
+      { vercel: client, neon: makeNeon().client }
+    );
+    expect(res.vercel).toBe("failed");
+    expect(res.neon).toBe("deleted");
   });
 });

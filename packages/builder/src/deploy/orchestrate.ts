@@ -164,6 +164,52 @@ export const runDeploy = async (
   }
 };
 
+// --- teardown (app delete) ---
+
+export interface TeardownArgs {
+  vercelProjectId?: string;
+  neonProjectId?: string;
+}
+
+export interface TeardownResult {
+  vercel: "deleted" | "skipped" | "failed";
+  neon: "deleted" | "skipped" | "failed";
+}
+
+export interface TeardownDeps {
+  vercel: VercelClient;
+  neon?: NeonClient;
+  onEvent?: (e: DeployEvent) => void;
+}
+
+/**
+ * Idempotent, best-effort teardown of an app's external projects. Unlike the
+ * reaper it does NOT throw — it returns the per-project outcome so the platform
+ * can delist the app even when an external delete fails (logging what leaked for
+ * a manual sweep; never block delisting on a flaky delete). A missing id ⇒
+ * "skipped". Re-running is safe (clients swallow 404).
+ */
+export const teardownApp = async (
+  args: TeardownArgs,
+  deps: TeardownDeps
+): Promise<TeardownResult> => {
+  const emit: Emit = (kind, label) => deps.onEvent?.({ kind, label });
+  const vid = args.vercelProjectId;
+  const nid = args.neonProjectId;
+  const neon = deps.neon;
+  const vercel = await tryDelete(
+    vid ? `vercel ${vid}` : "vercel",
+    vid ? () => deps.vercel.deleteProject(vid) : undefined,
+    emit
+  );
+  const neonResult = await tryDelete(
+    nid ? `neon ${nid}` : "neon",
+    nid && neon ? () => neon.deleteProject(nid) : undefined,
+    emit
+  );
+  return { vercel, neon: neonResult };
+};
+
 const pollUntilReady = async (
   deploymentId: string,
   deps: RunDeployDeps,

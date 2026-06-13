@@ -4,7 +4,11 @@
 // the deploy result. The builder DEPLOYS and returns an entryUrl (pivot §6) —
 // not bundles. A `BuildDeployer` is the seam the build driver depends on; tests
 // inject a stub so no live builder is needed.
-import type { DeployResult } from "@superjam/builder/deploy";
+import type {
+  DeployResult,
+  TeardownArgs,
+  TeardownResult,
+} from "@superjam/builder/deploy";
 import type { AppSpec } from "@superjam/shared";
 
 export interface DeployRequest {
@@ -82,5 +86,36 @@ export const createRemoteDeployer = (
       }
       if (Date.now() >= deadline) throw new Error("builder build timed out");
     }
+  };
+};
+
+/**
+ * Tear down an app's external projects via the builder (which holds the operator
+ * creds). One synchronous POST /teardown, no poll loop — the builder runs two
+ * idempotent DELETEs and returns the per-project outcome. The caller (a delist
+ * flow) should delist the app even on a "failed" outcome and log what leaked.
+ */
+export type AppTeardowner = (req: TeardownArgs) => Promise<TeardownResult>;
+
+export const createRemoteTeardowner = (cfg: {
+  url: string;
+  token: string;
+  fetchImpl?: FetchLike;
+}): AppTeardowner => {
+  const doFetch = cfg.fetchImpl ?? fetch;
+  const base = cfg.url.replace(/\/$/, "");
+  return async (req) => {
+    const res = await doFetch(`${base}/teardown`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${cfg.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) {
+      throw new Error(`builder teardown failed: ${res.status}`);
+    }
+    return (await res.json()) as TeardownResult;
   };
 };

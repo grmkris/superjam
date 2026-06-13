@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { DeployResult } from "@superjam/builder/deploy";
+import type { DeployResult, TeardownResult } from "@superjam/builder/deploy";
 import type { AppSpec } from "@superjam/shared";
-import { createRemoteDeployer, type FetchLike } from "./builder-dispatch.ts";
+import {
+  createRemoteDeployer,
+  createRemoteTeardowner,
+  type FetchLike,
+} from "./builder-dispatch.ts";
 
 const spec = {} as AppSpec; // dispatch never inspects the spec, only forwards it
 
@@ -73,5 +77,27 @@ describe("createRemoteDeployer", () => {
     await expect(deploy({ spec, buildId: "b", appId: "a" })).rejects.toThrow(
       /vercel exploded/
     );
+  });
+});
+
+describe("createRemoteTeardowner", () => {
+  test("POSTs /teardown and returns the per-project result", async () => {
+    const teardownResult: TeardownResult = { vercel: "deleted", neon: "skipped" };
+    let sentBody: unknown;
+    const fetchImpl: FetchLike = async (input, init) => {
+      expect(String(input)).toBe("http://builder/teardown");
+      sentBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify(teardownResult), { status: 200 });
+    };
+    const teardown = createRemoteTeardowner({ url: "http://builder", token: "t", fetchImpl });
+    const out = await teardown({ vercelProjectId: "prj_1" });
+    expect(out).toEqual(teardownResult);
+    expect(sentBody).toEqual({ vercelProjectId: "prj_1" });
+  });
+
+  test("a non-2xx response rejects", async () => {
+    const fetchImpl: FetchLike = async () => new Response("nope", { status: 500 });
+    const teardown = createRemoteTeardowner({ url: "http://builder", token: "t", fetchImpl });
+    await expect(teardown({ neonProjectId: "neon_1" })).rejects.toThrow(/teardown failed: 500/);
   });
 });

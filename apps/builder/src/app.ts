@@ -6,6 +6,7 @@
 //
 // `createBuilderApp` takes its deps (token + runner) so tests drive it with
 // stubbed Vercel/Neon clients — no live deploy in CI.
+import type { TeardownArgs, TeardownResult } from "@superjam/builder/deploy";
 import { AppSpecSchema } from "@superjam/shared";
 import { type Context, Hono, type Next } from "hono";
 import { z } from "zod";
@@ -14,6 +15,12 @@ import type { BuildRunner } from "./queue.ts";
 export interface BuilderAppDeps {
   token: string;
   runner: BuildRunner;
+  /**
+   * Tear down an app's external projects (bound over the real clients in
+   * server.ts). Absent ⇒ /teardown answers 501. The platform dispatches here
+   * because operator creds live only on the builder box.
+   */
+  teardown?: (args: TeardownArgs) => Promise<TeardownResult>;
   /** Optional truthful `claude auth status` probe for /health. */
   claudeAuth?: () => Promise<boolean>;
 }
@@ -23,6 +30,11 @@ const BuildRequest = z.object({
   buildId: z.string().min(1),
   // Pre-generated app id → injected as SUPERJAM_APP_ID (JWT aud) before deploy.
   appId: z.string().min(1),
+});
+
+const TeardownRequest = z.object({
+  vercelProjectId: z.string().min(1).optional(),
+  neonProjectId: z.string().min(1).optional(),
 });
 
 export const createBuilderApp = (deps: BuilderAppDeps): Hono => {
@@ -37,6 +49,7 @@ export const createBuilderApp = (deps: BuilderAppDeps): Hono => {
   };
   app.use("/builds", gate);
   app.use("/builds/*", gate);
+  app.use("/teardown", gate);
 
   app.post("/builds", async (c) => {
     const parsed = BuildRequest.safeParse(await c.req.json().catch(() => null));
@@ -61,6 +74,23 @@ export const createBuilderApp = (deps: BuilderAppDeps): Hono => {
       result: state.result,
       error: state.error,
     });
+  });
+
+  // Synchronous (two idempotent DELETEs) — no queue/poll/concurrency cap.
+  app.post("/teardown", async (c) => {
+    if (!deps.teardown) {
+      return c.json({ error: "teardown not configured" }, 501);
+    }
+    const parsed = TeardownRequest.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json({ error: "bad request", detail: z.prettifyError(parsed.error) }, 400);
+    }
+    const { vercelProjectId, neonProjectId } = parsed.data;
+    if (!vercelProjectId && !neonProjectId) {
+      return c.json({ error: "no project ids to tear down" }, 400);
+    }
+    const result = await deps.teardown({ vercelProjectId, neonProjectId });
+    return c.json(result);
   });
 
   app.get("/health", async (c) => {

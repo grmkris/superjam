@@ -3,6 +3,8 @@ import type { AppSpec } from "@superjam/shared";
 import type {
   GeneratedApp,
   NeonClient,
+  TeardownArgs,
+  TeardownResult,
   VercelClient,
   VercelDeployment,
 } from "@superjam/builder/deploy";
@@ -64,6 +66,7 @@ const stubNeon = (): NeonClient => ({
 const makeApp = (overrides?: {
   generate?: () => Promise<GeneratedApp>;
   maxConcurrent?: number;
+  noTeardown?: boolean;
 }) => {
   const runner = createBuildRunner({
     generate: overrides?.generate ?? (async (s) => generateApp(s)),
@@ -72,8 +75,15 @@ const makeApp = (overrides?: {
     jwksUrl: "https://superjam.fun/.well-known/jwks.json",
     maxConcurrent: overrides?.maxConcurrent,
   });
-  const app = createBuilderApp({ token: TOKEN, runner });
-  return { app, runner };
+  const teardownCalls: TeardownArgs[] = [];
+  const teardown = overrides?.noTeardown
+    ? undefined
+    : async (args: TeardownArgs): Promise<TeardownResult> => {
+        teardownCalls.push(args);
+        return { vercel: "deleted", neon: "skipped" };
+      };
+  const app = createBuilderApp({ token: TOKEN, runner, teardown });
+  return { app, runner, teardownCalls };
 };
 
 const authed = (body: unknown): Request =>
@@ -172,5 +182,49 @@ describe("builder service", () => {
     expect(g.files["next.config.ts"]).toContain("frame-ancestors https://superjam.fun");
     expect(g.files["lib/schema.ts"]).toContain('pgTable("posts"');
     expect(g.manifest.slug).toBe("wall");
+  });
+});
+
+const teardownReq = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+describe("POST /teardown", () => {
+  test("rejects an unauthenticated teardown", async () => {
+    const { app } = makeApp();
+    const res = await app.request("http://b/teardown", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ vercelProjectId: "prj_1" }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  test("tears down the given projects and returns the per-project result", async () => {
+    const { app, teardownCalls } = makeApp();
+    const res = await app.request(
+      "http://b/teardown",
+      teardownReq({ vercelProjectId: "prj_1", neonProjectId: "neon_1" })
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ vercel: "deleted", neon: "skipped" });
+    expect(teardownCalls).toEqual([{ vercelProjectId: "prj_1", neonProjectId: "neon_1" }]);
+  });
+
+  test("400 when the body carries no project ids", async () => {
+    const { app } = makeApp();
+    const res = await app.request("http://b/teardown", teardownReq({}));
+    expect(res.status).toBe(400);
+  });
+
+  test("501 when teardown is not configured", async () => {
+    const { app } = makeApp({ noTeardown: true });
+    const res = await app.request(
+      "http://b/teardown",
+      teardownReq({ vercelProjectId: "prj_1" })
+    );
+    expect(res.status).toBe(501);
   });
 });
