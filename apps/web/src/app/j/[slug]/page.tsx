@@ -16,6 +16,7 @@ import { cx } from "../../../components/ui/cx";
 import { EmojiToken, Pill, StickerButton, StickerCard } from "../../../components/ui/sticker";
 import { Input } from "../../../components/ui/field";
 import { EmptyState } from "../../../components/ui/empty-state";
+import { Skeleton } from "../../../components/ui/skeleton";
 import { type FeedJam, loadFeed } from "../../../components/feed/jam";
 import { usePlatformClient } from "../../../components/use-platform-client";
 import { useHostAuth } from "../../../lib/use-host-auth";
@@ -127,7 +128,13 @@ export default function JamPage({
   };
 
   if (jam === null) {
-    return <div className="p-6 text-muted font-semibold">loading…</div>;
+    return (
+      <div className="screen gap-3">
+        <Skeleton className="h-20" />
+        <Skeleton className="h-16" />
+        <Skeleton className="h-24" />
+      </div>
+    );
   }
   if (jam === "missing") {
     return (
@@ -215,7 +222,7 @@ export default function JamPage({
           no reviews yet — be the first ✓
         </div>
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2.5 stagger">
           {reviews.map((r, i) => (
             <ReviewCard key={i} r={r} tilt={i % 2 === 0 ? -0.4 : 0.4} />
           ))}

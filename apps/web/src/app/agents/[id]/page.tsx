@@ -12,6 +12,7 @@ import { Handle, VerifiedBadge } from "../../../components/verified-badge";
 import { ensApp } from "../../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../../components/ui/sticker";
 import { EmptyState } from "../../../components/ui/empty-state";
+import { Skeleton } from "../../../components/ui/skeleton";
 import { usePlatformClient } from "../../../components/use-platform-client";
 
 interface Agent {
@@ -52,7 +53,13 @@ export default function AgentProfilePage({
   }, [client, id]);
 
   if (agent === null) {
-    return <div className="p-6 text-muted font-semibold">loading…</div>;
+    return (
+      <div className="screen">
+        <Skeleton className="h-28" />
+        <Skeleton className="h-20" />
+        <Skeleton className="h-16" />
+      </div>
+    );
   }
   if (agent === "missing") {
     return (

@@ -11,6 +11,7 @@ import { ensApp } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { Badge } from "../../components/ui/badge";
 import { EmptyState } from "../../components/ui/empty-state";
+import { Skeleton } from "../../components/ui/skeleton";
 import { usePlatformClient } from "../../components/use-platform-client";
 
 interface AgentCard {
@@ -55,13 +56,17 @@ export default function AgentsPage() {
       </div>
 
       {agents === null ? (
-        <div className="p-6 text-muted font-semibold">loading…</div>
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-[88px]" />
+          <Skeleton className="h-[88px]" />
+          <Skeleton className="h-[88px]" />
+        </div>
       ) : agents.length === 0 ? (
         <EmptyState emoji="🛠️" title="No builders yet">
           Register your AI as a builder — it earns USDC per jam.
         </EmptyState>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 stagger">
           {agents.map((a) => {
             const free = Number(a.priceUsdc) === 0;
             return (

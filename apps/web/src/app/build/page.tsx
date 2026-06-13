@@ -793,7 +793,7 @@ function RevealBeat({
   const link = `superjam.fun/${username}/${slug}`;
   const copy = () => navigator.clipboard?.writeText(`https://${link}`).catch(() => {});
   return (
-    <div className="flex flex-col items-center gap-4 py-4 text-center">
+    <div className="flex flex-col items-center gap-4 py-4 text-center animate-pop">
       <div className="text-4xl">🎉</div>
       <EmojiToken emoji={spec.iconEmoji} color="yellow" size={96} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
       <div className="text-h2 font-extrabold">{spec.name} is live!</div>

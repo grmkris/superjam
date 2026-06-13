@@ -15,6 +15,7 @@ import { cx } from "../../components/ui/cx";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { Badge, Dot } from "../../components/ui/badge";
 import { EmptyState } from "../../components/ui/empty-state";
+import { Skeleton } from "../../components/ui/skeleton";
 import { Input } from "../../components/ui/field";
 import { ToyboxTabs } from "../../components/ui/tabs";
 import { VerifiedBadge } from "../../components/verified-badge";
@@ -89,7 +90,13 @@ function Notifications() {
   };
 
   if (rows === null)
-    return <div className="flex-1 grid place-items-center text-muted font-semibold">loading…</div>;
+    return (
+      <div className="flex flex-1 flex-col gap-2.5">
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+      </div>
+    );
   if (rows.length === 0) {
     return (
       <EmptyState emoji="📭" title="no mail yet" emojiColor="pink" className="flex-1">
@@ -100,7 +107,7 @@ function Notifications() {
 
   const anyUnread = rows.some((r) => !r.read);
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2.5 stagger">
       {anyUnread && (
         <button onClick={markAll} className="focus-ring self-end text-small font-bold text-pink">
           Mark all read
@@ -196,7 +203,13 @@ function Friends() {
 
   if (open) return <ChatThread friend={open} onBack={() => { setOpen(null); load(); }} />;
   if (friends === null)
-    return <div className="flex-1 grid place-items-center text-muted font-semibold">loading…</div>;
+    return (
+      <div className="flex flex-1 flex-col gap-2.5">
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+      </div>
+    );
 
   return (
     <div className="flex flex-1 flex-col gap-2.5">
