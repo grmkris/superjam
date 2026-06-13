@@ -65,28 +65,36 @@ export function useBuildDraft(opts: { initialDraftId: string | null; isLoggedIn:
   );
 
   const load = useCallback(async (): Promise<DraftSnapshot | null> => {
-    let local: DraftSnapshot | null = null;
+    // Read BOTH sources, then prefer the NEWER (by timestamp). localStorage is
+    // freshest on the same device; the server wins cross-device / after a cache
+    // clear (where a stale local copy would otherwise shadow newer progress).
+    let local: (DraftSnapshot & { _at?: number }) | null = null;
     try {
       const raw = localStorage.getItem(lsKey(draftId));
-      if (raw) local = JSON.parse(raw) as DraftSnapshot;
+      if (raw) local = JSON.parse(raw) as DraftSnapshot & { _at?: number };
     } catch {
       /* ignore */
     }
-    if (local) return local;
-    if (!loggedIn) return null;
-    try {
-      const d = await client.builds.getDraft({ draftId: draftId as BuildDraftId });
-      if (!d) return null;
-      return {
-        step: d.step as BuildStep,
-        prompt: d.prompt,
-        spec: (d.spec ?? null) as AppSpec | null,
-        state: (d.state ?? {}) as DraftState,
-        buildId: d.buildId ?? null,
-      };
-    } catch {
-      return null;
+    let server: (DraftSnapshot & { _at?: number }) | null = null;
+    if (loggedIn) {
+      try {
+        const d = await client.builds.getDraft({ draftId: draftId as BuildDraftId });
+        if (d) {
+          server = {
+            step: d.step as BuildStep,
+            prompt: d.prompt,
+            spec: (d.spec ?? null) as AppSpec | null,
+            state: (d.state ?? {}) as DraftState,
+            buildId: d.buildId ?? null,
+            _at: d.updatedAt ? new Date(d.updatedAt).getTime() : 0,
+          };
+        }
+      } catch {
+        /* server unavailable — fall back to local */
+      }
     }
+    if (local && server) return (local._at ?? 0) >= (server._at ?? 0) ? local : server;
+    return local ?? server;
   }, [draftId, client, loggedIn]);
 
   return { draftId, persist, load };
