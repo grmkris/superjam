@@ -34,6 +34,7 @@ import { ORPCError } from "@orpc/server";
 import { count, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Logger } from "@superjam/logger";
+import type { Onchain } from "@superjam/onchain";
 import {
   type BuildDeployer,
   createRemoteDeployer,
@@ -159,7 +160,9 @@ export const runBuild = async (
     buildId: BuildRow["id"];
     appId: AppId;
     spec: AppSpec;
-  }
+  },
+  /** Passed to finalize for the best-effort ENS mint (§16). Omitted in tests. */
+  onchain?: Onchain
 ): Promise<void> => {
   const { buildId, appId, spec } = args;
   try {
@@ -176,7 +179,7 @@ export const runBuild = async (
       .where(eq(build.id, buildId));
 
     try {
-      await finalizeExternalApp(db, { appId, entryUrl: result.entryUrl });
+      await finalizeExternalApp(db, { appId, entryUrl: result.entryUrl }, onchain, logger);
     } catch (err) {
       logger.error(
         { err: String(err), buildId },
@@ -305,11 +308,13 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
 
         // Fire-and-forget; the driver never throws (it records failures on the
         // build row). The web feed polls build.events / status.
-        void runBuild(context.db, context.logger, deploy, {
-          buildId,
-          appId: allocated.id,
-          spec: input.spec,
-        });
+        void runBuild(
+          context.db,
+          context.logger,
+          deploy,
+          { buildId, appId: allocated.id, spec: input.spec },
+          context.onchain
+        );
 
         return { buildId, appId: allocated.id, status: "queued" as const };
       }),

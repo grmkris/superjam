@@ -5,6 +5,8 @@ import { createLogger } from "@superjam/logger";
 
 // Each test spins a fresh pglite + full migrations — slow under concurrent load.
 setDefaultTimeout(20_000);
+import type { Onchain } from "@superjam/onchain";
+import type { Hex } from "viem";
 import { createTestAuth } from "../auth/test-auth.ts";
 import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
@@ -290,5 +292,84 @@ describe("apps.mine", () => {
     });
     expect(res.jams).toHaveLength(1);
     expect(res.jams[0]!.status).toBe("building");
+  });
+});
+
+const ownerWithWallet = async (db: Awaited<ReturnType<typeof harness>>["db"]) => {
+  const schema = (await import("@superjam/db")).schema;
+  const [u] = await db
+    .insert(schema.user)
+    .values({
+      dynamicUserId: "dyn_ens",
+      email: "ens@test.io",
+      username: "kris",
+      walletAddress: "0x" + "a".repeat(40),
+    })
+    .returning();
+  return u!.id;
+};
+
+const stubOnchain = (mintApp: Onchain["mintApp"]): Onchain =>
+  ({ mintApp }) as unknown as Onchain;
+
+describe("finalizeExternalApp — best-effort ENS mint (§16)", () => {
+  test("mints slug.username.<parent> + records ensName/ensTxHash on the app", async () => {
+    const { db } = await harness();
+    const owner = await ownerWithWallet(db);
+    const seen: unknown[] = [];
+    const onchain = stubOnchain((params) => {
+      seen.push(params);
+      return Promise.resolve({
+        ensName: `${params.slug}.${params.username}.superjam.eth`,
+        node: ("0x" + "c".repeat(64)) as Hex,
+        txHash: ("0x" + "d".repeat(64)) as Hex,
+      });
+    });
+
+    const allocated = await allocateExternalApp(db, { manifest, ownerUserId: owner });
+    const row = await finalizeExternalApp(
+      db,
+      { appId: allocated.id, entryUrl: "https://tip-jar.vercel.app/" },
+      onchain,
+      logger
+    );
+    expect(row.status).toBe("listed");
+    expect(row.ensName).toBe("tip-jar.kris.superjam.eth");
+    expect(row.ensTxHash).toBe("0x" + "d".repeat(64));
+    expect(seen).toEqual([
+      {
+        slug: "tip-jar",
+        username: "kris",
+        owner: "0x" + "a".repeat(40),
+        records: { url: "https://tip-jar.vercel.app/", category: "tool", remixOf: undefined },
+      },
+    ]);
+  });
+
+  test("a mint failure never fails finalize — app still listed, un-named", async () => {
+    const { db } = await harness();
+    const owner = await ownerWithWallet(db);
+    const onchain = stubOnchain(() => Promise.reject(new Error("ENS down")));
+    const allocated = await allocateExternalApp(db, { manifest, ownerUserId: owner });
+    const row = await finalizeExternalApp(
+      db,
+      { appId: allocated.id, entryUrl: "https://tip-jar.vercel.app/" },
+      onchain,
+      logger
+    );
+    expect(row.status).toBe("listed");
+    expect(row.ensName).toBeNull();
+  });
+
+  test("no onchain ⇒ lists without minting (key-less env)", async () => {
+    const { db } = await harness();
+    const owner = await ownerWithWallet(db);
+    const allocated = await allocateExternalApp(db, { manifest, ownerUserId: owner });
+    const row = await finalizeExternalApp(db, {
+      appId: allocated.id,
+      entryUrl: "https://tip-jar.vercel.app/",
+    });
+    expect(row.status).toBe("listed");
+    expect(row.ensName).toBeNull();
   });
 });

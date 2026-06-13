@@ -6,6 +6,8 @@
 // bundle); registerExternal is the public bring-your-own-URL entry.
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
+import type { Logger } from "@superjam/logger";
+import type { Onchain } from "@superjam/onchain";
 import {
   type AppId,
   type AppManifest,
@@ -17,6 +19,7 @@ import {
   type UserId,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
+import type { Address } from "viem";
 import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
@@ -103,7 +106,9 @@ export interface FinalizeExternalAppInput {
  */
 export const finalizeExternalApp = async (
   db: Database,
-  input: FinalizeExternalAppInput
+  input: FinalizeExternalAppInput,
+  onchain?: Onchain,
+  logger?: Logger
 ): Promise<typeof schema.app.$inferSelect> => {
   const entryOrigin = new URL(input.entryUrl).origin;
   const [row] = await db
@@ -113,6 +118,44 @@ export const finalizeExternalApp = async (
     .returning();
   if (!row) {
     throw new ORPCError("NOT_FOUND", { message: "App not found" });
+  }
+
+  // ENS mint (§11 step 5 / §16) — best-effort, AFTER listing. Mints
+  // `slug.username.<parent>` under the owner's node + sets the app's url/
+  // category/remix records, so the jam is enumerable from ENS alone (the
+  // chain-sourced catalog). NEVER fails finalize: a key-less / ENS-down env (or
+  // an owner without a wallet) just lists the app un-named. Mirrors the
+  // best-effort contract of createAgentIdentity.
+  if (onchain) {
+    try {
+      const owner = await db.query.user.findFirst({
+        where: eq(user.id, row.ownerUserId),
+        columns: { username: true, walletAddress: true },
+      });
+      if (owner?.walletAddress) {
+        const { ensName, txHash } = await onchain.mintApp({
+          slug: row.slug,
+          username: owner.username,
+          owner: owner.walletAddress as Address,
+          records: {
+            url: input.entryUrl,
+            category: row.category ?? undefined,
+            remixOf: row.remixOfAppId ?? undefined,
+          },
+        });
+        const [named] = await db
+          .update(app)
+          .set({ ensName, ensTxHash: txHash })
+          .where(eq(app.id, row.id))
+          .returning();
+        return named ?? row;
+      }
+    } catch (err) {
+      logger?.warn(
+        { err: String(err), appId: row.id },
+        "app ENS mint failed (best-effort, app stays listed un-named)"
+      );
+    }
   }
   return row;
 };
@@ -132,17 +175,21 @@ export interface CreateExternalAppInput {
  */
 export const createExternalApp = async (
   db: Database,
-  input: CreateExternalAppInput
+  input: CreateExternalAppInput,
+  onchain?: Onchain,
+  logger?: Logger
 ): Promise<typeof schema.app.$inferSelect> => {
   const allocated = await allocateExternalApp(db, {
     manifest: input.manifest,
     ownerUserId: input.ownerUserId,
     buildId: input.buildId,
   });
-  return finalizeExternalApp(db, {
-    appId: allocated.id,
-    entryUrl: input.entryUrl,
-  });
+  return finalizeExternalApp(
+    db,
+    { appId: allocated.id, entryUrl: input.entryUrl },
+    onchain,
+    logger
+  );
 };
 
 export const appsRouter = {
@@ -320,11 +367,16 @@ export const appsRouter = {
           message: "entryUrl must be https",
         });
       }
-      const row = await createExternalApp(context.db, {
-        manifest: input.manifest,
-        entryUrl: input.entryUrl,
-        ownerUserId: context.user.id,
-      });
+      const row = await createExternalApp(
+        context.db,
+        {
+          manifest: input.manifest,
+          entryUrl: input.entryUrl,
+          ownerUserId: context.user.id,
+        },
+        context.onchain,
+        context.logger
+      );
       return { id: row.id, slug: row.slug, ensName: row.ensName };
     }),
 };
