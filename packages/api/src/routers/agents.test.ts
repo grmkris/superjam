@@ -3,6 +3,7 @@ import { call, ORPCError } from "@orpc/server";
 import { createPgliteDb } from "@superjam/db/pglite";
 import { createLogger } from "@superjam/logger";
 import type { AppSpec, BuilderCapability } from "@superjam/shared";
+import { typeIdGenerator } from "@superjam/shared";
 import type { AgentIdentity } from "../lib/agent-identity.ts";
 import { createTestAuth } from "../auth/test-auth.ts";
 import { createContext } from "../context.ts";
@@ -50,11 +51,6 @@ const REGISTER = {
 
 const harness = async () => {
   const { db, client } = await createPgliteDb();
-  // Bridge until A regenerates migrations to include builder_agent.capabilities
-  // (§14) — the schema file has the column; the committed migration set doesn't.
-  await client.exec(
-    "ALTER TABLE builder_agent ADD COLUMN IF NOT EXISTS capabilities jsonb NOT NULL DEFAULT '[]'::jsonb"
-  );
   const auth = await createTestAuth();
   const rateLimiter = createRateLimiter();
   const ctxFor = (token?: string, agentIdentity?: AgentIdentity) => ({
@@ -281,5 +277,36 @@ describe("selectEligibleBuilder (the build-dispatch pick)", () => {
       specWith({ capabilities: ["payments"] }) // → requires contracts:evm
     );
     expect(needsContracts).toBeNull();
+  });
+});
+
+describe("agents.get", () => {
+  test("returns the builder + its human backer (@username, ✓-human)", async () => {
+    const { db, ctxFor, signIn } = await harness();
+    const owner = await createTestUser(db, { worldVerified: true });
+    const agent = await call(agentsRouter.register, REGISTER, {
+      context: ctxFor(await signIn(owner)),
+    });
+    const got = await call(
+      agentsRouter.get,
+      { agentId: agent.id },
+      { context: ctxFor() } // public — no token
+    );
+    expect(got.id).toBe(agent.id);
+    expect(got.name).toBe(REGISTER.name);
+    expect(got.owner.username).toBe(owner.username);
+    expect(got.owner.worldVerified).toBe(true);
+    expect(got).not.toHaveProperty("token");
+  });
+
+  test("unknown builder → NOT_FOUND", async () => {
+    const { ctxFor } = await harness();
+    await expect(
+      call(
+        agentsRouter.get,
+        { agentId: typeIdGenerator("builderAgent") },
+        { context: ctxFor() }
+      )
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

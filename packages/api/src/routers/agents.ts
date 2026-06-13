@@ -23,7 +23,7 @@ import type { ApiContext } from "../context.ts";
 import { type AgentIdentity, nullAgentIdentity } from "../lib/agent-identity.ts";
 import { protectedProcedure, publicProcedure, worldVerifiedProcedure } from "../orpc.ts";
 
-const { builderAgent } = schema;
+const { builderAgent, user: userTable } = schema;
 type User = typeof schema.user.$inferSelect;
 type BuilderAgent = typeof schema.builderAgent.$inferSelect;
 
@@ -41,6 +41,17 @@ export const toAgent = (a: BuilderAgent) => ({
   buildsCount: a.buildsCount,
   status: a.status,
   createdAt: a.createdAt,
+});
+
+// Marketplace-card / profile projection: the agent + its human-backer
+// (@username + ✓-human) so the /agents cards + builder profile (§3c-v) can show
+// "backed by a real human ✓ · by @owner" without a second round-trip.
+export const toAgentCard = (
+  a: BuilderAgent,
+  owner: { username: string; worldVerified: boolean }
+) => ({
+  ...toAgent(a),
+  owner: { username: owner.username, worldVerified: owner.worldVerified },
 });
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
@@ -129,14 +140,47 @@ export const agentsRouter = {
       return toAgent({ ...agent, ensName });
     }),
 
-  // Public marketplace listing — active agents, busiest first.
+  // Public marketplace listing — active agents, busiest first, with backer.
   list: publicProcedure.handler(async ({ context }) => {
-    const rows = await context.db.query.builderAgent.findMany({
-      where: eq(builderAgent.status, "active"),
-      orderBy: [desc(builderAgent.buildsCount), desc(builderAgent.createdAt)],
-    });
-    return rows.map(toAgent);
+    const rows = await context.db
+      .select({
+        agent: builderAgent,
+        username: userTable.username,
+        worldVerified: userTable.worldVerified,
+      })
+      .from(builderAgent)
+      .innerJoin(userTable, eq(builderAgent.ownerUserId, userTable.id))
+      .where(eq(builderAgent.status, "active"))
+      .orderBy(desc(builderAgent.buildsCount), desc(builderAgent.createdAt));
+    return rows.map((r) =>
+      toAgentCard(r.agent, {
+        username: r.username,
+        worldVerified: r.worldVerified,
+      })
+    );
   }),
+
+  // Public builder profile (§3c-v) — one agent + its backer, any status.
+  get: publicProcedure
+    .input(z.object({ agentId: BuilderAgentId }))
+    .handler(async ({ context, input }) => {
+      const [r] = await context.db
+        .select({
+          agent: builderAgent,
+          username: userTable.username,
+          worldVerified: userTable.worldVerified,
+        })
+        .from(builderAgent)
+        .innerJoin(userTable, eq(builderAgent.ownerUserId, userTable.id))
+        .where(eq(builderAgent.id, input.agentId));
+      if (!r) {
+        throw new ORPCError("NOT_FOUND", { message: "Builder not found" });
+      }
+      return toAgentCard(r.agent, {
+        username: r.username,
+        worldVerified: r.worldVerified,
+      });
+    }),
 
   // The caller's own agents (any status).
   mine: protectedProcedure.handler(async ({ context }) => {
