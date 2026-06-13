@@ -5,8 +5,8 @@
 //   playing  the jam runs LIVE in-feed via %67's <AppHost> (a real app, not a
 //            video — the differentiator vs TikTok)
 // The ENS name tag lives on the jam PAGE, not the card (design round 6).
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useState } from "react";
+import { useLogin } from "../login";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { AppHost } from "../app-host";
 import { FriendPicker } from "../chat/friend-picker";
@@ -44,7 +44,7 @@ export function JamFeedCard({
   onRemix: (j: FeedJam) => void;
 }) {
   const { isLoggedIn } = useHostAuth();
-  const { setShowAuthFlow } = useDynamicContext();
+  const { openLogin } = useLogin();
   const [playing, setPlaying] = useState(false);
   const [liked, setLiked] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -59,7 +59,7 @@ export function JamFeedCard({
   // jam's SDK calls fail with "Authentication required". Prompt sign-in first.
   const onPlay = () => {
     if (!isLoggedIn) {
-      setShowAuthFlow(true);
+      openLogin();
       return;
     }
     setPlay(true);

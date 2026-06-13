@@ -4,7 +4,7 @@
 // ✓-human), the Dynamic wallet block (address + USDC balance as the hero
 // number), your registered builders, and the World verify block. USDC only — no
 // gas / network / token lists.
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useLogout } from "@dynamic-labs-sdk/react-hooks";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NameTag } from "../../components/name-tag";
@@ -15,6 +15,7 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { VerifySheet } from "../../components/verify-sheet";
 import { AddFundsSheet } from "../../components/add-funds-sheet";
+import { useLogin } from "../../components/login";
 import { useHostAuth } from "../../lib/use-host-auth";
 
 interface Me {
@@ -36,7 +37,8 @@ export default function ProfilePage() {
   const router = useRouter();
   const client = usePlatformClient();
   const { isLoggedIn } = useHostAuth();
-  const { setShowAuthFlow, handleLogOut } = useDynamicContext();
+  const { openLogin } = useLogin();
+  const { mutate: logOut } = useLogout();
 
   const [me, setMe] = useState<Me | null>(null);
   const [balance, setBalance] = useState<string | null | "loading">("loading");
@@ -81,7 +83,7 @@ export default function ProfilePage() {
       <div className="screen items-center justify-center text-center">
         <div className="text-5xl">🙂</div>
         <div className="font-extrabold text-h3">sign in to see your profile</div>
-        <StickerButton color="pink" size="lg" onClick={() => setShowAuthFlow(true)}>
+        <StickerButton color="pink" size="lg" onClick={() => openLogin()}>
           Hop in →
         </StickerButton>
       </div>
@@ -201,7 +203,7 @@ export default function ProfilePage() {
         color="cream"
         size="md"
         block
-        onClick={() => handleLogOut().then(() => router.push("/welcome"))}
+        onClick={() => logOut(undefined, { onSuccess: () => router.push("/welcome") })}
         className="mt-2"
       >
         Log out

@@ -5,7 +5,7 @@
 // workshop → reveal. Machinery hidden throughout: no build logs, file names,
 // terminals, or "AI/agent" talk anywhere a user can see.
 import type { AppSpec, BuildId, RefineResult, Similar } from "@superjam/shared";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useLogin } from "../../components/login";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -55,7 +55,7 @@ function MakeFlow() {
   const client = usePlatformClient();
   const { confirm } = useConfirm();
   const { hostUser, isLoggedIn } = useHostAuth();
-  const { setShowAuthFlow } = useDynamicContext();
+  const { openLogin } = useLogin();
   const username = hostUser?.username ?? "you";
 
   const [step, setStep] = useState<Step>("home");
@@ -192,7 +192,7 @@ function MakeFlow() {
           busy={busy}
           err={err}
           isLoggedIn={isLoggedIn}
-          onLogin={() => setShowAuthFlow(true)}
+          onLogin={() => openLogin()}
           onGo={() => idea.trim() && handleRefine()}
         />
       )}

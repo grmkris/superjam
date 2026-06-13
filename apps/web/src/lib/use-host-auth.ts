@@ -8,7 +8,15 @@
 //   getAddress the Dynamic embedded-wallet address (wired into the bridge so a
 //              mini-app's wallet.getAddress resolves)
 // Opus P's product UI also reads {isLoggedIn} to render login/profile chrome.
-import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+//
+// Migrated to the new headless SDK (@dynamic-labs-sdk/*): the JWT is read off the
+// client (`dynamicClient.token`); wallet + auth state come from the SDK hooks.
+import {
+  useDynamicClient,
+  useInitStatus,
+  useUser,
+  useWalletAccounts,
+} from "@dynamic-labs-sdk/react-hooks";
 import { useCallback, useEffect, useState } from "react";
 import type { HostUser } from "../components/app-frame";
 import { browserRpcUrl, createPlatformClient } from "./orpc";
@@ -23,27 +31,33 @@ export interface HostAuth {
 }
 
 export function useHostAuth(): HostAuth {
-  const { primaryWallet, sdkHasLoaded } = useDynamicContext();
+  const client = useDynamicClient();
+  const { data: initStatus } = useInitStatus();
+  // useUser re-renders on login / logout / profile change — drives the effect.
+  const { data: user } = useUser();
+  const { data: walletAccounts } = useWalletAccounts();
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [hostUser, setHostUser] = useState<HostUser | null>(null);
 
+  const evmAddress =
+    walletAccounts?.find((w) => w.chain === "EVM")?.address ?? null;
+
   useEffect(() => {
-    // The Dynamic client is created asynchronously after the provider mounts.
-    // Calling getAuthToken() before it's ready throws ClientNotFoundError — wait
-    // for sdkHasLoaded (the effect re-runs when it flips true).
-    if (!sdkHasLoaded) return;
-    const token = getAuthToken() ?? null;
+    // The client's JWT is only populated once init has finished and the user is
+    // signed in; reading it earlier yields null. Re-run when the user changes.
+    if (initStatus !== "finished") return;
+    const token = client?.token ?? null;
     setAuthToken(token);
     if (!token) {
       setHostUser(null);
       return;
     }
     let cancelled = false;
-    const client = createPlatformClient({
+    const platform = createPlatformClient({
       url: browserRpcUrl(),
       getToken: () => token,
     });
-    client.profile
+    platform.profile
       .me()
       .then((me) => {
         if (cancelled) return;
@@ -60,14 +74,12 @@ export function useHostAuth(): HostAuth {
     return () => {
       cancelled = true;
     };
-    // sdkHasLoaded + primaryWallet change on login/logout/wallet-switch.
-  }, [sdkHasLoaded, primaryWallet]);
+  }, [initStatus, user, client]);
 
   const getAddress = useCallback(async (): Promise<string> => {
-    const addr = primaryWallet?.address;
-    if (!addr) throw new Error("No wallet connected");
-    return addr;
-  }, [primaryWallet]);
+    if (!evmAddress) throw new Error("No wallet connected");
+    return evmAddress;
+  }, [evmAddress]);
 
   return {
     authToken,

@@ -7,8 +7,12 @@
 // payments.relay → return the real tx hash. Injected into <ConfirmProvider> by
 // client-root's WiredConfirm (which sits inside <Providers> so the wallet is
 // reachable).
-import { isEthereumWallet } from "@dynamic-labs/ethereum";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+//
+// New headless SDK: the EVM wallet account comes from useWalletAccounts(); a viem
+// WalletClient is built with createWalletClientForWalletAccount().
+import type { EvmWalletAccount } from "@dynamic-labs-sdk/evm";
+import { createWalletClientForWalletAccount } from "@dynamic-labs-sdk/evm/viem";
+import { useWalletAccounts } from "@dynamic-labs-sdk/react-hooks";
 import type { AppId } from "@superjam/shared";
 import {
   PUBLIC_CHAIN,
@@ -24,11 +28,14 @@ import { usePlatformClient } from "../use-platform-client";
 
 export function useRelayExecutor(): PayExecutor {
   const client = usePlatformClient();
-  const { primaryWallet } = useDynamicContext();
+  const { data: walletAccounts } = useWalletAccounts();
+  const evmAccount = walletAccounts?.find((w) => w.chain === "EVM") as
+    | EvmWalletAccount
+    | undefined;
 
   return useCallback<PayExecutor>(
     async (intent) => {
-      if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      if (!evmAccount) {
         throw new Error("Connect your wallet to pay");
       }
 
@@ -39,7 +46,9 @@ export function useRelayExecutor(): PayExecutor {
       });
 
       // 2) build the EIP-3009 transfer authorization
-      const walletClient = await primaryWallet.getWalletClient();
+      const walletClient = await createWalletClientForWalletAccount({
+        walletAccount: evmAccount,
+      });
       const from = walletClient.account.address;
       const nowSec = BigInt(Math.floor(Date.now() / 1000));
       const { validAfter, validBefore } = authWindow(nowSec);
@@ -77,6 +86,6 @@ export function useRelayExecutor(): PayExecutor {
       });
       return { txHash };
     },
-    [client, primaryWallet]
+    [client, evmAccount]
   );
 }
