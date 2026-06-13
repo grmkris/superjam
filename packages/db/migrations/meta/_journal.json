@@ -22,6 +22,13 @@
       "when": 1781337846630,
       "tag": "0002_cool_harrier",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781338235265,
+      "tag": "0003_even_punisher",
+      "breakpoints": true
     }
   ]
 }
