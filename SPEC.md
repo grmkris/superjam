@@ -1,5 +1,13 @@
 # SuperJam — one-shot build spec (ETHGlobal NYC 2026)
 
+> ⚠️ **PIVOT IN EFFECT (2026-06-13):** the platform pivoted to **external,
+> builder-hosted mini-apps** (Track B only). `docs/PIVOT.md` is the authoritative
+> coordination contract and **supersedes this spec** on §6 (sandbox gains
+> `allow-same-origin` — apps are cross-origin), §11 (builder deploys to
+> Vercel/Neon, no `Bun.build`/S3), §17 (host frames an external `entryUrl`), and
+> adds the §1 identity-token/JWKS primitive. Read `docs/PIVOT.md` first; the rest
+> of this spec stands where PIVOT is silent.
+
 _v3, 2026-06-12 — adds explore/discovery, similar-check, remix, and
 messaging + deeplinks as core. Companion to `mini-app-host-platform.md` (strategy/why).
 This file is written to be handed to a coding agent at Friday kickoff and
