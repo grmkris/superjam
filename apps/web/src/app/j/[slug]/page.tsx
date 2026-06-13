@@ -259,10 +259,20 @@ export default function JamPage({
               ↑
             </StickerButton>
           </div>
-          <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-muted">
-            <VerifiedBadge />
-            prove you're human once with World ID — no bots in here
-          </div>
+          {verified ? (
+            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-muted">
+              <VerifiedBadge />
+              prove you're human once with World ID — no bots in here
+            </div>
+          ) : (
+            <button
+              onClick={() => setGate(true)}
+              className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-blue sticker-press"
+            >
+              <VerifiedBadge />
+              Verify with World ID to review →
+            </button>
+          )}
         </div>
       )}
 

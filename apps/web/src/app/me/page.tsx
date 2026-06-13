@@ -12,6 +12,7 @@ import { VerifiedBadge } from "../../components/verified-badge";
 import { basescan, userEns } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { usePlatformClient } from "../../components/use-platform-client";
+import { WorldGate } from "../../components/world-gate";
 import { useHostAuth } from "../../lib/use-host-auth";
 
 interface Me {
@@ -38,9 +39,9 @@ export default function ProfilePage() {
   const [me, setMe] = useState<Me | null>(null);
   const [balance, setBalance] = useState<string | null | "loading">("loading");
   const [builders, setBuilders] = useState<Builder[]>([]);
+  const [verifying, setVerifying] = useState(false);
 
-  useEffect(() => {
-    if (!isLoggedIn) return;
+  const loadMe = () =>
     client.profile.me().then((m) =>
       setMe({
         username: m.username,
@@ -49,6 +50,10 @@ export default function ProfilePage() {
         worldVerified: m.worldVerified,
       })
     ).catch(() => {});
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    loadMe();
     client.payments.balance().then((b) => setBalance(b.publicUsdc)).catch(() => setBalance(null));
     client.agents
       .mine()
@@ -122,7 +127,7 @@ export default function ProfilePage() {
         </div>
         {!me?.worldVerified && (
           <button
-            onClick={() => router.push("/build")}
+            onClick={() => setVerifying(true)}
             className="ml-auto bg-green text-ink border-2 border-ink rounded-full px-3.5 py-2 text-sm font-extrabold shadow-sticker-sm sticker-press"
           >
             Verify
@@ -170,6 +175,29 @@ export default function ProfilePage() {
       >
         Log out
       </StickerButton>
+
+      {verifying && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <button
+            aria-label="Dismiss"
+            onClick={() => setVerifying(false)}
+            className="absolute inset-0 bg-ink/40"
+          />
+          <div className="relative w-full max-w-[460px] bg-cream border-t-2 border-ink rounded-t-toy-lg px-5 pt-4 pb-8 max-h-[85dvh] overflow-y-auto">
+            <WorldGate
+              title="Verify you're human"
+              blurb="verify once to publish, review & build — one human, one account."
+              onVerified={() => {
+                setVerifying(false);
+                loadMe();
+              }}
+            />
+            <StickerButton color="white" size="md" block onClick={() => setVerifying(false)}>
+              Cancel
+            </StickerButton>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
