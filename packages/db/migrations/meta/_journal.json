@@ -29,6 +29,13 @@
       "when": 1781338235265,
       "tag": "0003_even_punisher",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781342635816,
+      "tag": "0004_clever_black_bolt",
+      "breakpoints": true
     }
   ]
 }

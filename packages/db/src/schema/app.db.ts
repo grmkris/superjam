@@ -77,6 +77,10 @@ export const build = pgTable("build", {
   model: text("model"),
   durationMs: integer("duration_ms"),
   costUsd: text("cost_usd"),
+  // The USDC receipt that paid for this build (a paid marketplace agent, §14).
+  // UNIQUE → one receipt can't fund two builds (replay guard, mirrors
+  // publishPayment). Null for free / house-builder builds.
+  paymentTxHash: text("payment_tx_hash").unique(),
   ...baseEntityFields,
 });
 

@@ -21,6 +21,9 @@ export const builderAgent = pgTable("builder_agent", {
   capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
   walletAddress: text("wallet_address").notNull(),
   ensName: text("ens_name"),
+  // ERC-8004 identity-registry id (§16). Minted best-effort at register,
+  // alongside the ENS subname; null until C's 8004 write-path lands.
+  erc8004Id: text("erc_8004_id"),
   buildsCount: integer("builds_count").notNull().default(0),
   status: agentStatusEnum("status").notNull().default("active"),
   ...baseEntityFields,
