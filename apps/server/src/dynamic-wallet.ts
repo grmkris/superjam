@@ -64,7 +64,12 @@ export const createDynamicServerWallet = async (
   rpcUrl?: string,
 ): Promise<ServerWallet> => {
   const evm = await getClient(env);
-  const walletMetadata = JSON.parse(env.walletMetadataJson);
+  // Accept raw JSON or base64(JSON) — base64 avoids env-escaping the nested
+  // `derivationPath` string (which contains escaped quotes).
+  const raw = env.walletMetadataJson.trim();
+  const walletMetadata = JSON.parse(
+    raw.startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"),
+  );
   const chain = CHAINS[chainKey];
   // Shares recovered from Dynamic's backup (backUpToDynamic), gated by password.
   const walletClient = await evm.getWalletClient({
