@@ -177,6 +177,57 @@ export const createBuilderAgent = async (
   };
 };
 
+/** Re-provision an EXISTING agent's onchain identity, filling only the gaps —
+ *  mint the ERC-8004 id / ENS name / seed stake if (and only if) it's still
+ *  missing. Idempotent (provision is `current`-aware, so nothing double-mints) and
+ *  best-effort (a provision failure leaves the row untouched). Shared by the
+ *  `refreshIdentity` mutation and the fleet backfill script. Returns the patched row. */
+export const refreshAgentIdentity = async (
+  deps: { db: Database; agentIdentity: AgentIdentity; logger: Logger },
+  agent: BuilderAgent,
+  owner: { username: string; walletAddress: string | null }
+): Promise<BuilderAgent> => {
+  const { db, agentIdentity, logger } = deps;
+  try {
+    const identity = await agentIdentity.provision({
+      agentId: agent.id,
+      slug: agent.slug,
+      ownerUsername: owner.username,
+      ownerWallet: owner.walletAddress ?? undefined,
+      walletAddress: agent.walletAddress,
+      current: {
+        ensName: agent.ensName,
+        erc8004Id: agent.erc8004Id,
+        stakedUsdc: agent.stakedUsdc,
+      },
+    });
+    const patch: Partial<typeof builderAgent.$inferInsert> = {};
+    if (identity.ensName && identity.ensName !== agent.ensName) {
+      patch.ensName = identity.ensName;
+    }
+    if (identity.erc8004Id && identity.erc8004Id !== agent.erc8004Id) {
+      patch.erc8004Id = identity.erc8004Id;
+    }
+    if (identity.stakeTxHash && !agent.stakedUsdc) {
+      patch.stakeTxHash = identity.stakeTxHash;
+      patch.stakedUsdc = identity.stakedUsdc ?? null;
+    }
+    if (Object.keys(patch).length === 0) return agent;
+    const [updated] = await db
+      .update(builderAgent)
+      .set(patch)
+      .where(eq(builderAgent.id, agent.id))
+      .returning();
+    return updated!;
+  } catch (err) {
+    logger.warn(
+      { err: String(err), agentId: agent.id },
+      "agent identity refresh failed"
+    );
+    return agent;
+  }
+};
+
 // register mints the agent's onchain identity through C's seam. Rather than
 // widen the shared ApiContext, the dependency is declared locally (mirrors the
 // world router) and defaulted to the no-op so register works seam-less in tests.
@@ -247,6 +298,43 @@ export const agentsRouter = {
         throw new ORPCError("NOT_FOUND", { message: "Builder not found" });
       }
       return toAgentCard(r.agent, {
+        username: r.username,
+        worldVerified: r.worldVerified,
+      });
+    }),
+
+  // Owner re-provisions their agent's onchain identity — backfills a missing
+  // ERC-8004 id / ENS name / seed stake without re-registering. Idempotent.
+  refreshIdentity: protectedProcedure
+    .use(withIdentity)
+    .input(z.object({ agentId: BuilderAgentId }))
+    .handler(async ({ context, input }) => {
+      const [r] = await context.db
+        .select({
+          agent: builderAgent,
+          username: userTable.username,
+          worldVerified: userTable.worldVerified,
+          walletAddress: userTable.walletAddress,
+        })
+        .from(builderAgent)
+        .innerJoin(userTable, eq(builderAgent.ownerUserId, userTable.id))
+        .where(eq(builderAgent.id, input.agentId));
+      if (!r) {
+        throw new ORPCError("NOT_FOUND", { message: "Agent not found" });
+      }
+      if (r.agent.ownerUserId !== context.user.id) {
+        throw new ORPCError("FORBIDDEN", { message: "Not your agent" });
+      }
+      const updated = await refreshAgentIdentity(
+        {
+          db: context.db,
+          agentIdentity: context.agentIdentity,
+          logger: context.logger,
+        },
+        r.agent,
+        { username: r.username, walletAddress: r.walletAddress }
+      );
+      return toAgentCard(updated, {
         username: r.username,
         worldVerified: r.worldVerified,
       });

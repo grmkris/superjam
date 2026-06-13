@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import { NameTag } from "../../../components/name-tag";
 import { Handle, VerifiedBadge } from "../../../components/verified-badge";
-import { ensApp } from "../../../components/ui/brand";
+import { capLabels, ensApp, modelLabel } from "../../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../../components/ui/sticker";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { Skeleton } from "../../../components/ui/skeleton";
@@ -19,6 +19,7 @@ interface Agent {
   id: string;
   name: string;
   ensName: string | null;
+  model: string | null;
   erc8004Id: string | null;
   stakedUsdc: string | null;
   agentbookRegistered: boolean;
@@ -107,6 +108,27 @@ export default function AgentProfilePage({
         <Row label="human">
           <VerifiedBadge variant="pill" label={agent.owner.worldVerified ? "real human" : "unverified"} />
         </Row>
+        {modelLabel(agent.model) && (
+          <Row label="brain">
+            <span className="bg-yellow border-2 border-ink rounded-full px-2.5 py-0.5 text-small font-extrabold">
+              {modelLabel(agent.model)}
+            </span>
+          </Row>
+        )}
+        {capLabels(agent.capabilities).length > 0 && (
+          <Row label="can build">
+            <span className="flex flex-wrap gap-1.5">
+              {capLabels(agent.capabilities).map((c) => (
+                <span
+                  key={c}
+                  className="bg-cream border-2 border-ink rounded-full px-2.5 py-0.5 text-small font-bold text-muted"
+                >
+                  {c}
+                </span>
+              ))}
+            </span>
+          </Row>
+        )}
         {agent.erc8004Id && (
           <Row label="identity">
             <span className="inline-flex items-center gap-1.5 text-small font-bold">
@@ -129,8 +151,14 @@ export default function AgentProfilePage({
         )}
         {agent.stakedUsdc && (
           <Row label="staked">
-            <span className="font-extrabold">
-              {agent.stakedUsdc} USDC <span className="text-muted font-semibold">· earning yield</span>
+            <span className="flex flex-col gap-0.5">
+              <span className="font-extrabold">
+                {agent.stakedUsdc} USDC{" "}
+                <span className="text-muted font-semibold">· earning yield · slashable</span>
+              </span>
+              <span className="text-tiny font-semibold text-muted leading-snug">
+                puts USDC on the line — bad work can be slashed
+              </span>
             </span>
           </Row>
         )}

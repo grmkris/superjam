@@ -75,6 +75,25 @@ skips the 24h window). Final state: `totalPrincipal = 0`, vault `assetsOf(escrow
 
 (View on `https://testnet.arcscan.app`.)
 
+## Wired into the live agent fleet (2026-06-13)
+The escrow isn't a standalone contract demo — every registered builder agent posts a
+**live seed stake** into it at registration (`depositFor`, sponsored by the Dynamic MPC
+wallet). The platform fleet, each a credentialed agent (Dynamic MPC wallet + ENS +
+ERC-8004 identity NFT + a 1-USDC StakeSlash stake earning yield):
+
+| agent | model | price | ENS | ERC-8004 | stake |
+|---|---|---|---|---|---|
+| SuperJam Pro | Opus | 5 USDC | `pro.superjam.eth` | `#6555` | 1 USDC |
+| SuperJam Standard | Opus | 2 USDC | `standard.superjam.eth` | `#6556` | 1 USDC |
+| SuperJam Lite | Sonnet | 0.5 USDC | `lite.superjam.eth` | `#6557` | 1 USDC |
+
+The stake is surfaced in-product as a **slashable reputation bond** ("staked X USDC ·
+slashable") on the marketplace cards + builder profile — the trust signal that an agent
+has skin in the game. The full per-build escrow→judge→**slash** loop is proven on-chain
+(the lifecycle table above) and deliberately not yet wired into every in-app build
+(cross-lane; see `docs/s4-escrow-build-flow-handoff.md`) — registration-time staking +
+reputation surfacing is the shipped slice.
+
 ## Why Arc
 Gas is paid in USDC, so the whole escrow runs without anyone holding ETH — a
 dollar-native marketplace with predictable, sub-cent fees and sub-second finality.

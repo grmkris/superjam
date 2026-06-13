@@ -10,13 +10,17 @@ import { createDb, schema } from "@superjam/db";
 import { createOnchainFromConfig, nullOnchain } from "@superjam/onchain";
 import { eq } from "drizzle-orm";
 import { createAgentIdentity } from "../src/lib/agent-identity-impl.ts";
-import { createBuilderAgent } from "../src/routers/agents.ts";
+import { createBuilderAgent, refreshAgentIdentity } from "../src/routers/agents.ts";
 
 const DEV_DB_URL = process.env.DEV_DB_URL;
 if (!DEV_DB_URL) {
   console.error("set DEV_DB_URL to the dev Postgres public URL");
   process.exit(2);
 }
+
+// `--refresh`: re-provision EXISTING agents (backfill a missing ERC-8004 id / ENS /
+// stake) instead of skipping them. Idempotent — nothing double-mints.
+const REFRESH = process.argv.includes("--refresh");
 
 // The platform fleet — 3 differentiated human-backed builder agents. Each wallet
 // is a distinct Dynamic MPC wallet (provisioned separately). Capabilities gate
@@ -49,6 +53,44 @@ const FLEET = [
     walletAddress: "0x4e79f7c6b858a2753cA6D2402a0CDa68ACCb2Fc3",
   },
 ] as const;
+
+// Single-agent mode (what the Claude Code `register-builder` skill drives): set
+// AGENT_SLUG (+ the rest) to register ONE arbitrary builder instead of the fleet.
+// The same `createBuilderAgent` path — so a skill-driven registration is byte-for-
+// byte the community/website registration. The wallet is provided (a Dynamic MPC
+// wallet, recommended; or any address the operator controls).
+const fromEnv = () => {
+  const slug = process.env.AGENT_SLUG;
+  if (!slug) return null;
+  const wallet = process.env.AGENT_WALLET;
+  if (!wallet) {
+    console.error("AGENT_SLUG set but AGENT_WALLET missing");
+    process.exit(2);
+  }
+  return [
+    {
+      slug,
+      name: process.env.AGENT_NAME ?? slug,
+      model: process.env.AGENT_MODEL ?? "claude-opus-4-8",
+      priceUsdc: process.env.AGENT_PRICE ?? "1",
+      capabilities: (process.env.AGENT_CAPS ?? "frontend,hosting:vercel")
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean),
+      walletAddress: wallet,
+    },
+  ];
+};
+
+// Either ONE agent from the env (skill mode) or the whole platform fleet.
+const AGENTS: readonly {
+  slug: string;
+  name: string;
+  model: string;
+  priceUsdc: string;
+  capabilities: readonly string[];
+  walletAddress: string;
+}[] = fromEnv() ?? FLEET;
 
 const onchain =
   createOnchainFromConfig({
@@ -97,12 +139,24 @@ if (!owner) {
   console.log("owner @superjam exists", owner.id);
 }
 
-for (const a of FLEET) {
+for (const a of AGENTS) {
   const existing = await db.query.builderAgent.findFirst({
     where: eq(schema.builderAgent.slug, a.slug),
   });
   if (existing) {
-    console.log(`\n${a.slug}: already exists (${existing.id}) — skipping`);
+    if (!REFRESH) {
+      console.log(`\n${a.slug}: already exists (${existing.id}) — skipping`);
+      continue;
+    }
+    console.log(`\n=== refresh ${a.name} (${a.slug}) ===`);
+    const updated = await refreshAgentIdentity(
+      { db, agentIdentity: createAgentIdentity(onchain), logger },
+      existing,
+      { username: owner!.username, walletAddress: owner!.walletAddress }
+    );
+    console.log(`  ens:     ${updated.ensName ?? "(skipped)"}`);
+    console.log(`  erc8004: ${updated.erc8004Id ?? "(skipped)"}`);
+    console.log(`  staked:  ${updated.stakedUsdc ?? "(skipped)"} USDC`);
     continue;
   }
   console.log(`\n=== ${a.name} (${a.slug}, ${a.model}, ${a.priceUsdc} USDC) ===`);

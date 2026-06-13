@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NameTag } from "../../components/name-tag";
 import { Handle } from "../../components/verified-badge";
-import { ensApp } from "../../components/ui/brand";
+import { capLabels, ensApp, modelLabel } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { Badge } from "../../components/ui/badge";
 import { EmptyState } from "../../components/ui/empty-state";
@@ -18,6 +18,8 @@ interface AgentCard {
   id: string;
   name: string;
   ensName: string | null;
+  model: string | null;
+  capabilities: string[];
   stakedUsdc: string | null;
   agentbookRegistered: boolean;
   priceUsdc: string;
@@ -39,6 +41,8 @@ export default function AgentsPage() {
             id: a.id,
             name: a.name,
             ensName: a.ensName,
+            model: a.model,
+            capabilities: a.capabilities ?? [],
             stakedUsdc: a.stakedUsdc,
             agentbookRegistered: a.agentbookRegistered,
             priceUsdc: a.priceUsdc,
@@ -92,10 +96,25 @@ export default function AgentsPage() {
                   {a.ensName && (
                     <NameTag name={a.ensName} state="minted" href={ensApp(a.ensName)} />
                   )}
+                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                    {modelLabel(a.model) && (
+                      <span className="bg-yellow border-[1.5px] border-ink rounded-full px-2 py-0.5 text-tiny font-extrabold">
+                        {modelLabel(a.model)}
+                      </span>
+                    )}
+                    {capLabels(a.capabilities).slice(0, 3).map((c) => (
+                      <span
+                        key={c}
+                        className="bg-cream border-[1.5px] border-ink rounded-full px-2 py-0.5 text-tiny font-bold text-muted"
+                      >
+                        {c}
+                      </span>
+                    ))}
+                  </div>
                   <div className="text-small font-semibold text-muted">
                     {a.buildsCount.toLocaleString()} jams built
                     {a.stakedUsdc && (
-                      <span className="text-green"> · staked {a.stakedUsdc} USDC 🌱</span>
+                      <span className="text-green"> · staked {a.stakedUsdc} USDC · slashable 🌱</span>
                     )}
                     {a.agentbookRegistered && <span className="text-blue"> · human-backed ✓</span>}
                   </div>

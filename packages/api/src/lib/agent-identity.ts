@@ -15,6 +15,14 @@ export interface AgentIdentityInput {
   ownerWallet?: string;
   /** The agent's payout wallet the ENS name + 8004 record resolve to. */
   walletAddress: string;
+  /** What's ALREADY provisioned (a re-provision / backfill). Each present field
+   *  makes provision skip that on-chain write — so `refreshIdentity` only fills the
+   *  gaps (e.g. mint the missing ERC-8004 id) and never double-mints ENS/8004/stake. */
+  current?: {
+    ensName?: string | null;
+    erc8004Id?: string | null;
+    stakedUsdc?: string | null;
+  };
 }
 
 export interface AgentIdentityResult {
