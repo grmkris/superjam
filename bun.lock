@@ -147,6 +147,12 @@
         "@types/bun": "^1.3.14",
       },
     },
+    "packages/contracts": {
+      "name": "@superjam/contracts",
+      "devDependencies": {
+        "@types/bun": "^1.3.14",
+      },
+    },
     "packages/db": {
       "name": "@superjam/db",
       "dependencies": {
@@ -176,6 +182,7 @@
     "packages/onchain": {
       "name": "@superjam/onchain",
       "dependencies": {
+        "@superjam/contracts": "workspace:*",
         "@superjam/shared": "workspace:*",
         "viem": "catalog:",
         "zod": "catalog:",
@@ -731,6 +738,8 @@
     "@superjam/app-template": ["@superjam/app-template@workspace:packages/app-template"],
 
     "@superjam/builder": ["@superjam/builder@workspace:packages/builder"],
+
+    "@superjam/contracts": ["@superjam/contracts@workspace:packages/contracts"],
 
     "@superjam/db": ["@superjam/db@workspace:packages/db"],
 

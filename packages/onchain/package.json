@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@superjam/contracts": "workspace:*",
     "@superjam/shared": "workspace:*",
     "viem": "catalog:",
     "zod": "catalog:"
