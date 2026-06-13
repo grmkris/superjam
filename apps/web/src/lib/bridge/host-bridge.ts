@@ -26,6 +26,10 @@ export interface AppRegistration {
   context: AppContext;
   /** the iframe's contentWindow — replies are addressed here, never "*"-broadcast wrong. */
   window: Window;
+  /** the app's registered origin (app.entryOrigin). When set, messages whose
+   *  e.origin differs are ignored — defense-in-depth against a framed app
+   *  NAVIGATING to a different origin while keeping the same contentWindow. */
+  expectedOrigin?: string;
 }
 
 // Host-provided implementations. `call` dispatches a server-bridged method to
@@ -200,6 +204,17 @@ export const createHostBridge = (handlers: BridgeHandlers): HostBridge => {
     const reg = e.source ? registry.get(e.source as Window) : undefined;
     if (!reg) {
       return; // unregistered source — ignore (defense in depth)
+    }
+    // Origin-pin: if the app navigated away from its registered origin (same
+    // Window, different origin), stop trusting it as this app. "null" = an
+    // opaque-origin frame, which can't be pinned — fall back to the source map.
+    if (
+      reg.expectedOrigin &&
+      e.origin &&
+      e.origin !== "null" &&
+      e.origin !== reg.expectedOrigin
+    ) {
+      return;
     }
     const parsed = TJRequestSchema.safeParse(e.data);
     if (!parsed.success) {

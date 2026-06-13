@@ -104,6 +104,7 @@ export function AppFrame({
           capabilities: app.capabilities,
           context: ctx,
           window: win,
+          expectedOrigin: app.entryOrigin ?? undefined,
         });
       }
     };
