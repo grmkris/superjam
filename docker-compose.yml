@@ -1,0 +1,56 @@
+# Local dev infra for SuperJam (§4/§5). Ports live in the 47xx block.
+#   postgres  -> 47432   (DATABASE_URL=postgres://superjam:superjam@localhost:47432/superjam)
+#   minio     -> 47900 (S3 API) / 47901 (console)
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: superjam
+      POSTGRES_PASSWORD: superjam
+      POSTGRES_DB: superjam
+    ports:
+      - "47432:5432"
+    volumes:
+      - superjam_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superjam"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: superjam
+      MINIO_ROOT_PASSWORD: superjam-secret
+    ports:
+      - "47900:9000"
+      - "47901:9001"
+    volumes:
+      - superjam_minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Creates the 'superjam' bucket on startup so S3_BUCKET resolves locally.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until (mc alias set local http://minio:9000 superjam superjam-secret) do sleep 1; done;
+      mc mb --ignore-existing local/superjam;
+      mc anonymous set download local/superjam;
+      exit 0;
+      "
+
+volumes:
+  superjam_pg:
+  superjam_minio:

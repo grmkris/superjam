@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Space+Grotesk:wght@400;500;700&family=Baloo+2:wght@500;600;700;800&family=Chakra+Petch:wght@400;500;600;700&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #E9E9EE; -webkit-font-smoothing: antialiased; }
+  </style>
+</helmet>
+
+<div style="font-family: 'Space Grotesk', sans-serif; color: #17181D; padding: 56px 48px 96px; display: flex; flex-direction: column; gap: 72px;">
+
+  <header style="display: flex; flex-direction: column; gap: 8px; max-width: 880px;">
+    <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #76778A;">superjam · brand &amp; UI exploration</div>
+    <h1 style="margin: 0; font-size: 40px; font-weight: 700; letter-spacing: -0.02em;">Three directions, mobile-first</h1>
+    <p style="margin: 0; font-size: 16px; color: #55566A; line-height: 1.5; text-wrap: pretty;">Same product — describe a mini app, an agent builds it, friends play it — pushed through three different arcade personalities. Each shows the build wizard, the agent at work, the gallery, and the USDC confirm sheet over a running mini app.</p>
+  </header>
+
+  <!-- ════════════ DIRECTION 1 · NIGHT ARCADE ════════════ -->
+  <section data-screen-label="Direction 1 — Night Arcade" style="display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 6px; max-width: 880px;">
+      <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #76778A;">Direction 1</div>
+      <h2 style="margin: 0; font-size: 28px; font-weight: 700;">Night Arcade</h2>
+      <p style="margin: 0; font-size: 15px; color: #55566A; line-height: 1.5; text-wrap: pretty;">The evolution path: keeps the dark + mint DNA of the current build but turns it into an identity — neon glow, coin-op copywriting, electric magenta and coin-yellow as supporting players.</p>
+    </div>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: stretch;">
+      <div style="background: #0A0C13; border-radius: 20px; padding: 28px; display: flex; align-items: center; gap: 18px; min-width: 300px;">
+        <div style="width: 64px; height: 64px; border-radius: 18px; background: #5CF2B4; display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: 0 0 32px rgba(92,242,180,0.45);">⚡</div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div style="font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 26px; color: #EDF0F7; letter-spacing: -0.01em;">superjam</div>
+          <div style="font-size: 13px; color: #8B93A7;">insert idea · get app</div>
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 22px 28px; display: flex; flex-direction: column; gap: 12px; justify-content: center;">
+        <div style="display: flex; gap: 10px;">
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #0A0C13;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #151926;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #5CF2B4;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #FF5CA8;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #FFD23F;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #EDF0F7; border: 1px solid #D8D8E0;"></div>
+        </div>
+        <div style="font-size: 12px; color: #76778A; letter-spacing: 0.04em;">#0A0C13 · #151926 · #5CF2B4 · #FF5CA8 · #FFD23F · #EDF0F7</div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 22px 28px; display: flex; flex-direction: column; gap: 6px; justify-content: center; flex: 1; min-width: 260px;">
+        <div style="font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 22px;">Unbounded</div>
+        <div style="font-family: 'Space Grotesk', sans-serif; font-size: 15px; color: #55566A;">Space Grotesk — interface &amp; body text</div>
+      </div>
+    </div>
+
+    <div id="d1-phones" style="display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start;">
+
+      <!-- D1 · Phone 1 · Build wizard -->
+      <div data-screen-label="D1 Build wizard" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #0A0C13; font-family: 'Space Grotesk', sans-serif; color: #EDF0F7;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 18px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 9px; background: #5CF2B4; display: flex; align-items: center; justify-content: center; font-size: 17px; box-shadow: 0 0 14px rgba(92,242,180,0.5);">⚡</div>
+                <div style="font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 16px;">superjam</div>
+                <div style="margin-left: auto; background: #151926; border: 1px solid #252B3D; border-radius: 999px; padding: 7px 14px; font-size: 13px; color: #8B93A7;">playing as <span style="color: #5CF2B4; font-weight: 700;">@kris</span></div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+                <div style="font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 24px; line-height: 1.2;">What are we<br>making tonight?</div>
+                <div style="font-size: 14px; color: #8B93A7;">Describe it. An agent builds it. ~60 seconds.</div>
+              </div>
+              <div style="background: #151926; border: 1px solid #252B3D; border-radius: 16px; padding: 16px; font-size: 15px; line-height: 1.5; color: #EDF0F7;">a tip jar where people leave a message and it shows a leaderboard of top tippers<span style="display: inline-block; width: 2px; height: 16px; background: #5CF2B4; vertical-align: -2px; margin-left: 2px;"></span></div>
+              <div style="background: #5CF2B4; color: #04231A; border-radius: 14px; height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 0 24px rgba(92,242,180,0.35);">Refine it →</div>
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 6px;">
+                <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8B93A7;">A few questions</div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="font-size: 14px; color: #EDF0F7;">Who can leave a tip?</div>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <div style="background: #5CF2B4; color: #04231A; border: 1px solid #5CF2B4; border-radius: 999px; padding: 10px 16px; font-size: 13px; font-weight: 700;">Anyone</div>
+                    <div style="background: #151926; border: 1px solid #252B3D; border-radius: 999px; padding: 10px 16px; font-size: 13px; color: #EDF0F7;">Friends only</div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="font-size: 14px; color: #EDF0F7;">Leaderboard resets…</div>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <div style="background: #151926; border: 1px solid #252B3D; border-radius: 999px; padding: 10px 16px; font-size: 13px; color: #EDF0F7;">Weekly</div>
+                    <div style="background: #151926; border: 1px solid #252B3D; border-radius: 999px; padding: 10px 16px; font-size: 13px; color: #EDF0F7;">Never</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; border-top: 1px solid #252B3D; background: rgba(13,16,25,0.96); padding: 10px 8px 30px;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px;">⚡</div><div style="font-size: 11px; font-weight: 700; color: #5CF2B4;">Build</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.55;">🕹️</div><div style="font-size: 11px; color: #8B93A7;">Apps</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.55;">👥</div><div style="font-size: 11px; color: #8B93A7;">Friends</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; position: relative;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.55;">✉️</div><div style="font-size: 11px; color: #8B93A7;">Inbox</div><div style="position: absolute; top: 2px; right: 26%; background: #FF5CA8; color: #fff; border-radius: 999px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;">2</div></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Build wizard — idea → questions</div>
+      </div>
+
+      <!-- D1 · Phone 2 · Agent at work -->
+      <div data-screen-label="D1 Agent at work" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #0A0C13; font-family: 'Space Grotesk', sans-serif; color: #EDF0F7;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 16px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 9px; background: #5CF2B4; display: flex; align-items: center; justify-content: center; font-size: 17px; box-shadow: 0 0 14px rgba(92,242,180,0.5);">⚡</div>
+                <div style="font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 16px;">superjam</div>
+                <div style="margin-left: auto; background: #151926; border: 1px solid #252B3D; border-radius: 999px; padding: 7px 14px; font-size: 13px; color: #FFD23F; font-weight: 700;">● building</div>
+              </div>
+              <div style="background: #151926; border: 1px solid #252B3D; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 48px; height: 48px; border-radius: 13px; background: #0A0C13; border: 1px solid #252B3D; display: flex; align-items: center; justify-content: center; font-size: 26px;">🫙</div>
+                  <div style="display: flex; flex-direction: column; gap: 1px;">
+                    <div style="font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 17px;">Tip Jar Plus</div>
+                    <div style="font-size: 13px; color: #8B93A7;">Tips with messages + a top-tipper board</div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: #EDF0F7;">
+                  <div style="display: flex; gap: 8px;"><span style="color: #5CF2B4;">✓</span><span>Leave a USDC tip with a message</span></div>
+                  <div style="display: flex; gap: 8px;"><span style="color: #5CF2B4;">✓</span><span>Weekly leaderboard of top tippers</span></div>
+                  <div style="display: flex; gap: 8px;"><span style="color: #5CF2B4;">✓</span><span>Notify the owner on every tip</span></div>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: baseline; gap: 8px;">
+                  <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8B93A7;">Agent at work</div>
+                  <div style="margin-left: auto; font-size: 12px; color: #FFD23F; font-weight: 700;">generating · 0:12</div>
+                </div>
+                <div style="height: 6px; border-radius: 999px; background: #151926; overflow: hidden;"><div style="width: 58%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #5CF2B4, #FFD23F); box-shadow: 0 0 12px rgba(92,242,180,0.6);"></div></div>
+                <div style="background: #060810; border: 1px solid #252B3D; border-radius: 14px; padding: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.8; display: flex; flex-direction: column;">
+                  <div style="color: #5CF2B4;">▸ scaffold app from template</div>
+                  <div style="color: #5CF2B4;">▸ write src/App.jsx</div>
+                  <div style="color: #8B93A7;">· wiring sdk.wallet.sendTransaction()</div>
+                  <div style="color: #5CF2B4;">▸ write src/Leaderboard.jsx</div>
+                  <div style="color: #8B93A7;">· hooking sdk.leaderboard.top(10)</div>
+                  <div style="color: #5CF2B4;">▸ bundle · esbuild</div>
+                  <div style="color: #EDF0F7;">▮</div>
+                </div>
+                <div style="font-size: 12.5px; color: #8B93A7; text-align: center;">apps usually land in <span style="color: #5CF2B4; font-weight: 700;">under a minute</span> — hang tight</div>
+              </div>
+            </div>
+            <div style="display: flex; border-top: 1px solid #252B3D; background: rgba(13,16,25,0.96); padding: 10px 8px 30px;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px;">⚡</div><div style="font-size: 11px; font-weight: 700; color: #5CF2B4;">Build</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.55;">🕹️</div><div style="font-size: 11px; color: #8B93A7;">Apps</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.55;">👥</div><div style="font-size: 11px; color: #8B93A7;">Friends</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; position: relative;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.55;">✉️</div><div style="font-size: 11px; color: #8B93A7;">Inbox</div><div style="position: absolute; top: 2px; right: 26%; background: #FF5CA8; color: #fff; border-radius: 999px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;">2</div></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Agent at work — spec + live build feed</div>
+      </div>
+
+      <!-- D1 · Phone 3 · Apps gallery -->
+      <div data-screen-label="D1 Apps gallery" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #0A0C13; font-family: 'Space Grotesk', sans-serif; color: #EDF0F7;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 16px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 24px;">The arcade</div>
+                <div style="margin-left: auto; background: #151926; border: 1px solid #252B3D; border-radius: 999px; padding: 7px 14px; font-size: 13px; color: #8B93A7;"><span style="color: #5CF2B4; font-weight: 700;">@kris</span></div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <div style="background: #5CF2B4; color: #04231A; border-radius: 999px; padding: 9px 16px; font-size: 13px; font-weight: 700;">All</div>
+                <div style="background: #151926; border: 1px solid #252B3D; border-radius: 999px; padding: 9px 16px; font-size: 13px; color: #8B93A7;">Mine</div>
+                <div style="background: #151926; border: 1px solid #252B3D; border-radius: 999px; padding: 9px 16px; font-size: 13px; color: #8B93A7;">Friends'</div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div style="background: #151926; border: 1px solid #5CF2B4; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 0 20px rgba(92,242,180,0.18);">
+                  <div style="width: 52px; height: 52px; border-radius: 14px; background: #0A0C13; border: 1px solid #252B3D; display: flex; align-items: center; justify-content: center; font-size: 28px;">🫙</div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-weight: 700; font-size: 15px;">Tip Jar Plus</div>
+                    <div style="font-size: 12px; color: #8B93A7; line-height: 1.4;">by @kris · built in 42s</div>
+                  </div>
+                  <div style="background: #5CF2B4; color: #04231A; border-radius: 10px; padding: 9px 0; text-align: center; font-size: 13px; font-weight: 700;">Play</div>
+                </div>
+                <div style="background: #151926; border: 1px solid #252B3D; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+                  <div style="width: 52px; height: 52px; border-radius: 14px; background: #0A0C13; border: 1px solid #252B3D; display: flex; align-items: center; justify-content: center; font-size: 28px;">🎯</div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-weight: 700; font-size: 15px;">Trivia Night</div>
+                    <div style="font-size: 12px; color: #8B93A7; line-height: 1.4;">by @mira · built in 58s</div>
+                  </div>
+                  <div style="background: #0A0C13; border: 1px solid #252B3D; border-radius: 10px; padding: 9px 0; text-align: center; font-size: 13px; font-weight: 700; color: #5CF2B4;">Play</div>
+                </div>
+                <div style="background: #151926; border: 1px solid #252B3D; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+                  <div style="width: 52px; height: 52px; border-radius: 14px; background: #0A0C13; border: 1px solid #252B3D; display: flex; align-items: center; justify-content: center; font-size: 28px;">🎨</div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-weight: 700; font-size: 15px;">Doodle Duel</div>
+                    <div style="font-size: 12px; color: #8B93A7; line-height: 1.4;">by @theo · built in 71s</div>
+                  </div>
+                  <div style="background: #0A0C13; border: 1px solid #252B3D; border-radius: 10px; padding: 9px 0; text-align: center; font-size: 13px; font-weight: 700; color: #5CF2B4;">Play</div>
+                </div>
+                <div style="background: #151926; border: 1px solid #252B3D; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+                  <div style="width: 52px; height: 52px; border-radius: 14px; background: #0A0C13; border: 1px solid #252B3D; display: flex; align-items: center; justify-content: center; font-size: 28px;">🧾</div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-weight: 700; font-size: 15px;">Split It</div>
+                    <div style="font-size: 12px; color: #8B93A7; line-height: 1.4;">by @kris · built in 39s</div>
+                  </div>
+                  <div style="background: #0A0C13; border: 1px solid #252B3D; border-radius: 10px; padding: 9px 0; text-align: center; font-size: 13px; font-weight: 700; color: #5CF2B4;">Play</div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; border-top: 1px solid #252B3D; background: rgba(13,16,25,0.96); padding: 10px 8px 30px;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.55;">⚡</div><div style="font-size: 11px; color: #8B93A7;">Build</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px;">🕹️</div><div style="font-size: 11px; font-weight: 700; color: #5CF2B4;">Apps</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.55;">👥</div><div style="font-size: 11px; color: #8B93A7;">Friends</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; position: relative;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.55;">✉️</div><div style="font-size: 11px; color: #8B93A7;">Inbox</div><div style="position: absolute; top: 2px; right: 26%; background: #FF5CA8; color: #fff; border-radius: 999px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;">2</div></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Apps gallery — everyone's machines</div>
+      </div>
+
+      <!-- D1 · Phone 4 · Running app + confirm sheet -->
+      <div data-screen-label="D1 Confirm sheet" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #0A0C13; font-family: 'Space Grotesk', sans-serif; color: #EDF0F7; position: relative;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 14px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-size: 15px; color: #8B93A7;">‹ The arcade</div>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; background: #151926; border: 1px solid #252B3D; border-radius: 999px; padding: 7px 14px; font-size: 13px;"><span style="font-size: 15px;">🫙</span><span style="font-weight: 700;">Tip Jar Plus</span></div>
+              </div>
+              <div style="flex: 1; background: #10131D; border: 1px solid #252B3D; border-radius: 20px; padding: 24px 20px; display: flex; flex-direction: column; gap: 16px;">
+                <div style="text-align: center; display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-size: 40px;">🫙</div>
+                  <div style="font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 19px;">Kris's Tip Jar</div>
+                  <div style="font-size: 13px; color: #8B93A7;">Drop a tip, leave your mark</div>
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: center;">
+                  <div style="background: #151926; border: 1px solid #252B3D; border-radius: 12px; padding: 12px 18px; font-weight: 700; font-size: 15px;">1</div>
+                  <div style="background: #5CF2B4; color: #04231A; border-radius: 12px; padding: 12px 18px; font-weight: 700; font-size: 15px; box-shadow: 0 0 16px rgba(92,242,180,0.4);">5</div>
+                  <div style="background: #151926; border: 1px solid #252B3D; border-radius: 12px; padding: 12px 18px; font-weight: 700; font-size: 15px;">10</div>
+                  <div style="background: #151926; border: 1px solid #252B3D; border-radius: 12px; padding: 12px 18px; font-weight: 700; font-size: 15px;">25</div>
+                </div>
+                <div style="background: #0A0C13; border: 1px solid #252B3D; border-radius: 12px; padding: 12px 14px; font-size: 14px; color: #EDF0F7;">“for the karaoke night 🎤”</div>
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8B93A7;">Top tippers · this week</div>
+                  <div style="display: flex; align-items: center; gap: 10px; font-size: 14px;"><span style="color: #FFD23F; font-weight: 700;">1</span><span style="font-weight: 700;">@mira</span><span style="margin-left: auto; color: #5CF2B4; font-weight: 700;">32 USDC</span></div>
+                  <div style="display: flex; align-items: center; gap: 10px; font-size: 14px;"><span style="color: #8B93A7; font-weight: 700;">2</span><span style="font-weight: 700;">@theo</span><span style="margin-left: auto; color: #5CF2B4; font-weight: 700;">18 USDC</span></div>
+                </div>
+              </div>
+              <div style="height: 12px;"></div>
+            </div>
+            <div style="position: absolute; inset: 0; background: rgba(4,6,10,0.62); display: flex; align-items: flex-end; z-index: 30;">
+              <div style="width: 100%; background: #151926; border-top: 1px solid #252B3D; border-radius: 24px 24px 0 0; padding: 22px 22px 44px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="width: 40px; height: 4px; border-radius: 999px; background: #252B3D; align-self: center;"></div>
+                <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8B93A7;">Confirm payment</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 46px; height: 46px; border-radius: 13px; background: #0A0C13; border: 1px solid #252B3D; display: flex; align-items: center; justify-content: center; font-size: 24px;">🫙</div>
+                  <div style="display: flex; flex-direction: column; gap: 1px;">
+                    <div style="font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 20px;">5 USDC <span style="font-size: 13px; color: #8B93A7; font-family: 'Space Grotesk', sans-serif; font-weight: 500;">→ @kris</span></div>
+                    <div style="font-size: 13px; color: #8B93A7;">“for the karaoke night 🎤”</div>
+                  </div>
+                </div>
+                <div style="background: #0A0C13; border: 1px solid #252B3D; border-radius: 10px; padding: 10px 12px; font-size: 12.5px; color: #8B93A7; line-height: 1.5;">Requested by <span style="color: #EDF0F7; font-weight: 700;">Tip Jar Plus</span> — apps never touch your wallet; you approve every send.</div>
+                <div style="display: flex; gap: 10px;">
+                  <div style="flex: 1; background: #5CF2B4; color: #04231A; border-radius: 14px; height: 52px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; box-shadow: 0 0 24px rgba(92,242,180,0.35);">Approve</div>
+                  <div style="flex: 1; background: #0A0C13; border: 1px solid #252B3D; border-radius: 14px; height: 52px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: #EDF0F7;">Reject</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Mini app running + USDC confirm sheet</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════ DIRECTION 2 · TOYBOX ════════════ -->
+  <section data-screen-label="Direction 2 — Toybox" style="display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 6px; max-width: 880px;">
+      <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #76778A;">Direction 2</div>
+      <h2 style="margin: 0; font-size: 28px; font-weight: 700;">Toybox</h2>
+      <p style="margin: 0; font-size: 15px; color: #55566A; line-height: 1.5; text-wrap: pretty;">The full reinvention: mini apps as toys in a bright toybox. Cream paper, thick ink outlines, hard offset shadows, candy primaries, chunky rounded type. Reads instantly as playful on a projector — the boldest demo presence of the three.</p>
+    </div>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: stretch;">
+      <div style="background: #FFF4E3; border: 2.5px solid #221A33; border-radius: 20px; padding: 28px; display: flex; align-items: center; gap: 18px; min-width: 300px; box-shadow: 0 5px 0 #221A33;">
+        <div style="width: 64px; height: 64px; border-radius: 999px; background: #FFC940; border: 2.5px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 32px; transform: rotate(-6deg); box-shadow: 0 4px 0 #221A33;">⚡</div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div style="font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 30px; color: #221A33; letter-spacing: -0.01em;">superjam</div>
+          <div style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 600; color: #FF4D6D;">make a toy. share the toy.</div>
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 22px 28px; display: flex; flex-direction: column; gap: 12px; justify-content: center;">
+        <div style="display: flex; gap: 10px;">
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #FFF4E3; border: 1px solid #D8D8E0;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #221A33;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #FF4D6D;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #4D7CFF;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #FFC940;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #2FD180;"></div>
+        </div>
+        <div style="font-size: 12px; color: #76778A; letter-spacing: 0.04em;">#FFF4E3 · #221A33 · #FF4D6D · #4D7CFF · #FFC940 · #2FD180</div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 22px 28px; display: flex; flex-direction: column; gap: 6px; justify-content: center; flex: 1; min-width: 260px;">
+        <div style="font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 24px;">Baloo 2</div>
+        <div style="font-family: 'Baloo 2', sans-serif; font-weight: 500; font-size: 15px; color: #55566A;">One chunky family, 500–800 — headlines to labels</div>
+      </div>
+    </div>
+
+    <div id="d2-phones" style="display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start;">
+
+      <!-- D2 · Phone 1 · Build wizard -->
+      <div data-screen-label="D2 Build wizard" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #FFF4E3; font-family: 'Baloo 2', sans-serif; color: #221A33;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 16px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: 999px; background: #FFC940; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 16px; transform: rotate(-6deg);">⚡</div>
+                <div style="font-weight: 800; font-size: 19px;">superjam</div>
+                <div style="margin-left: auto; background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600;">@kris</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
+                <div style="font-weight: 800; font-size: 28px; line-height: 1.15;">Dream up<br>a little app! <span style="display: inline-block; transform: rotate(8deg);">🧸</span></div>
+                <div style="font-size: 14.5px; font-weight: 500; color: #6B6478;">Say it in a sentence — the robot does the rest.</div>
+              </div>
+              <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 18px; padding: 16px; font-size: 15px; font-weight: 500; line-height: 1.5; box-shadow: 0 3px 0 #221A33;">a tip jar where people leave a message and it shows a leaderboard of top tippers<span style="display: inline-block; width: 2px; height: 16px; background: #FF4D6D; vertical-align: -2px; margin-left: 2px;"></span></div>
+              <div style="background: #FF4D6D; color: #FFFFFF; border: 2px solid #221A33; border-radius: 16px; height: 54px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; font-size: 17px; box-shadow: 0 4px 0 #221A33;">Let's go! →</div>
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
+                <div style="font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6478;">Quick questions</div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="font-size: 15px; font-weight: 600;">Who can leave a tip?</div>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <div style="background: #FFC940; border: 2px solid #221A33; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 700; box-shadow: 0 2px 0 #221A33;">Anyone</div>
+                    <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 600;">Friends only</div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="font-size: 15px; font-weight: 600;">Leaderboard resets…</div>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 600;">Weekly</div>
+                    <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 600;">Never</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; border-top: 2px solid #221A33; background: #FFFFFF; padding: 10px 8px 30px;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px;">⚡</div><div style="font-size: 11.5px; font-weight: 800; color: #FF4D6D;">Build</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.5;">🧸</div><div style="font-size: 11.5px; font-weight: 600; color: #6B6478;">Toybox</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.5;">👥</div><div style="font-size: 11.5px; font-weight: 600; color: #6B6478;">Friends</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; position: relative;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.5;">✉️</div><div style="font-size: 11.5px; font-weight: 600; color: #6B6478;">Inbox</div><div style="position: absolute; top: 2px; right: 26%; background: #FF4D6D; border: 1.5px solid #221A33; color: #fff; border-radius: 999px; min-width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">2</div></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Build wizard — idea → questions</div>
+      </div>
+
+      <!-- D2 · Phone 2 · Agent at work -->
+      <div data-screen-label="D2 Agent at work" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #FFF4E3; font-family: 'Baloo 2', sans-serif; color: #221A33;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 14px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: 999px; background: #FFC940; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 16px; transform: rotate(-6deg);">⚡</div>
+                <div style="font-weight: 800; font-size: 19px;">superjam</div>
+                <div style="margin-left: auto; background: #FFC940; border: 2px solid #221A33; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 800;">🔨 building…</div>
+              </div>
+              <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 0 #221A33; transform: rotate(-0.6deg);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 50px; height: 50px; border-radius: 14px; background: #FFF4E3; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 26px;">🫙</div>
+                  <div style="display: flex; flex-direction: column;">
+                    <div style="font-weight: 800; font-size: 19px;">Tip Jar Plus</div>
+                    <div style="font-size: 13.5px; font-weight: 500; color: #6B6478;">Tips with messages + a top-tipper board</div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600;">
+                  <div style="display: flex; gap: 8px;"><span style="color: #2FD180;">✔</span><span>Leave a USDC tip with a message</span></div>
+                  <div style="display: flex; gap: 8px;"><span style="color: #2FD180;">✔</span><span>Weekly leaderboard of top tippers</span></div>
+                  <div style="display: flex; gap: 8px;"><span style="color: #2FD180;">✔</span><span>Notify the owner on every tip</span></div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="flex: 1; height: 14px; border-radius: 999px; background: #FFFFFF; border: 2px solid #221A33; overflow: hidden;"><div style="width: 58%; height: 100%; background: repeating-linear-gradient(45deg, #FFC940 0 10px, #FF4D6D 10px 20px);"></div></div>
+                <div style="font-size: 13px; font-weight: 800;">0:12</div>
+              </div>
+              <div style="background: #221A33; border-radius: 16px; padding: 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.85; color: #FFF4E3; display: flex; flex-direction: column; box-shadow: 0 4px 0 #00000022;" data-comment-anchor="b2a967c8da-div">
+                <div style="color: #FFC940;">▸ scaffold app from template</div>
+                <div style="color: #FFC940;">▸ write src/App.jsx</div>
+                <div style="color: #B7AFC6;">· wiring sdk.wallet.sendTransaction()</div>
+                <div style="color: #FFC940;">▸ write src/Leaderboard.jsx</div>
+                <div style="color: #B7AFC6;">· hooking sdk.leaderboard.top(10)</div>
+                <div style="color: #FFC940;">▸ bundle · esbuild</div>
+                <div>▮</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 10px 16px; align-self: center;">
+                <span style="font-size: 18px;">🤖</span>
+                <span style="font-size: 14px; font-weight: 700;">The robot is hammering… ~40s left</span>
+              </div>
+            </div>
+            <div style="display: flex; border-top: 2px solid #221A33; background: #FFFFFF; padding: 10px 8px 30px;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px;">⚡</div><div style="font-size: 11.5px; font-weight: 800; color: #FF4D6D;">Build</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.5;">🧸</div><div style="font-size: 11.5px; font-weight: 600; color: #6B6478;">Toybox</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.5;">👥</div><div style="font-size: 11.5px; font-weight: 600; color: #6B6478;">Friends</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; position: relative;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.5;">✉️</div><div style="font-size: 11.5px; font-weight: 600; color: #6B6478;">Inbox</div><div style="position: absolute; top: 2px; right: 26%; background: #FF4D6D; border: 1.5px solid #221A33; color: #fff; border-radius: 999px; min-width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">2</div></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Agent at work — spec + live build feed</div>
+      </div>
+
+      <!-- D2 · Phone 3 · Apps gallery -->
+      <div data-screen-label="D2 Apps gallery" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #FFF4E3; font-family: 'Baloo 2', sans-serif; color: #221A33;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 14px;" data-comment-anchor="e24aa1164b-div">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-weight: 800; font-size: 27px;">The toybox <span style="display: inline-block; transform: rotate(8deg);">🧸</span></div>
+                <div style="margin-left: auto; background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600;">@kris</div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <div style="background: #221A33; color: #FFF4E3; border: 2px solid #221A33; border-radius: 999px; padding: 8px 16px; font-size: 13.5px; font-weight: 700;">All</div>
+                <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 8px 16px; font-size: 13.5px; font-weight: 600;">Mine</div>
+                <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 8px 16px; font-size: 13.5px; font-weight: 600;">Friends'</div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding-top: 4px;">
+                <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 0 #221A33; transform: rotate(-1.2deg);">
+                  <div style="width: 54px; height: 54px; border-radius: 16px; background: #FFC940; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 28px;">🫙</div>
+                  <div style="display: flex; flex-direction: column;">
+                    <div style="font-weight: 800; font-size: 16px;">Tip Jar Plus</div>
+                    <div style="font-size: 12.5px; font-weight: 500; color: #6B6478;">by @kris · 42s</div>
+                  </div>
+                  <div style="background: #FF4D6D; color: #fff; border: 2px solid #221A33; border-radius: 999px; padding: 8px 0; text-align: center; font-size: 14px; font-weight: 800; box-shadow: 0 2px 0 #221A33;">Play</div>
+                </div>
+                <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 0 #221A33; transform: rotate(1deg);">
+                  <div style="width: 54px; height: 54px; border-radius: 16px; background: #4D7CFF; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 28px;">🎯</div>
+                  <div style="display: flex; flex-direction: column;">
+                    <div style="font-weight: 800; font-size: 16px;">Trivia Night</div>
+                    <div style="font-size: 12.5px; font-weight: 500; color: #6B6478;">by @mira · 58s</div>
+                  </div>
+                  <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 8px 0; text-align: center; font-size: 14px; font-weight: 800;">Play</div>
+                </div>
+                <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 0 #221A33; transform: rotate(0.8deg);">
+                  <div style="width: 54px; height: 54px; border-radius: 16px; background: #2FD180; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 28px;">🎨</div>
+                  <div style="display: flex; flex-direction: column;">
+                    <div style="font-weight: 800; font-size: 16px;">Doodle Duel</div>
+                    <div style="font-size: 12.5px; font-weight: 500; color: #6B6478;">by @theo · 71s</div>
+                  </div>
+                  <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 8px 0; text-align: center; font-size: 14px; font-weight: 800;">Play</div>
+                </div>
+                <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 0 #221A33; transform: rotate(-0.8deg);">
+                  <div style="width: 54px; height: 54px; border-radius: 16px; background: #FF4D6D; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 28px;">🧾</div>
+                  <div style="display: flex; flex-direction: column;">
+                    <div style="font-weight: 800; font-size: 16px;">Split It</div>
+                    <div style="font-size: 12.5px; font-weight: 500; color: #6B6478;">by @kris · 39s</div>
+                  </div>
+                  <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 8px 0; text-align: center; font-size: 14px; font-weight: 800;">Play</div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; border-top: 2px solid #221A33; background: #FFFFFF; padding: 10px 8px 30px;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.5;">⚡</div><div style="font-size: 11.5px; font-weight: 600; color: #6B6478;">Build</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px;">🧸</div><div style="font-size: 11.5px; font-weight: 800; color: #FF4D6D;">Toybox</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.5;">👥</div><div style="font-size: 11.5px; font-weight: 600; color: #6B6478;">Friends</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; position: relative;"><div style="font-size: 20px; filter: grayscale(1); opacity: 0.5;">✉️</div><div style="font-size: 11.5px; font-weight: 600; color: #6B6478;">Inbox</div><div style="position: absolute; top: 2px; right: 26%; background: #FF4D6D; border: 1.5px solid #221A33; color: #fff; border-radius: 999px; min-width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800;">2</div></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Apps gallery — toys on a shelf</div>
+      </div>
+
+      <!-- D2 · Phone 4 · Running app + confirm sheet -->
+      <div data-screen-label="D2 Confirm sheet" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #FFF4E3; font-family: 'Baloo 2', sans-serif; color: #221A33; position: relative;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-size: 15px; font-weight: 700; color: #6B6478;">‹ Toybox</div>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; background: #FFFFFF; border: 2px solid #221A33; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700;"><span>🫙</span><span>Tip Jar Plus</span></div>
+              </div>
+              <div style="flex: 1; background: #FFFFFF; border: 2px solid #221A33; border-radius: 22px; padding: 24px 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 0 #221A33;">
+                <div style="text-align: center; display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-size: 42px;">🫙</div>
+                  <div style="font-weight: 800; font-size: 22px;">Kris's Tip Jar</div>
+                  <div style="font-size: 14px; font-weight: 500; color: #6B6478;">Drop a coin, leave your mark</div>
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: center;">
+                  <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 14px; padding: 12px 18px; font-weight: 800; font-size: 15px;">1</div>
+                  <div style="background: #FFC940; border: 2px solid #221A33; border-radius: 14px; padding: 12px 18px; font-weight: 800; font-size: 15px; box-shadow: 0 3px 0 #221A33;">5</div>
+                  <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 14px; padding: 12px 18px; font-weight: 800; font-size: 15px;">10</div>
+                  <div style="background: #FFFFFF; border: 2px solid #221A33; border-radius: 14px; padding: 12px 18px; font-weight: 800; font-size: 15px;">25</div>
+                </div>
+                <div style="background: #FFF4E3; border: 2px solid #221A33; border-radius: 14px; padding: 12px 14px; font-size: 14.5px; font-weight: 600;">“for the karaoke night 🎤”</div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6478;">Top tippers · this week</div>
+                  <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700;"><span style="width: 24px; height: 24px; border-radius: 999px; background: #FFC940; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 12px;">1</span><span>@mira</span><span style="margin-left: auto; color: #2FA56A;">32 USDC</span></div>
+                  <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700;"><span style="width: 24px; height: 24px; border-radius: 999px; background: #FFFFFF; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 12px;">2</span><span>@theo</span><span style="margin-left: auto; color: #2FA56A;">18 USDC</span></div>
+                </div>
+              </div>
+              <div style="height: 12px;"></div>
+            </div>
+            <div style="position: absolute; inset: 0; background: rgba(34,26,51,0.45); display: flex; align-items: flex-end; z-index: 30;">
+              <div style="width: 100%; background: #FFFFFF; border-top: 2.5px solid #221A33; border-radius: 26px 26px 0 0; padding: 22px 22px 44px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="width: 44px; height: 5px; border-radius: 999px; background: #221A33; opacity: 0.25; align-self: center;"></div>
+                <div style="font-size: 12.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6478;">Confirm payment</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 50px; height: 50px; border-radius: 14px; background: #FFC940; border: 2px solid #221A33; display: flex; align-items: center; justify-content: center; font-size: 26px;">🪙</div>
+                  <div style="display: flex; flex-direction: column;">
+                    <div style="font-weight: 800; font-size: 22px;">5 USDC <span style="font-size: 14px; font-weight: 600; color: #6B6478;">→ @kris</span></div>
+                    <div style="font-size: 13.5px; font-weight: 500; color: #6B6478;">“for the karaoke night 🎤”</div>
+                  </div>
+                </div>
+                <div style="background: #FFF4E3; border: 2px solid #221A33; border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 600; line-height: 1.5; color: #6B6478;">Asked for by <span style="color: #221A33; font-weight: 800;">Tip Jar Plus</span> — toys never touch your wallet; you approve every send.</div>
+                <div style="display: flex; gap: 10px;">
+                  <div style="flex: 1; background: #2FD180; color: #221A33; border: 2px solid #221A33; border-radius: 16px; height: 54px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; box-shadow: 0 4px 0 #221A33;">Approve</div>
+                  <div style="flex: 1; background: #FFFFFF; border: 2px solid #221A33; border-radius: 16px; height: 54px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px;">Nope</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Mini app running + USDC confirm sheet</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════ DIRECTION 3 · POCKET CONSOLE ════════════ -->
+  <section data-screen-label="Direction 3 — Pocket Console" style="display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 6px; max-width: 880px;">
+      <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #76778A;">Direction 3</div>
+      <h2 style="margin: 0; font-size: 28px; font-weight: 700;">Pocket Console</h2>
+      <p style="margin: 0; font-size: 15px; color: #55566A; line-height: 1.5; text-wrap: pretty;">The nostalgic one: your phone as a 90s handheld. Lavender plastic, console-button colors, pixel type for labels, and every mini app is a cartridge you slot in. The build feed becomes a loading screen — the most thematic story for "AI builds you a game".</p>
+    </div>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: stretch;">
+      <div style="background: #E6E4F0; border-radius: 20px; padding: 28px; display: flex; align-items: center; gap: 18px; min-width: 300px; box-shadow: inset 0 2px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC, 0 1px 3px rgba(42,38,64,0.18);">
+        <div style="width: 64px; height: 64px; border-radius: 16px; background: #2A2640; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 -3px 0 #16131F;"><span style="font-size: 30px;">⚡</span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 22px; color: #2A2640; letter-spacing: 0.02em;">SUPERJAM</div>
+          <div style="font-family: 'Chakra Petch', sans-serif; font-size: 13px; font-weight: 600; color: #5E51A8;">▸ PRESS START TO BUILD</div>
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 22px 28px; display: flex; flex-direction: column; gap: 12px; justify-content: center;">
+        <div style="display: flex; gap: 10px;">
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #E6E4F0; border: 1px solid #D8D8E0;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #2A2640;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #5E51A8;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #E0455A;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #3FA45B;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: #E8B73A;"></div>
+        </div>
+        <div style="font-size: 12px; color: #76778A; letter-spacing: 0.04em;">#E6E4F0 · #2A2640 · #5E51A8 · #E0455A · #3FA45B · #E8B73A</div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 22px 28px; display: flex; flex-direction: column; gap: 6px; justify-content: center; flex: 1; min-width: 260px;">
+        <div style="font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 19px;">SILKSCREEN</div>
+        <div style="font-family: 'Chakra Petch', sans-serif; font-size: 15px; color: #55566A;">Chakra Petch — interface &amp; body text</div>
+      </div>
+    </div>
+
+    <div id="d3-phones" style="display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start;">
+
+      <!-- D3 · Phone 1 · Build wizard -->
+      <div data-screen-label="D3 Build wizard" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #E6E4F0; font-family: 'Chakra Petch', sans-serif; color: #2A2640;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 16px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 10px; height: 10px; border-radius: 999px; background: #3FA45B; box-shadow: 0 0 8px rgba(63,164,91,0.8);"></div>
+                <div style="font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 16px; letter-spacing: 0.02em;">SUPERJAM</div>
+                <div style="margin-left: auto; background: #F5F4FA; border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 600; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -2px 0 #C9C5DC;">PLAYER 1 · <span style="color: #5E51A8; font-weight: 700;">@kris</span></div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
+                <div style="font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 21px; line-height: 1.35;">NEW GAME?</div>
+                <div style="font-size: 14px; font-weight: 500; color: #7A7590;">Type the cartridge you wish existed.</div>
+              </div>
+              <div style="background: #211D33; border-radius: 14px; padding: 16px; font-size: 14.5px; line-height: 1.6; color: #8FE3A0; font-family: 'Chakra Petch', sans-serif; box-shadow: inset 0 3px 8px rgba(0,0,0,0.5);">&gt; a tip jar where people leave a message and it shows a leaderboard of top tippers<span style="display: inline-block; width: 9px; height: 15px; background: #8FE3A0; vertical-align: -2px; margin-left: 3px;"></span></div>
+              <div style="background: #E0455A; color: #FFFFFF; border-radius: 14px; height: 54px; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 15px; box-shadow: inset 0 2px 0 #F07A89, inset 0 -4px 0 #A82B3C;">START ▸</div>
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
+                <div style="font-family: 'Silkscreen', monospace; font-size: 11px; color: #7A7590;">SELECT OPTIONS</div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="font-size: 14.5px; font-weight: 600;">Who can leave a tip?</div>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <div style="background: #5E51A8; color: #FFFFFF; border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 700; box-shadow: inset 0 -3px 0 #463C82;">▸ Anyone</div>
+                    <div style="background: #F5F4FA; border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 600; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC;">Friends only</div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="font-size: 14.5px; font-weight: 600;">Leaderboard resets…</div>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <div style="background: #F5F4FA; border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 600; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC;">Weekly</div>
+                    <div style="background: #F5F4FA; border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 600; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC;">Never</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; background: #DDDAEA; box-shadow: inset 0 2px 0 #FFFFFF; padding: 10px 8px 30px;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #E0455A; box-shadow: inset 0 2px 0 #F07A89, inset 0 -3px 0 #A82B3C; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px;">⚡</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #2A2640;">BUILD</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #F5F4FA; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC; display: flex; align-items: center; justify-content: center; font-size: 14px; filter: grayscale(1); opacity: 0.7;">🕹️</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #7A7590;">GAMES</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #F5F4FA; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC; display: flex; align-items: center; justify-content: center; font-size: 14px; filter: grayscale(1); opacity: 0.7;">👥</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #7A7590;">LINK</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center; position: relative;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #F5F4FA; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC; display: flex; align-items: center; justify-content: center; font-size: 14px; filter: grayscale(1); opacity: 0.7;">✉️</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #7A7590;">MAIL</div><div style="position: absolute; top: 0; right: 28%; background: #E8B73A; color: #2A2640; border-radius: 999px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;">2</div></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Build wizard — idea → questions</div>
+      </div>
+
+      <!-- D3 · Phone 2 · Agent at work -->
+      <div data-screen-label="D3 Agent at work" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #E6E4F0; font-family: 'Chakra Petch', sans-serif; color: #2A2640;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 14px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 10px; height: 10px; border-radius: 999px; background: #E8B73A; box-shadow: 0 0 8px rgba(232,183,58,0.9);"></div>
+                <div style="font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 16px;">SUPERJAM</div>
+                <div style="margin-left: auto; font-family: 'Silkscreen', monospace; font-size: 11px; color: #5E51A8;">BURNING CARTRIDGE…</div>
+              </div>
+              <div style="background: #F5F4FA; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: inset 0 2px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 54px; height: 60px; border-radius: 8px 8px 12px 12px; background: #5E51A8; box-shadow: inset 0 -4px 0 #463C82; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+                    <div style="width: 30px; height: 4px; border-radius: 2px; background: #463C82;"></div>
+                    <div style="font-size: 22px;">🫙</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 14px;">TIP JAR PLUS</div>
+                    <div style="font-size: 13px; font-weight: 500; color: #7A7590;">Tips with messages + top-tipper board</div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; font-weight: 600;">
+                  <div style="display: flex; gap: 8px;"><span style="color: #3FA45B;">■</span><span>Leave a USDC tip with a message</span></div>
+                  <div style="display: flex; gap: 8px;"><span style="color: #3FA45B;">■</span><span>Weekly leaderboard of top tippers</span></div>
+                  <div style="display: flex; gap: 8px;"><span style="color: #3FA45B;">■</span><span>Notify the owner on every tip</span></div>
+                </div>
+              </div>
+              <div style="background: #211D33; border-radius: 16px; padding: 18px 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: inset 0 3px 10px rgba(0,0,0,0.55);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="font-family: 'Silkscreen', monospace; font-size: 11px; color: #8FE3A0;">NOW LOADING</div>
+                  <div style="margin-left: auto; font-family: 'Silkscreen', monospace; font-size: 11px; color: #E8B73A;">0:12</div>
+                </div>
+                <div style="display: flex; gap: 4px;">
+                  <div style="flex: 1; height: 14px; background: #8FE3A0;"></div>
+                  <div style="flex: 1; height: 14px; background: #8FE3A0;"></div>
+                  <div style="flex: 1; height: 14px; background: #8FE3A0;"></div>
+                  <div style="flex: 1; height: 14px; background: #8FE3A0;"></div>
+                  <div style="flex: 1; height: 14px; background: #8FE3A0;"></div>
+                  <div style="flex: 1; height: 14px; background: #8FE3A0;"></div>
+                  <div style="flex: 1; height: 14px; background: #3A3454;"></div>
+                  <div style="flex: 1; height: 14px; background: #3A3454;"></div>
+                  <div style="flex: 1; height: 14px; background: #3A3454;"></div>
+                  <div style="flex: 1; height: 14px; background: #3A3454;"></div>
+                </div>
+                <div style="font-family: 'Chakra Petch', sans-serif; font-size: 12.5px; line-height: 1.85; color: #8FE3A0; display: flex; flex-direction: column;">
+                  <div>▸ scaffold app from template</div>
+                  <div>▸ write src/App.jsx</div>
+                  <div style="color: #6F6A8E;">· wiring sdk.wallet.sendTransaction()</div>
+                  <div>▸ write src/Leaderboard.jsx</div>
+                  <div style="color: #6F6A8E;">· hooking sdk.leaderboard.top(10)</div>
+                  <div>▸ bundle · esbuild <span style="display: inline-block; width: 8px; height: 13px; background: #8FE3A0; vertical-align: -2px;"></span></div>
+                </div>
+              </div>
+              <div style="font-family: 'Silkscreen', monospace; font-size: 10px; color: #7A7590; text-align: center;">TIP: CARTRIDGES BAKE IN UNDER 60 SECONDS</div>
+            </div>
+            <div style="display: flex; background: #DDDAEA; box-shadow: inset 0 2px 0 #FFFFFF; padding: 10px 8px 30px;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #E0455A; box-shadow: inset 0 2px 0 #F07A89, inset 0 -3px 0 #A82B3C; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px;">⚡</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #2A2640;">BUILD</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #F5F4FA; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC; display: flex; align-items: center; justify-content: center; font-size: 14px; filter: grayscale(1); opacity: 0.7;">🕹️</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #7A7590;">GAMES</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #F5F4FA; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC; display: flex; align-items: center; justify-content: center; font-size: 14px; filter: grayscale(1); opacity: 0.7;">👥</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #7A7590;">LINK</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center; position: relative;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #F5F4FA; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC; display: flex; align-items: center; justify-content: center; font-size: 14px; filter: grayscale(1); opacity: 0.7;">✉️</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #7A7590;">MAIL</div><div style="position: absolute; top: 0; right: 28%; background: #E8B73A; color: #2A2640; border-radius: 999px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;">2</div></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Agent at work — cartridge loading screen</div>
+      </div>
+
+      <!-- D3 · Phone 3 · Apps gallery -->
+      <div data-screen-label="D3 Apps gallery" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #E6E4F0; font-family: 'Chakra Petch', sans-serif; color: #2A2640;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 14px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 18px;">GAME SHELF</div>
+                <div style="margin-left: auto; background: #F5F4FA; border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 600; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -2px 0 #C9C5DC;"><span style="color: #5E51A8; font-weight: 700;">@kris</span></div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <div style="background: #2A2640; color: #E6E4F0; border-radius: 10px; padding: 9px 16px; font-family: 'Silkscreen', monospace; font-size: 10px; box-shadow: inset 0 -3px 0 #16131F;">ALL</div>
+                <div style="background: #F5F4FA; border-radius: 10px; padding: 9px 16px; font-family: 'Silkscreen', monospace; font-size: 10px; color: #7A7590; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC;">MINE</div>
+                <div style="background: #F5F4FA; border-radius: 10px; padding: 9px 16px; font-family: 'Silkscreen', monospace; font-size: 10px; color: #7A7590; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC;">FRIENDS</div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding-top: 4px;">
+                <div style="display: flex; flex-direction: column; gap: 0;">
+                  <div style="height: 10px; border-radius: 6px 6px 0 0; background: #463C82; margin: 0 14px;"></div>
+                  <div style="background: #5E51A8; border-radius: 10px; padding: 16px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 -5px 0 #463C82;">
+                    <div style="width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; background: #211D33; display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);">🫙</div>
+                    <div style="font-family: 'Silkscreen', monospace; font-size: 11px; color: #FFFFFF;">TIP JAR PLUS</div>
+                    <div style="font-size: 11.5px; font-weight: 600; color: #C9C2E8;">@kris · 42s bake</div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0;">
+                  <div style="height: 10px; border-radius: 6px 6px 0 0; background: #2A4B99; margin: 0 14px;"></div>
+                  <div style="background: #3D63C9; border-radius: 10px; padding: 16px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 -5px 0 #2A4B99;">
+                    <div style="width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; background: #211D33; display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);">🎯</div>
+                    <div style="font-family: 'Silkscreen', monospace; font-size: 11px; color: #FFFFFF;">TRIVIA NIGHT</div>
+                    <div style="font-size: 11.5px; font-weight: 600; color: #BCD0F5;">@mira · 58s bake</div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0;">
+                  <div style="height: 10px; border-radius: 6px 6px 0 0; background: #2C7A43; margin: 0 14px;"></div>
+                  <div style="background: #3FA45B; border-radius: 10px; padding: 16px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 -5px 0 #2C7A43;">
+                    <div style="width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; background: #211D33; display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);">🎨</div>
+                    <div style="font-family: 'Silkscreen', monospace; font-size: 11px; color: #FFFFFF;">DOODLE DUEL</div>
+                    <div style="font-size: 11.5px; font-weight: 600; color: #C4E8CF;">@theo · 71s bake</div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0;">
+                  <div style="height: 10px; border-radius: 6px 6px 0 0; background: #A82B3C; margin: 0 14px;"></div>
+                  <div style="background: #E0455A; border-radius: 10px; padding: 16px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 -5px 0 #A82B3C;">
+                    <div style="width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; background: #211D33; display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);">🧾</div>
+                    <div style="font-family: 'Silkscreen', monospace; font-size: 11px; color: #FFFFFF;">SPLIT IT</div>
+                    <div style="font-size: 11.5px; font-weight: 600; color: #F5C2CA;">@kris · 39s bake</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; background: #DDDAEA; box-shadow: inset 0 2px 0 #FFFFFF; padding: 10px 8px 30px;">
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #F5F4FA; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC; display: flex; align-items: center; justify-content: center; font-size: 14px; opacity: 0.7;">⚡</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #7A7590;">BUILD</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #3D63C9; box-shadow: inset 0 2px 0 #6E8FE0, inset 0 -3px 0 #2A4B99; display: flex; align-items: center; justify-content: center; font-size: 14px;">🕹️</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #2A2640;">GAMES</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #F5F4FA; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC; display: flex; align-items: center; justify-content: center; font-size: 14px; filter: grayscale(1); opacity: 0.7;">👥</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #7A7590;">LINK</div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center; position: relative;"><div style="width: 30px; height: 30px; border-radius: 999px; background: #F5F4FA; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -3px 0 #C9C5DC; display: flex; align-items: center; justify-content: center; font-size: 14px; filter: grayscale(1); opacity: 0.7;">✉️</div><div style="font-family: 'Silkscreen', monospace; font-size: 9px; color: #7A7590;">MAIL</div><div style="position: absolute; top: 0; right: 28%; background: #E8B73A; color: #2A2640; border-radius: 999px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;">2</div></div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Apps gallery — cartridges on a shelf</div>
+      </div>
+
+      <!-- D3 · Phone 4 · Running app + confirm sheet -->
+      <div data-screen-label="D3 Confirm sheet" style="display: flex; flex-direction: column; gap: 14px;">
+        <x-import component="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="height: 100%; display: flex; flex-direction: column; background: #E6E4F0; font-family: 'Chakra Petch', sans-serif; color: #2A2640; position: relative;">
+            <div style="flex: 1; overflow: hidden; padding: 70px 20px 0; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-family: 'Silkscreen', monospace; font-size: 11px; color: #7A7590;">◂ SHELF</div>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; background: #F5F4FA; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -2px 0 #C9C5DC;"><span>🫙</span><span style="font-family: 'Silkscreen', monospace; font-size: 10px;">TIP JAR PLUS</span></div>
+              </div>
+              <div style="flex: 1; background: #211D33; border-radius: 18px; padding: 24px 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: inset 0 3px 12px rgba(0,0,0,0.6); color: #E6E4F0;">
+                <div style="text-align: center; display: flex; flex-direction: column; gap: 5px;">
+                  <div style="font-size: 38px;">🫙</div>
+                  <div style="font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 15px; color: #8FE3A0;">KRIS'S TIP JAR</div>
+                  <div style="font-size: 13px; color: #9A93B8;">Drop a coin, leave your mark</div>
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: center;">
+                  <div style="background: #2E2945; border-radius: 10px; padding: 12px 18px; font-weight: 700; font-size: 15px;">1</div>
+                  <div style="background: #8FE3A0; color: #211D33; border-radius: 10px; padding: 12px 18px; font-weight: 700; font-size: 15px; box-shadow: 0 0 14px rgba(143,227,160,0.4);">5</div>
+                  <div style="background: #2E2945; border-radius: 10px; padding: 12px 18px; font-weight: 700; font-size: 15px;">10</div>
+                  <div style="background: #2E2945; border-radius: 10px; padding: 12px 18px; font-weight: 700; font-size: 15px;">25</div>
+                </div>
+                <div style="background: #16131F; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; color: #8FE3A0;">&gt; “for the karaoke night 🎤”</div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="font-family: 'Silkscreen', monospace; font-size: 10px; color: #9A93B8;">HI-SCORES · THIS WEEK</div>
+                  <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600;"><span style="color: #E8B73A; font-family: 'Silkscreen', monospace; font-size: 11px;">1ST</span><span>@mira</span><span style="margin-left: auto; color: #8FE3A0;">32 USDC</span></div>
+                  <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600;"><span style="color: #9A93B8; font-family: 'Silkscreen', monospace; font-size: 11px;">2ND</span><span>@theo</span><span style="margin-left: auto; color: #8FE3A0;">18 USDC</span></div>
+                </div>
+              </div>
+              <div style="height: 12px;"></div>
+            </div>
+            <div style="position: absolute; inset: 0; background: rgba(33,29,51,0.55); display: flex; align-items: flex-end; z-index: 30;">
+              <div style="width: 100%; background: #E6E4F0; border-radius: 22px 22px 0 0; padding: 22px 22px 44px; display: flex; flex-direction: column; gap: 14px; box-shadow: inset 0 3px 0 #FFFFFF;">
+                <div style="width: 44px; height: 5px; border-radius: 999px; background: #C9C5DC; align-self: center;"></div>
+                <div style="font-family: 'Silkscreen', monospace; font-size: 11px; color: #7A7590;">CONFIRM PAYMENT</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 50px; height: 50px; border-radius: 999px; background: #E8B73A; box-shadow: inset 0 2px 0 #F2D27C, inset 0 -4px 0 #B8892A; display: flex; align-items: center; justify-content: center; font-size: 24px;">🪙</div>
+                  <div style="display: flex; flex-direction: column; gap: 1px;">
+                    <div style="font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 17px;">5 USDC <span style="font-family: 'Chakra Petch', sans-serif; font-size: 13px; font-weight: 600; color: #7A7590;">→ @kris</span></div>
+                    <div style="font-size: 13px; font-weight: 500; color: #7A7590;">“for the karaoke night 🎤”</div>
+                  </div>
+                </div>
+                <div style="background: #F5F4FA; border-radius: 10px; padding: 10px 12px; font-size: 12.5px; font-weight: 500; color: #7A7590; line-height: 1.5; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -2px 0 #C9C5DC;">Requested by <span style="color: #2A2640; font-weight: 700;">TIP JAR PLUS</span> — cartridges never touch your wallet; you press the button.</div>
+                <div style="display: flex; gap: 10px;">
+                  <div style="flex: 1; background: #3FA45B; color: #FFFFFF; border-radius: 14px; height: 54px; display: flex; align-items: center; justify-content: center; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 13px; box-shadow: inset 0 2px 0 #6FC288, inset 0 -4px 0 #2C7A43;">A · APPROVE</div>
+                  <div style="flex: 1; background: #F5F4FA; color: #2A2640; border-radius: 14px; height: 54px; display: flex; align-items: center; justify-content: center; font-family: 'Silkscreen', monospace; font-weight: 700; font-size: 13px; box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -4px 0 #C9C5DC;">B · REJECT</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </x-import>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #55566A;">Mini app running + USDC confirm sheet</div>
+      </div>
+    </div>
+  </section>
+
+  <footer style="max-width: 880px; display: flex; flex-direction: column; gap: 6px;">
+    <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #76778A;">Next step</div>
+    <p style="margin: 0; font-size: 15px; color: #55566A; line-height: 1.5; text-wrap: pretty;">Pick a direction (or a mix — e.g. Toybox color on Night Arcade structure) and I'll build out the full screen set: friends, inbox, the mini-app template theme, and the judge-facing deck in that identity.</p>
+  </footer>
+
+</div>
+
+</x-dc>
+</body>
+</html>

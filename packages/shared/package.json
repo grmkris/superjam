@@ -1,0 +1,25 @@
+{
+  "name": "@superjam/shared",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./env": "./src/env.ts",
+    "./typeid": "./src/typeid.ts",
+    "./constants": "./src/constants.ts",
+    "./capabilities": "./src/capabilities.ts",
+    "./service-urls": "./src/service-urls.ts",
+    "./appspec": "./src/appspec.ts",
+    "./enums": "./src/enums.ts",
+    "./bridge": "./src/bridge.schema.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "typeid-js": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14"
+  }
+}
