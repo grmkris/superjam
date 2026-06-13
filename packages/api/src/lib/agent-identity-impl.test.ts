@@ -5,10 +5,10 @@ import { createAgentIdentity } from "./agent-identity-impl.ts";
 
 const OWNER = "0x" + "a".repeat(40);
 
-// Minimal Onchain stub — only mintApp matters here.
+// Minimal Onchain stub — only the ENSv2 subname mint matters here.
 const onchainWith = (
-  mintApp: Onchain["mintApp"]
-): Onchain => ({ mintApp }) as unknown as Onchain;
+  mintV2Subname: Onchain["mintV2Subname"]
+): Onchain => ({ mintV2Subname }) as unknown as Onchain;
 
 const baseInput = {
   agentId: "bag_1",
@@ -19,24 +19,23 @@ const baseInput = {
 };
 
 describe("createAgentIdentity.provision", () => {
-  test("mints slug.username.superjam.eth under the owner and returns ensName", async () => {
+  test("mints the ENSv2 subname <slug>.superjam.eth and returns ensName", async () => {
     const calls: unknown[] = [];
     const identity = createAgentIdentity(
       onchainWith((params) => {
         calls.push(params);
         return Promise.resolve({
-          ensName: `${params.slug}.${params.username}.superjam.eth`,
+          ensName: `${params.slug}.superjam.eth`,
           node: ("0x" + "c".repeat(64)) as Hex,
           txHash: ("0x" + "d".repeat(64)) as Hex,
         });
       })
     );
     const res = await identity.provision(baseInput);
-    expect(res.ensName).toBe("maria-art-builder.maria.superjam.eth");
+    expect(res.ensName).toBe("maria-art-builder.superjam.eth");
     expect(calls).toEqual([
       {
         slug: "maria-art-builder",
-        username: "maria",
         owner: OWNER,
         records: { url: "https://superjam.fun/agents/maria-art-builder" },
       },
