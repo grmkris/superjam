@@ -11,6 +11,7 @@ import { useConfirm } from "../../components/confirm/confirm-provider";
 import { jamEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
+import { VerifiedBadge } from "../../components/verified-badge";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { WorldGate } from "../../components/world-gate";
 import { useHostAuth } from "../../lib/use-host-auth";
@@ -23,6 +24,8 @@ interface Builder {
   ensName: string | null;
   priceUsdc: string;
   buildsCount: number;
+  /** The human backer (community builders). Absent for the house builder. */
+  owner?: { username: string; worldVerified: boolean };
 }
 
 const HOUSE: Builder = {
@@ -133,6 +136,7 @@ function MakeFlow() {
           ensName: a.ensName,
           priceUsdc: a.priceUsdc,
           buildsCount: a.buildsCount,
+          owner: a.owner,
         })),
       ]);
     } catch {
@@ -213,7 +217,11 @@ function MakeFlow() {
       )}
 
       {step === "builder" && (
-        <BuilderBeat builders={builders} onPick={pickBuilder} />
+        <BuilderBeat
+          builders={builders}
+          onPick={pickBuilder}
+          onInfo={(id) => router.push(`/agents/${id}`)}
+        />
       )}
 
       {step === "worldgate" && <WorldGate onVerified={startBuild} />}
@@ -566,16 +574,18 @@ function PlanBeat({
 function BuilderBeat({
   builders,
   onPick,
+  onInfo,
 }: {
   builders: Builder[];
   onPick: (b: Builder) => void;
+  onInfo: (id: string) => void;
 }) {
   return (
     <>
       <div className="flex flex-col gap-0.5">
         <div className="text-[26px] font-extrabold leading-tight">Who makes it?</div>
         <div className="text-sm font-medium text-muted">
-          the house builder's free — or pick a pro
+          the house builder's free — or pick a human-backed pro
         </div>
       </div>
       <div className="flex flex-col gap-3">
@@ -584,21 +594,40 @@ function BuilderBeat({
           return (
             <StickerCard key={b.id} className="p-4 flex items-center gap-3">
               <EmojiToken emoji={free ? "🏠" : "🛠️"} color={free ? "green" : "blue"} size={48} rounded="toy" />
-              <div className="flex flex-col min-w-0">
+              <div className="flex flex-col min-w-0 gap-0.5">
                 <div className="font-extrabold text-[15.5px] truncate">{b.name}</div>
+                {b.owner ? (
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted">
+                    by @{b.owner.username}
+                    {b.owner.worldVerified && <VerifiedBadge />}
+                  </span>
+                ) : (
+                  <span className="text-[12px] font-semibold text-muted">the house builder</span>
+                )}
                 <div className="text-[12px] font-semibold text-muted">
-                  ★ 4.9 · {b.buildsCount.toLocaleString()} jams built
+                  {b.buildsCount.toLocaleString()} jams built
                 </div>
               </div>
-              <button
-                onClick={() => onPick(b)}
-                className={cx(
-                  "ml-auto border-2 border-ink rounded-full px-4 py-2 text-sm font-extrabold shadow-sticker-sm sticker-press",
-                  free ? "bg-green text-ink" : "bg-pink text-white"
+              <div className="ml-auto flex items-center gap-1.5">
+                {b.owner && (
+                  <button
+                    onClick={() => onInfo(b.id)}
+                    aria-label="builder profile"
+                    className="text-blue font-extrabold text-[16px] px-1"
+                  >
+                    ⓘ
+                  </button>
                 )}
-              >
-                {free ? "Free" : `${b.priceUsdc} USDC`}
-              </button>
+                <button
+                  onClick={() => onPick(b)}
+                  className={cx(
+                    "border-2 border-ink rounded-full px-4 py-2 text-sm font-extrabold shadow-sticker-sm sticker-press",
+                    free ? "bg-green text-ink" : "bg-pink text-white"
+                  )}
+                >
+                  {free ? "Free" : `${b.priceUsdc} USDC`}
+                </button>
+              </div>
             </StickerCard>
           );
         })}

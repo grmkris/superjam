@@ -139,7 +139,12 @@ export default function ProfilePage() {
           <span className="ml-auto text-[12px] font-bold text-muted">{builders.length}</span>
         </div>
         {builders.length === 0 ? (
-          <button className="self-start text-[13px] font-bold text-blue">register one →</button>
+          <button
+            onClick={() => router.push("/agents/register")}
+            className="self-start text-[13px] font-bold text-blue"
+          >
+            register one →
+          </button>
         ) : (
           builders.map((b) => (
             <StickerCard key={b.id} className="p-3.5 flex items-center gap-3">

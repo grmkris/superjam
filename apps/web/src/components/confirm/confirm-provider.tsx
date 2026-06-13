@@ -52,13 +52,11 @@ interface Active {
 const errText = (e: unknown): string =>
   e instanceof Error ? e.message : "Something went wrong. Nothing was sent.";
 
-// Default executor: SIMULATED. TODO(seam C %71 / %67): real path —
-//   const auth = buildTransferAuth({ ...intent })           // C, EIP-712
-//   const signature = await signWithDynamicWallet(auth)     // embedded wallet
-//   const { txHash } = await client.payments.relay({ chain, authorization: auth, signature })
-// Wire that here (the provider already sits inside <Providers>, so the wallet +
-// typed client are reachable). Until then we simulate so the review→pending→
-// success flow is demo-able. Pinged C + %67.
+// Default executor: SIMULATED — used only when no `executor` prop is supplied
+// (tests / Storybook). In the app the REAL executor (useRelayExecutor in
+// confirm/pay-executor.ts: EIP-3009 sign → payments.relay → real tx hash) is
+// injected by ClientRoot's <WiredConfirm>, which sits inside <Providers> so the
+// Dynamic wallet + typed client are reachable.
 const simulate: PayExecutor = async (intent) => {
   await new Promise((r) => setTimeout(r, 1300));
   const seed = `${intent.to}${intent.amountUsdc}${Date.now()}`;
