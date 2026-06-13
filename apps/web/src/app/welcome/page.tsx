@@ -12,7 +12,7 @@ import { ROOT, userEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
-import { useLogin } from "../../components/login";
+import { signInWithGoogle, useLogin } from "../../components/login";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { usePlatformClient } from "../../components/use-platform-client";
 
@@ -178,8 +178,21 @@ function EmailBeat({
       </div>
 
       <StickerCard className="p-5 flex flex-col gap-3 shadow-sticker-lg" tilt={0}>
-        <div className="text-center text-body font-bold">
-          Hop in — just your email
+        <div className="text-center text-body font-bold">Hop in</div>
+        <StickerButton
+          type="button"
+          color="cream"
+          size="lg"
+          block
+          disabled={!ready}
+          onClick={() => void signInWithGoogle()}
+        >
+          Continue with Google
+        </StickerButton>
+        <div className="flex items-center gap-2 text-tiny font-bold uppercase tracking-wide text-muted">
+          <span className="h-px flex-1 bg-ink/15" />
+          or
+          <span className="h-px flex-1 bg-ink/15" />
         </div>
         <form
           onSubmit={(e) => {
