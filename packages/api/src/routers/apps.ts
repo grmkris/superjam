@@ -7,6 +7,7 @@
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
 import {
+  type AppId,
   type AppManifest,
   AppManifestSchema,
   type BuildId,
@@ -37,26 +38,25 @@ const dedupeSlug = async (db: Database, base: string): Promise<string> => {
   }
 };
 
-export interface CreateExternalAppInput {
+export interface AllocateExternalAppInput {
   manifest: AppManifest;
-  entryUrl: string;
   ownerUserId: UserId;
   /** Set when a build produced this app (platform-built path). */
   buildId?: BuildId;
 }
 
 /**
- * Insert a listed external app from a validated manifest + deployed URL. Shared
- * by registerExternal and the builder's post-deploy step. ENS minting (§11
- * step 5) is layered on AFTER and must never fail registration — left to a
- * follow-up so a key-less/ENS-down environment still registers apps.
+ * Phase 1 (builder/hosting flow): reserve the app row + appId BEFORE the app is
+ * deployed, so the builder can inject SUPERJAM_APP_ID (the token audience) into
+ * the app's hosting env at build time — resolving the chicken-and-egg where the
+ * deployed app needs its id but the id is created at registration. status stays
+ * 'building' (not viewable, apps.get skips it) until finalize attaches the URL.
  */
-export const createExternalApp = async (
+export const allocateExternalApp = async (
   db: Database,
-  input: CreateExternalAppInput
+  input: AllocateExternalAppInput
 ): Promise<typeof schema.app.$inferSelect> => {
-  const { manifest, entryUrl, ownerUserId, buildId } = input;
-  const entryOrigin = new URL(entryUrl).origin;
+  const { manifest, ownerUserId, buildId } = input;
   const slug = await dedupeSlug(db, manifest.slug);
   const [row] = await db
     .insert(app)
@@ -68,13 +68,65 @@ export const createExternalApp = async (
       category: manifest.category,
       capabilities: manifest.capabilities,
       ownerUserId,
-      entryUrl,
-      entryOrigin,
       currentBuildId: buildId,
-      status: "listed",
+      status: "building",
     })
     .returning();
   return row!;
+};
+
+export interface FinalizeExternalAppInput {
+  appId: AppId;
+  entryUrl: string;
+}
+
+/**
+ * Phase 2 (builder/hosting flow): once the app is deployed, attach its entryUrl
+ * (+ derived entryOrigin) and list it. ENS minting (§11 step 5) layers on AFTER
+ * and must never fail this — a key-less/ENS-down env still lists the app.
+ */
+export const finalizeExternalApp = async (
+  db: Database,
+  input: FinalizeExternalAppInput
+): Promise<typeof schema.app.$inferSelect> => {
+  const entryOrigin = new URL(input.entryUrl).origin;
+  const [row] = await db
+    .update(app)
+    .set({ entryUrl: input.entryUrl, entryOrigin, status: "listed" })
+    .where(eq(app.id, input.appId))
+    .returning();
+  if (!row) {
+    throw new ORPCError("NOT_FOUND", { message: "App not found" });
+  }
+  return row;
+};
+
+export interface CreateExternalAppInput {
+  manifest: AppManifest;
+  entryUrl: string;
+  ownerUserId: UserId;
+  /** Set when a build produced this app (platform-built path). */
+  buildId?: BuildId;
+}
+
+/**
+ * Single-shot allocate + finalize, for the bring-your-own-URL path where the
+ * deployed URL is already known (registerExternal). The builder flow uses the
+ * two phases separately (allocate → deploy → finalize).
+ */
+export const createExternalApp = async (
+  db: Database,
+  input: CreateExternalAppInput
+): Promise<typeof schema.app.$inferSelect> => {
+  const allocated = await allocateExternalApp(db, {
+    manifest: input.manifest,
+    ownerUserId: input.ownerUserId,
+    buildId: input.buildId,
+  });
+  return finalizeExternalApp(db, {
+    appId: allocated.id,
+    entryUrl: input.entryUrl,
+  });
 };
 
 export const appsRouter = {

@@ -9,7 +9,11 @@ import { createTestAuth } from "../auth/test-auth.ts";
 import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
 import { appRouter } from "../router.ts";
-import { createExternalApp } from "./apps.ts";
+import {
+  allocateExternalApp,
+  createExternalApp,
+  finalizeExternalApp,
+} from "./apps.ts";
 
 const logger = createLogger({ level: "silent" });
 
@@ -121,6 +125,56 @@ describe("apps.registerExternal", () => {
         { manifest, entryUrl: "https://mine.vercel.app" },
         { context: ctxFor(token) }
       )
+    ).rejects.toBeInstanceOf(ORPCError);
+  });
+});
+
+describe("allocate → finalize (builder/hosting flow)", () => {
+  test("allocate reserves a building appId (not viewable), finalize lists it", async () => {
+    const { db, ctxFor } = await harness();
+    const schema = (await import("@superjam/db")).schema;
+    const [u] = await db
+      .insert(schema.user)
+      .values({ dynamicUserId: "dyn_b", email: "b@test.io", username: "b" })
+      .returning();
+
+    // Phase 1: reserve the id BEFORE deploy (builder injects it as SUPERJAM_APP_ID).
+    const allocated = await allocateExternalApp(db, {
+      manifest,
+      ownerUserId: u!.id,
+    });
+    expect(allocated.status).toBe("building");
+    expect(allocated.entryUrl).toBeNull();
+    // Not viewable while building.
+    await expect(
+      call(appRouter.apps.get, { slug: allocated.slug }, { context: ctxFor() })
+    ).rejects.toBeInstanceOf(ORPCError);
+
+    // Phase 2: after deploy, attach the URL + list it.
+    const listed = await finalizeExternalApp(db, {
+      appId: allocated.id,
+      entryUrl: "https://built.vercel.app/x",
+    });
+    expect(listed.id).toBe(allocated.id); // same appId the app was built with
+    expect(listed.status).toBe("listed");
+    expect(listed.entryOrigin).toBe("https://built.vercel.app");
+
+    const view = await call(
+      appRouter.apps.get,
+      { slug: allocated.slug },
+      { context: ctxFor() }
+    );
+    expect(view.entryUrl).toBe("https://built.vercel.app/x");
+  });
+
+  test("finalize throws on an unknown appId", async () => {
+    const { db } = await harness();
+    const { typeIdGenerator } = await import("@superjam/shared");
+    await expect(
+      finalizeExternalApp(db, {
+        appId: typeIdGenerator("app"), // valid format, never inserted
+        entryUrl: "https://x.vercel.app",
+      })
     ).rejects.toBeInstanceOf(ORPCError);
   });
 });

@@ -34,6 +34,10 @@ export {
   nullAgentIdentity,
 } from "./lib/agent-identity.ts";
 export {
+  allocateExternalApp,
+  type AllocateExternalAppInput,
+  finalizeExternalApp,
+  type FinalizeExternalAppInput,
   createExternalApp,
   type CreateExternalAppInput,
 } from "./routers/apps.ts";
