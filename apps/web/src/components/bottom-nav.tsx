@@ -79,10 +79,9 @@ function useUnreadCount(pathname: string): number {
     }
     let cancelled = false;
     const refresh = () =>
-      client.inbox
-        .list()
-        .then((r) => {
-          if (!cancelled) setUnread(r.unread);
+      Promise.all([client.inbox.list(), client.chat.threads()])
+        .then(([inbox, chat]) => {
+          if (!cancelled) setUnread(inbox.unread + chat.totalUnread);
         })
         .catch(() => {});
     refresh();
