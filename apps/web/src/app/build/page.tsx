@@ -54,7 +54,7 @@ function MakeFlow() {
   const remixSlug = search.get("remix");
   const client = usePlatformClient();
   const { confirm } = useConfirm();
-  const { hostUser, isLoggedIn } = useHostAuth();
+  const { hostUser, isLoggedIn, meStatus } = useHostAuth();
   const { openLogin } = useLogin();
   const username = hostUser?.username ?? "you";
 
@@ -164,7 +164,17 @@ function MakeFlow() {
       }).catch(() => ({ approved: false }));
       if (!res.approved) return;
     }
-    if (!hostUser?.worldVerified) setStep("worldgate");
+    // Don't treat a not-yet-loaded/failed profile as "unverified" — that would
+    // route an already-verified human into the gate (→ nullifier_replayed).
+    // Resolve `me` authoritatively when it isn't settled yet.
+    let verified = hostUser?.worldVerified ?? false;
+    if (meStatus !== "ready") {
+      verified = await client.profile
+        .me()
+        .then((m) => m.worldVerified)
+        .catch(() => false);
+    }
+    if (!verified) setStep("worldgate");
     else startBuild();
   };
 

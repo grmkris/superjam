@@ -47,7 +47,7 @@ export default function JamPage({
   const { slug } = use(params);
   const router = useRouter();
   const client = usePlatformClient();
-  const { hostUser } = useHostAuth();
+  const { hostUser, meStatus } = useHostAuth();
 
   const [jam, setJam] = useState<FeedJam | null | "missing">(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -57,9 +57,12 @@ export default function JamPage({
   const [draftText, setDraftText] = useState("");
   const [sendKind, setSendKind] = useState<"share" | "challenge" | null>(null);
 
+  // Only trust the verified flag once `me` has actually resolved — a pending or
+  // failed fetch must not read as "unverified" (that gates a verified human →
+  // nullifier_replayed). WorldGate itself recovers if the gate still shows.
   useEffect(() => {
-    setVerified(Boolean(hostUser?.worldVerified));
-  }, [hostUser]);
+    if (meStatus === "ready") setVerified(Boolean(hostUser?.worldVerified));
+  }, [hostUser, meStatus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,9 +82,10 @@ export default function JamPage({
             maker: { username: "maker", verified: false },
             tagline: "",
             accent: "blue",
-            likes: 0,
+            likes: a.likes,
+            likedByMe: a.likedByMe,
             comments: 0,
-            friendsPlayed: 0,
+            friendsLiked: 0,
             remixOf: null,
           };
         } catch {

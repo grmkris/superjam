@@ -22,6 +22,7 @@
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-qr-code": "^2.2.0",
     "vaul": "^1.1.2"
   },
   "devDependencies": {

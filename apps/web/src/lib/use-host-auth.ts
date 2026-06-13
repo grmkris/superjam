@@ -23,10 +23,17 @@ import { browserRpcUrl, createPlatformClient } from "./orpc";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 
+/** Where the `profile.me` fetch is: `pending` (unknown — don't yet treat the
+ *  viewer as unverified), `ready` (hostUser is authoritative), `error` (fetch
+ *  failed; hostUser is null but that's NOT a verified=false signal). Gate
+ *  deciders must wait for `ready` before routing someone to the World gate. */
+export type MeStatus = "pending" | "ready" | "error";
+
 export interface HostAuth {
   authToken: string | null;
   hostUser: HostUser | null;
   isLoggedIn: boolean;
+  meStatus: MeStatus;
   getAddress: () => Promise<string>;
 }
 
@@ -38,6 +45,7 @@ export function useHostAuth(): HostAuth {
   const { data: walletAccounts } = useWalletAccounts();
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [hostUser, setHostUser] = useState<HostUser | null>(null);
+  const [meStatus, setMeStatus] = useState<MeStatus>("pending");
 
   const evmAddress =
     walletAccounts?.find((w) => w.chain === "EVM")?.address ?? null;
@@ -49,10 +57,14 @@ export function useHostAuth(): HostAuth {
     const token = client?.token ?? null;
     setAuthToken(token);
     if (!token) {
+      // Resolved: nobody is signed in (hostUser null is authoritative, not a
+      // pending/error state — the login chrome, not the World gate, applies).
       setHostUser(null);
+      setMeStatus("ready");
       return;
     }
     let cancelled = false;
+    setMeStatus("pending");
     const platform = createPlatformClient({
       url: browserRpcUrl(),
       getToken: () => token,
@@ -67,9 +79,12 @@ export function useHostAuth(): HostAuth {
           walletAddress: me.walletAddress ?? ZERO_ADDR,
           worldVerified: me.worldVerified,
         });
+        setMeStatus("ready");
       })
       .catch(() => {
-        if (!cancelled) setHostUser(null);
+        if (cancelled) return;
+        setHostUser(null);
+        setMeStatus("error");
       });
     return () => {
       cancelled = true;
@@ -85,6 +100,7 @@ export function useHostAuth(): HostAuth {
     authToken,
     hostUser,
     isLoggedIn: Boolean(authToken),
+    meStatus,
     getAddress,
   };
 }
