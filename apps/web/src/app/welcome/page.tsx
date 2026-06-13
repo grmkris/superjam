@@ -131,7 +131,7 @@ export default function WelcomePage() {
       <span className="pointer-events-none absolute top-64 left-12 text-sm rotate-[8deg]">✨</span>
       <span className="pointer-events-none absolute bottom-40 right-10 text-lg rotate-[-8deg]">🏷️</span>
 
-      <div className="relative flex flex-1 flex-col justify-center gap-6 px-5 py-16">
+      <div className="relative mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center gap-6 px-5 py-16">
         {step === "email" ? (
           <EmailBeat
             email={email}

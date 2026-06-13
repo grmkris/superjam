@@ -38,7 +38,6 @@ export default function InboxPage() {
   const [tab, setTab] = useState<Tab>("notifications");
   return (
     <div className="screen gap-3">
-      <div className="text-h2 font-extrabold">Inbox</div>
       <ToyboxTabs
         value={tab}
         onValueChange={setTab}
