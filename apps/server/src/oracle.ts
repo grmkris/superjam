@@ -8,7 +8,9 @@ import type { PotOracle } from "@superjam/api";
 import { generateObject } from "ai";
 import { z } from "zod";
 
-const DEFAULT_ORACLE_MODEL = "gemini-2.0-flash";
+// gemini-2.0-flash was retired by Google (generateContent → 404); 2.5-flash is the
+// current GA flash model (verified live). Pinned, not `-latest`, so demo output won't drift.
+const DEFAULT_ORACLE_MODEL = "gemini-2.5-flash";
 
 export const createGeminiOracle = (
   modelId: string = DEFAULT_ORACLE_MODEL

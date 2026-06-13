@@ -18,8 +18,9 @@ import {
 import { google } from "@ai-sdk/google";
 import { generateObject, type LanguageModel } from "ai";
 
-// Gemini free tier, fast (~2-4s). Overridable for tests / model bumps.
-export const DEFAULT_REFINE_MODEL = "gemini-2.0-flash";
+// Gemini, fast (~2-4s). Overridable for tests / model bumps. 2.0-flash was retired
+// by Google (generateContent → 404); 2.5-flash is the current GA flash (verified live).
+export const DEFAULT_REFINE_MODEL = "gemini-2.5-flash";
 
 /** A listed app, rendered into the prompt for the similar-check. */
 export interface RefineCatalogApp {
