@@ -23,10 +23,13 @@ Draw it as a left-to-right **loop** in three labelled bands. Each band is a "rin
 - 🏷️ **ENS** name = your handle (`you.superjam.eth`) + every jam's name.
 
 **Ring 2 — Creation (what)**
-- You type a prompt → 🤖 **AI Builder Agent** (has its *own* Dynamic server wallet).
+- You type a prompt → 🤖 **AI Builder Agent** (has its *own* Dynamic server wallet,
+  and an **ERC-8004 on-chain identity** — agent NFT + reputation — human-backed via World ID).
 - Agent **generates a Next.js app + Neon DB** → **deploys to Vercel** → registers its
   `entryUrl`.
-- Agent **mints `slug.you.superjam.eth`** on ENS (L2) for the new jam.
+- Agent **mints `slug.you.superjam.eth`** natively in **ENSv2 on Sepolia L1** — a real
+  subname **nested under the user** (ENSIP-10 wildcard), **resolvable in standard ENS
+  tooling** (`app.ens.domains`, viem/ethers), not a closed registry.
 - The jam runs in a **sandboxed cross-origin iframe** + a postMessage **SDK bridge**;
   it calls back for identity (`sdk.auth.getToken()` → an ES256 JWT the jam's own
   backend verifies against the platform's JWKS).
@@ -34,7 +37,9 @@ Draw it as a left-to-right **loop** in three labelled bands. Each band is a "rin
 **Ring 3 — Value (how it pays)**
 - Inside a jam you **tip USDC** → host **confirm sheet** (the only thing that touches
   your wallet) → **EIP-3009 gasless** transfer → **server wallet relays on Arc**
-  (gas paid in USDC, no ETH) → optionally **private via Unlink**.
+  (gas paid in USDC, no ETH) → **private via Unlink**.
+- **Add funds:** a **fast CCTP** burn/mint (Circle, Sepolia → Arc) lands USDC in a
+  **confidential Unlink balance**; tips then spend from it, off the public ledger.
 
 ## Diagram skeleton (reference — redraw in the brand)
 ```mermaid
@@ -42,34 +47,37 @@ flowchart LR
   subgraph ID["① IDENTITY — who"]
     U([👤 You]) -->|email · no seed| DYN[🔑 Dynamic wallet]
     WORLD[🌍 World ID<br/>one human = one account]
-    ENS[🏷️ ENS name<br/>you.superjam.eth]
+    ENS[🏷️ ENS name · ENSv2 / Sepolia L1<br/>resolves in standard tooling]
   end
   subgraph MAKE["② CREATION — what"]
     U -->|"describe a jam"| HOST[SuperJam host]
-    HOST --> AGENT[🤖 AI Builder Agent<br/>own Dynamic server wallet]
+    HOST --> AGENT[🤖 AI Builder Agent<br/>own Dynamic server wallet · ERC-8004 identity]
     AGENT -->|generate + ship| VERCEL[▲ Vercel + Neon app]
-    AGENT -->|mint slug.you.superjam.eth| ENS
+    AGENT -->|mint slug.you.superjam.eth · ENSv2| ENS
     VERCEL --> JAM[▦ The Jam<br/>sandboxed iframe + SDK bridge]
     JAM -->|getToken → ES256 JWT<br/>jam backend verifies vs JWKS| HOST
   end
   subgraph PAY["③ VALUE — how it pays"]
+    FUND[➕ Add funds] -->|fast CCTP · Sepolia→Arc| BAL[🕶️ confidential Unlink balance]
     JAM -->|tip USDC| CONFIRM[💸 host confirm sheet]
-    CONFIRM -->|EIP-3009 · gasless| ARC[🟢 Arc / Circle relay]
-    ARC -->|private| UNLINK[🕶️ Unlink]
+    CONFIRM -->|EIP-3009 · gasless on Arc| ARC[🟢 Arc / Circle relay]
+    ARC -->|private| BAL
   end
   WORLD -->|gate publish + reviews| HOST
 ```
 
 ## Caption (put under the diagram)
 *"One loop. Dynamic = invisible wallets + an autonomous agent wallet. ENS = a name
-for every agent-built app. World ID = a bot wall for an open marketplace. Arc/Circle
-= gasless USDC so micro-tips actually work. Unlink = and private."*
+for every agent-built app, resolvable in any standard ENS tool. World ID = a bot wall
+for an open marketplace. Arc/Circle = gasless USDC so micro-tips actually work; fast
+CCTP to add funds. Unlink = and private."*
 
 ## Tech stack (small footer, optional)
 Next.js 16 · Hono + oRPC · Drizzle + Postgres/Neon · Dynamic (auth + embedded +
-server wallet) · World ID 4.0 · ENS L2 (Durin/ENSv2) · USDC EIP-3009 on Arc · Circle
-Gateway · Unlink. Jams are external apps (Vercel + own DB) framed cross-origin and
-unified only by the SDK + identity + payments + naming.
+server wallet) · World ID 4.0 · **ENSv2 names on Sepolia L1** (standard-tooling
+resolvable) · **ERC-8004** agent identity + reputation · USDC EIP-3009 on Arc · Circle
+**CCTP + Gateway** · Unlink confidential balance. Jams are external apps (Vercel + own
+DB) framed cross-origin and unified only by the SDK + identity + payments + naming.
 
 ## Visual direction — "Toybox"
 The brand is **playful and warm — a name tag on a toy, not cold crypto/bank UI.**
