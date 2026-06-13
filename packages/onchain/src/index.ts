@@ -272,7 +272,12 @@ export * from "./viem-server-wallet.ts";
 export * from "./privacy.ts";
 export * from "./circle-gateway.ts";
 export * from "./unlink-transport.ts";
-export * from "./unlink-user.ts";
+// NOTE: unlink-user.ts (createUserUnlink) is NOT barrel-exported — it imports
+// "@unlink-xyz/sdk/admin", a server-only module Turbopack can't bundle into the
+// web client (the barrel is reachable from pay-executor → client-root). It has
+// no client/server callers via the barrel today; import it directly from
+// "./unlink-user.ts" (scripts/tests do). Re-export here only behind a server-
+// only subpath if the api ever needs it.
 export * from "./cctp.ts";
 export * from "./ens.ts";
 export * from "./erc8004.ts";
