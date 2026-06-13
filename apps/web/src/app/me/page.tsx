@@ -12,7 +12,7 @@ import { VerifiedBadge } from "../../components/verified-badge";
 import { basescan, userEns } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { usePlatformClient } from "../../components/use-platform-client";
-import { WorldGate } from "../../components/world-gate";
+import { VerifySheet } from "../../components/verify-sheet";
 import { useHostAuth } from "../../lib/use-host-auth";
 
 interface Me {
@@ -176,28 +176,13 @@ export default function ProfilePage() {
         Log out
       </StickerButton>
 
-      {verifying && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <button
-            aria-label="Dismiss"
-            onClick={() => setVerifying(false)}
-            className="absolute inset-0 bg-ink/40"
-          />
-          <div className="relative w-full max-w-[460px] bg-cream border-t-2 border-ink rounded-t-toy-lg px-5 pt-4 pb-8 max-h-[85dvh] overflow-y-auto">
-            <WorldGate
-              title="Verify you're human"
-              blurb="verify once to publish, review & build — one human, one account."
-              onVerified={() => {
-                setVerifying(false);
-                loadMe();
-              }}
-            />
-            <StickerButton color="white" size="md" block onClick={() => setVerifying(false)}>
-              Cancel
-            </StickerButton>
-          </div>
-        </div>
-      )}
+      <VerifySheet
+        open={verifying}
+        onClose={() => setVerifying(false)}
+        onVerified={loadMe}
+        title="Verify you're human"
+        blurb="verify once to publish, review & build — one human, one account."
+      />
     </div>
   );
 }
