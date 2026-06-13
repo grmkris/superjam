@@ -28,6 +28,10 @@ export function useHostAuth(): HostAuth {
   const [hostUser, setHostUser] = useState<HostUser | null>(null);
 
   useEffect(() => {
+    // The Dynamic client is created asynchronously after the provider mounts.
+    // Calling getAuthToken() before it's ready throws ClientNotFoundError — wait
+    // for sdkHasLoaded (the effect re-runs when it flips true).
+    if (!sdkHasLoaded) return;
     const token = getAuthToken() ?? null;
     setAuthToken(token);
     if (!token) {
