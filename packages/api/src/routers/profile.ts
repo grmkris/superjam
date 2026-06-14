@@ -61,10 +61,9 @@ export const profileRouter = {
       }
       const me = context.user;
       const isMe = me?.id === u.id;
-      const isFriend =
-        me && !isMe
-          ? await createFriendService({ db: context.db }).areFriends(me.id, u.id)
-          : false;
+      const friends = createFriendService({ db: context.db });
+      const isFriend = me && !isMe ? await friends.areFriends(me.id, u.id) : false;
+      const friendsCount = await friends.count(u.id);
       return {
         id: u.id,
         username: u.username,
@@ -74,6 +73,7 @@ export const profileRouter = {
         createdAt: u.createdAt,
         isMe: Boolean(isMe),
         isFriend,
+        friendsCount,
       };
     }),
 

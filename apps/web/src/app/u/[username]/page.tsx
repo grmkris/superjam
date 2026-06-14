@@ -1,18 +1,25 @@
 "use client";
 
 // Public profile (DESIGN_BRIEF §3f) — `/u/<username>`, reached by tapping any
-// @handle (reviews, maker row, …). Identity (@name + ENS + ✓-human) plus the three
-// social actions: friend/unfriend, 💸 send money (works for anyone — on-chain via
-// the confirm sheet), and 🙏 ask for money (friends-only — a request line that lands
-// in your chat thread). Your own handle bounces to /me.
+// @handle (reviews, maker pill, inbox, …). A toybox hero (accent band + overlapping
+// avatar), a stats shelf, the three social actions (friend/unfriend · 💸 send ·
+// 🙏 ask — ask is friends-only), and the jams this human has shipped. Your own
+// handle bounces to /me.
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useConfirm } from "../../../components/confirm/confirm-provider";
 import { PayFriendSheet } from "../../../components/chat/pay-friend-sheet";
 import { NameTag } from "../../../components/name-tag";
 import { VerifiedBadge } from "../../../components/verified-badge";
 import { ensApp, userEns } from "../../../components/ui/brand";
-import { EmojiToken, StickerButton, StickerCard } from "../../../components/ui/sticker";
+import { cx } from "../../../components/ui/cx";
+import {
+  EmojiToken,
+  Pill,
+  StickerButton,
+  StickerCard,
+} from "../../../components/ui/sticker";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { useLogin } from "../../../components/login";
@@ -25,11 +32,41 @@ interface Profile {
   ensName: string | null;
   worldVerified: boolean;
   walletAddress: string | null;
+  createdAt: string | number | Date;
   isMe: boolean;
   isFriend: boolean;
+  friendsCount: number;
+}
+
+interface Jam {
+  id: string;
+  slug: string;
+  name: string;
+  iconEmoji: string;
+  likes: number;
+  plays: number;
+  reviewCount: number;
 }
 
 const short = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
+
+// A deterministic accent per handle so every profile owns a colour (mirrors the
+// feed's per-jam accents). Stable across renders, no storage needed.
+const ACCENTS = ["pink", "yellow", "green", "blue"] as const;
+const ACCENT_BG: Record<(typeof ACCENTS)[number], string> = {
+  pink: "bg-pink",
+  yellow: "bg-yellow",
+  green: "bg-green",
+  blue: "bg-blue",
+};
+const accentFor = (s: string): (typeof ACCENTS)[number] =>
+  ACCENTS[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % ACCENTS.length]!;
+
+const joinedLabel = (d: string | number | Date): string => {
+  const t = new Date(d);
+  if (Number.isNaN(t.getTime())) return "";
+  return t.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+};
 
 export default function UserProfilePage({
   params,
@@ -44,6 +81,7 @@ export default function UserProfilePage({
   const { confirm } = useConfirm();
 
   const [profile, setProfile] = useState<Profile | null | "missing">(null);
+  const [jams, setJams] = useState<Jam[] | null>(null);
   const [isFriend, setIsFriend] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<null | "pay" | "request">(null);
@@ -70,6 +108,21 @@ export default function UserProfilePage({
     };
   }, [client, username, router]);
 
+  useEffect(() => {
+    let cancelled = false;
+    client.apps
+      .byUser({ username })
+      .then((r) => {
+        if (!cancelled) setJams(r.jams as Jam[]);
+      })
+      .catch(() => {
+        if (!cancelled) setJams([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, username]);
+
   const toggleFriend = async () => {
     if (!isLoggedIn) {
       openLogin();
@@ -91,20 +144,15 @@ export default function UserProfilePage({
   const pay = async (amountUsdc: number, note: string) => {
     setSheet(null);
     if (profile === null || profile === "missing") return;
-    const res = await confirm({
+    // The chat money-line is recorded server-side inside payments.privateSend
+    // (friends only — the shielded transfer has already happened either way).
+    await confirm({
       kind: "payFriend",
       to: `@${profile.username}`,
       toName: profile.ensName ?? userEns(profile.username),
       amountUsdc,
       memo: note || undefined,
-    }).catch(() => ({ approved: false, txHash: undefined as string | undefined }));
-    if (res.approved && res.txHash) {
-      // Records a money line in the chat thread — only when you're friends, so
-      // best-effort: the on-chain transfer already happened either way.
-      await client.chat
-        .recordTip({ to: profile.username, txHash: res.txHash })
-        .catch(() => {});
-    }
+    }).catch(() => ({ approved: false }));
   };
 
   const ask = async (amountUsdc: number, note: string) => {
@@ -124,9 +172,10 @@ export default function UserProfilePage({
   if (profile === null) {
     return (
       <div className="screen gap-3">
-        <Skeleton className="h-20" />
-        <Skeleton className="h-14" />
+        <Skeleton className="h-36 rounded-toy-lg" />
+        <Skeleton className="h-9 w-2/3" />
         <Skeleton className="h-12" />
+        <Skeleton className="h-16" />
       </div>
     );
   }
@@ -149,6 +198,10 @@ export default function UserProfilePage({
     );
   }
 
+  const accent = accentFor(profile.username);
+  const payGate = () => (isLoggedIn ? setSheet("pay") : openLogin());
+  const askGate = () => (isLoggedIn ? setSheet("request") : openLogin());
+
   return (
     <div className="screen gap-3">
       <button
@@ -158,12 +211,20 @@ export default function UserProfilePage({
         ‹ Back
       </button>
 
-      {/* identity */}
-      <StickerCard color="white" className="p-4 flex items-center gap-3 shadow-sticker-md">
-        <EmojiToken emoji="🙂" color="green" size={56} rounded="toy" tilt={-5} />
-        <div className="flex flex-col gap-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="font-extrabold text-h3">@{profile.username}</span>
+      {/* hero — accent band + overlapping avatar */}
+      <StickerCard color="white" className="relative overflow-hidden p-0 shadow-sticker-md">
+        <div className={cx("h-20 border-b-2 border-ink", ACCENT_BG[accent])} />
+        <div className="flex flex-col gap-2 px-4 pb-4 -mt-10">
+          <EmojiToken
+            emoji="🙂"
+            color={accent}
+            size={76}
+            rounded="toy"
+            tilt={-5}
+            className="animate-pop shadow-sticker-md"
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-extrabold text-h2">@{profile.username}</span>
             {profile.worldVerified && <VerifiedBadge variant="pill" />}
           </div>
           <NameTag
@@ -171,62 +232,107 @@ export default function UserProfilePage({
             state={profile.ensName ? "minted" : "pending"}
             href={profile.ensName ? ensApp(profile.ensName) : undefined}
           />
-          {profile.walletAddress && (
-            <button
-              onClick={() =>
-                navigator.clipboard?.writeText(profile.walletAddress!).catch(() => {})
-              }
-              className="focus-ring self-start font-mono text-tiny font-semibold text-muted"
-            >
-              {short(profile.walletAddress)} 📋
-            </button>
-          )}
+          <div className="text-small font-semibold text-muted">
+            joined {joinedLabel(profile.createdAt)} · 👥 {profile.friendsCount}{" "}
+            {profile.friendsCount === 1 ? "friend" : "friends"}
+          </div>
         </div>
       </StickerCard>
 
-      {/* social actions */}
-      <div className="flex flex-wrap gap-2">
-        <StickerButton
-          color={isFriend ? "white" : "green"}
-          size="md"
-          onClick={toggleFriend}
-          disabled={busy}
-          className="rounded-full"
-        >
-          {isFriend ? "✓ Friends" : "+ Add friend"}
-        </StickerButton>
-
-        <StickerButton
-          color="pink"
-          size="md"
-          onClick={() => (isLoggedIn ? setSheet("pay") : openLogin())}
-          className="rounded-full"
-        >
-          💸 Send money
-        </StickerButton>
-
-        {isFriend && (
-          <StickerButton
-            color="yellow"
-            size="md"
-            onClick={() => (isLoggedIn ? setSheet("request") : openLogin())}
-            className="rounded-full"
+      {/* stats shelf */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Pill>
+          🎮 {jams?.length ?? 0} {(jams?.length ?? 0) === 1 ? "jam" : "jams"}
+        </Pill>
+        <Pill>👥 {profile.friendsCount}</Pill>
+        <Pill color={profile.worldVerified ? "green" : "white"}>
+          {profile.worldVerified ? "🌍 human" : "🔒 unverified"}
+        </Pill>
+        {profile.walletAddress && (
+          <button
+            onClick={() =>
+              navigator.clipboard?.writeText(profile.walletAddress!).catch(() => {})
+            }
+            className="focus-ring ml-auto font-mono text-tiny font-semibold text-muted"
           >
-            🙏 Ask for money
-          </StickerButton>
+            {short(profile.walletAddress)} 📋
+          </button>
         )}
       </div>
 
-      {asked && (
-        <div className="text-small font-bold text-green-ink">
-          asked ✓ — they'll see it in their inbox
+      {/* social actions — balanced, never ragged */}
+      {isFriend ? (
+        <div className="flex flex-col gap-2">
+          <StickerButton color="pink" size="lg" block onClick={payGate}>
+            💸 Send money
+          </StickerButton>
+          <div className="grid grid-cols-2 gap-2">
+            <StickerButton color="white" block onClick={toggleFriend} disabled={busy}>
+              ✓ Friends
+            </StickerButton>
+            <StickerButton color="yellow" block onClick={askGate}>
+              🙏 Ask for money
+            </StickerButton>
+          </div>
         </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <StickerButton color="green" block onClick={toggleFriend} disabled={busy}>
+            + Add friend
+          </StickerButton>
+          <StickerButton color="pink" block onClick={payGate}>
+            💸 Send money
+          </StickerButton>
+        </div>
+      )}
+
+      {asked && (
+        <Pill color="green" className="self-start">
+          asked ✓ — it's in their inbox
+        </Pill>
       )}
       {!isFriend && isLoggedIn && (
         <div className="text-small font-semibold text-muted">
           add @{profile.username} as a friend to chat + ask for money
         </div>
       )}
+
+      {/* their jams */}
+      <div className="mt-1 flex flex-col gap-2">
+        <div className="text-small font-extrabold uppercase tracking-wide text-muted">
+          jams by @{profile.username}
+        </div>
+        {jams === null ? (
+          <>
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+          </>
+        ) : jams.length === 0 ? (
+          <div className="text-small font-semibold text-muted">
+            @{profile.username} hasn't shipped a jam yet 🌱
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 stagger">
+            {jams.map((j, i) => (
+              <Link key={j.id} href={`/j/${j.slug}`} className="focus-ring">
+                <StickerCard
+                  className="p-3.5 flex items-center gap-3 sticker-press"
+                  tilt={i % 2 === 0 ? -0.3 : 0.3}
+                >
+                  <EmojiToken emoji={j.iconEmoji} color="blue" size={40} rounded="toy" />
+                  <div className="flex flex-col min-w-0">
+                    <div className="font-extrabold text-body truncate">{j.name}</div>
+                    <div className="text-small font-semibold text-muted">
+                      ♥ {j.likes} · ▸ {j.plays} · ★ {j.reviewCount}
+                    </div>
+                  </div>
+                  <span className="ml-auto text-muted font-extrabold">›</span>
+                </StickerCard>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
 
       {sheet && (
         <PayFriendSheet

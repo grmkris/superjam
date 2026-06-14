@@ -20,6 +20,7 @@ import { Input } from "../../components/ui/field";
 import { MicButton } from "../../components/ui/mic-button";
 import { ToyboxTabs } from "../../components/ui/tabs";
 import { VerifiedBadge } from "../../components/verified-badge";
+import { HandleLink } from "../../components/handle-link";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
 
@@ -122,8 +123,7 @@ function Notifications() {
           {!n.read && <Dot className="border border-ink shrink-0" />}
           <div className="flex flex-col min-w-0 gap-0.5">
             <div className="flex items-center gap-1.5 text-small">
-              <span className="font-extrabold">@{n.from.username}</span>
-              <VerifiedBadge />
+              <HandleLink username={n.from.username} verified className="font-extrabold" />
               <span className="text-muted font-semibold">· via {n.appName}</span>
             </div>
             <div className="text-small font-semibold leading-snug">{n.text}</div>
@@ -327,8 +327,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
       memo: note || undefined,
     }).catch(() => ({ approved: false, txHash: undefined as string | undefined }));
     if (res.approved && res.txHash) {
-      // the money line is recorded server-side from the verified on-chain tx
-      await client.chat.recordTip({ to: friend.username, txHash: res.txHash }).catch(() => {});
+      // the money line is recorded server-side inside payments.privateSend
       load();
     }
   };
@@ -352,8 +351,11 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
       <div className="flex items-center gap-2">
         <button onClick={onBack} className="focus-ring text-h3 font-bold text-muted" aria-label="Back">‹</button>
         <EmojiToken emoji="🙂" color="green" size={32} />
-        <span className="font-extrabold">@{friend.username}</span>
-        {friend.worldVerified && <VerifiedBadge />}
+        <HandleLink
+          username={friend.username}
+          verified={friend.worldVerified}
+          className="font-extrabold"
+        />
       </div>
 
       <div className="flex flex-col gap-2 py-2 min-h-[40dvh]">

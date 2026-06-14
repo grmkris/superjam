@@ -5,7 +5,7 @@ import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
 import type { UserId } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 
 const { friendship, user } = schema;
 
@@ -38,6 +38,17 @@ export const createFriendService = ({ db }: { db: Database }) => {
   return {
     resolveUserId,
     areFriends,
+
+    /** How many friends a user has (symmetric — either side of the pair). */
+    async count(userId: UserId): Promise<number> {
+      const [row] = await db
+        .select({ cnt: sql<number>`count(*)::int` })
+        .from(friendship)
+        .where(
+          or(eq(friendship.userAId, userId), eq(friendship.userBId, userId))
+        );
+      return Number(row?.cnt ?? 0);
+    },
 
     /** The OTHER party of each of my friendships. */
     async list(me: UserId) {

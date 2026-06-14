@@ -10,9 +10,11 @@ import { useState } from "react";
 import { useLogin } from "../login";
 import { usePlatformClient } from "../use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
+import Link from "next/link";
 import { AppHost } from "../app-host";
 import { FriendPicker } from "../chat/friend-picker";
 import { Handle } from "../verified-badge";
+import { HandleLink } from "../handle-link";
 import { cx } from "../ui/cx";
 import { EmojiToken } from "../ui/sticker";
 import { FeedActionRail } from "./feed-action-rail";
@@ -98,7 +100,7 @@ export function JamFeedCard({
           <span className="inline-flex items-center gap-2 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-bold">
             <span>{jam.iconEmoji}</span>
             <span>{jam.name}</span>
-            <Handle username={jam.maker.username} verified={jam.maker.verified} muted />
+            <HandleLink username={jam.maker.username} verified={jam.maker.verified} muted />
           </span>
           <button
             onClick={() => setPlay(false)}
@@ -128,10 +130,13 @@ export function JamFeedCard({
         <div className={cx("text-h1 font-extrabold ink-drop", ACCENT_TITLE[jam.accent])}>
           {jam.name}
         </div>
-        <span className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-bold">
+        <Link
+          href={`/u/${jam.maker.username}`}
+          className="focus-ring inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-bold shadow-sticker-sm sticker-press"
+        >
           <EmojiToken emoji="🦊" color="green" size={20} />
           <Handle username={jam.maker.username} verified={jam.maker.verified} />
-        </span>
+        </Link>
         {jam.remixOf && (
           <span className="inline-flex items-center gap-1 bg-card/90 border-2 border-ink rounded-full px-2.5 py-1 text-tiny font-extrabold">
             🔁 remix of {jam.remixOf.name} <span className="text-blue">↗</span>

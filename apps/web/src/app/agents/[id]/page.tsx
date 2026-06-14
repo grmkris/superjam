@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import { NameTag } from "../../../components/name-tag";
 import { VerifiedBadge } from "../../../components/verified-badge";
+import { HandleLink } from "../../../components/handle-link";
 import { capLabels, ensApp, modelLabel } from "../../../components/ui/brand";
 import { HumanBackedBadge, MakerLine } from "../../../components/builder-bits";
 import { EmojiToken, StickerButton, StickerCard } from "../../../components/ui/sticker";
@@ -107,7 +108,9 @@ export default function AgentProfilePage({
         <Row label="maker">
           <span className="inline-flex flex-wrap items-center gap-2 text-small font-semibold">
             <VerifiedBadge variant="pill" label={agent.owner.worldVerified ? "verified human" : "unverified"} />
-            <span className="text-muted">@{agent.owner.username} runs it</span>
+            <span className="text-muted">
+              <HandleLink username={agent.owner.username} className="text-muted" /> runs it
+            </span>
           </span>
         </Row>
         {modelLabel(agent.model) && (

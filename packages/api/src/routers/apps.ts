@@ -412,6 +412,87 @@ export const appsRouter = {
       };
     }),
 
+  // A user's published jams (DESIGN_BRIEF §3f profile shelf) — the games made by
+  // @username, for their public /u/<username> page. Listed/deployed only (no
+  // drafts/failed, unlike `mine`), most-played first. Lighter than `explore`: no
+  // remix/friends-liked machinery. Unknown user → empty.
+  byUser: optionalAuthProcedure
+    .input(z.object({ username: z.string().min(1) }))
+    .handler(async ({ context, input }) => {
+      const db = context.db;
+      const handle = input.username.trim().toLowerCase().replace(/^@/, "");
+      const owner = await db.query.user.findFirst({
+        columns: { id: true },
+        where: eq(user.username, handle),
+      });
+      if (!owner) return { jams: [] as const };
+
+      const plays = db
+        .select({
+          appId: appCounter.appId,
+          total: sql<string>`coalesce(sum(${appCounter.value}), 0)`.as("total"),
+        })
+        .from(appCounter)
+        .where(eq(appCounter.counter, PLAYS_COUNTER))
+        .groupBy(appCounter.appId)
+        .as("plays");
+      const reviews = db
+        .select({
+          appId: appReview.appId,
+          cnt: sql<number>`count(*)::int`.as("cnt"),
+        })
+        .from(appReview)
+        .groupBy(appReview.appId)
+        .as("reviews");
+      const playsTotal = sql<number>`coalesce(${plays.total}, 0)::int`;
+
+      const rows = await db
+        .select({
+          id: app.id,
+          slug: app.slug,
+          name: app.name,
+          iconEmoji: app.iconEmoji,
+          plays: playsTotal,
+          reviewCount: sql<number>`coalesce(${reviews.cnt}, 0)::int`,
+        })
+        .from(app)
+        .leftJoin(plays, eq(plays.appId, app.id))
+        .leftJoin(reviews, eq(reviews.appId, app.id))
+        .where(
+          and(
+            eq(app.ownerUserId, owner.id),
+            inArray(app.status, ["listed", "deployed"]),
+            isNotNull(app.entryUrl)
+          )
+        )
+        .orderBy(desc(playsTotal), desc(app.createdAt))
+        .limit(LIST_MAX);
+
+      // Like totals for just this page (small, indexed lookup).
+      const appIds = rows.map((r) => r.id);
+      const likeCount = new Map<string, number>();
+      if (appIds.length) {
+        const totals = await db
+          .select({ appId: appLike.appId, cnt: sql<number>`count(*)::int` })
+          .from(appLike)
+          .where(inArray(appLike.appId, appIds))
+          .groupBy(appLike.appId);
+        for (const t of totals) likeCount.set(t.appId, Number(t.cnt));
+      }
+
+      return {
+        jams: rows.map((r) => ({
+          id: r.id,
+          slug: r.slug,
+          name: r.name,
+          iconEmoji: r.iconEmoji,
+          likes: likeCount.get(r.id) ?? 0,
+          plays: Number(r.plays),
+          reviewCount: Number(r.reviewCount),
+        })),
+      };
+    }),
+
   // Toggle the caller's like on a jam (DESIGN_BRIEF §3b heart). Idempotent —
   // PK(appId,userId) — returns the new state + recomputed total for optimistic UI.
   like: protectedProcedure
