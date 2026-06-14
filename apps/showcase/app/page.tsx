@@ -7,6 +7,7 @@ const JAMS = [
   { href: "/poll", emoji: "🗳️", name: "Proof-of-Human Poll", sub: "1 human, 1 vote" },
   { href: "/academy", emoji: "🎓", name: "Stablecoin Academy", sub: "Understand USDC in 60s" },
   { href: "/wrapped", emoji: "🎁", name: "Onchain Wrapped", sub: "Your year onchain" },
+  { href: "/whimsy", emoji: "🏆", name: "Judges' Whimsy", sub: "Face the ETHGlobal NY judges" },
 ];
 
 export default function Home() {

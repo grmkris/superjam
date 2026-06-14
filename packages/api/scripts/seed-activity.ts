@@ -107,6 +107,7 @@ const TEMPLATE_GAMES: {
 const SLUG_WEIGHT: Record<string, number> = {
   "gem-clicker": 1420,
   "world-cup-trivia": 980,
+  "judges-whimsy": 910,
   "roast-my-bags": 870,
   "final-pot-demo": 720,
   "onchain-wrapped": 560,
