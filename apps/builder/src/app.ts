@@ -112,7 +112,7 @@ export const createBuilderApp = (deps: BuilderAppDeps): Hono => {
     if (!parsed.success) {
       return c.json({ error: "bad request", detail: z.prettifyError(parsed.error) }, 400);
     }
-    const outcome = deps.runner.report(c.req.param("id"), token, parsed.data);
+    const outcome = await deps.runner.report(c.req.param("id"), token, parsed.data);
     if (outcome === "not_found") return c.json({ error: "not found" }, 404);
     if (outcome === "unauthorized") return c.json({ error: "unauthorized" }, 401);
     return c.json({ ok: true });

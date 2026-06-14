@@ -31,6 +31,13 @@ export interface BuildRunnerDeps {
   now?: () => number;
   /** Per-build secret minter; defaults to crypto.randomUUID. */
   mintToken?: () => string;
+  /**
+   * Resolve the REAL deploy URL from the agent-reported Vercel project + its
+   * guessed URL (Vercel truncates long auto-aliases, so the guess can 404).
+   * Defaults to a pass-through (returns the fallback); server.ts injects the
+   * live Vercel resolver. NEVER throws — a build is never blocked on this.
+   */
+  resolveEntryUrl?: (vercelProject: string, fallback: string) => Promise<string>;
 }
 
 export interface BuildState {
@@ -82,8 +89,9 @@ export interface BuildRunner {
   atCapacity(): boolean;
   start(args: StartArgs): BuildState;
   get(buildId: string): BuildState | undefined;
-  /** Apply an agent report to a build (token-gated). */
-  report(buildId: string, token: string, report: AgentReport): ReportOutcome;
+  /** Apply an agent report to a build (token-gated). Async: a `done` report
+   *  resolves the real Vercel alias before recording the result. */
+  report(buildId: string, token: string, report: AgentReport): Promise<ReportOutcome>;
   /** Resolve once the given build leaves `running` (test seam). */
   wait(buildId: string): Promise<void>;
 }
@@ -102,6 +110,8 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
   const max = deps.maxConcurrent ?? 2;
   const now = deps.now ?? Date.now;
   const mintToken = deps.mintToken ?? (() => crypto.randomUUID());
+  const resolveEntryUrl =
+    deps.resolveEntryUrl ?? ((_project, fallback) => Promise.resolve(fallback));
   const builds = new Map<string, BuildState>();
   const pending = new Map<string, Promise<void>>();
   // Per-build context report() needs to assemble a DeployResult on `done`.
@@ -146,7 +156,7 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
       return state;
     },
 
-    report(buildId, token, report): ReportOutcome {
+    async report(buildId, token, report): Promise<ReportOutcome> {
       const state = builds.get(buildId);
       if (!state) return "not_found";
       if (!state.reportToken || token !== state.reportToken) return "unauthorized";
@@ -157,9 +167,13 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
         state.events.push({ t: now(), kind: "status", label: report.label });
       } else if (report.kind === "done") {
         const c = ctx.get(buildId);
+        // Override the agent's GUESSED URL with the real Vercel production alias
+        // (best-effort; falls back to the report on failure). Resolve BEFORE
+        // marking done so a poller never sees the guess.
+        const entryUrl = await resolveEntryUrl(report.vercelProject, report.entryUrl);
         state.status = "done";
         state.result = {
-          entryUrl: report.entryUrl,
+          entryUrl,
           manifest: manifestFromSpec(c?.spec ?? ({} as AppSpec)),
           vercelProject: report.vercelProject,
           neonProjectId: report.neonProjectId,

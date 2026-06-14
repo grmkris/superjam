@@ -15,6 +15,7 @@ import { createBuilderApp } from "./app.ts";
 import { vercelRemove } from "./cli-deploy.ts";
 import { parseBuilderEnv } from "./env.ts";
 import { createBuildRunner } from "./queue.ts";
+import { makeVercelEntryUrlResolver } from "./vercel-alias.ts";
 
 const env = parseBuilderEnv(process.env);
 const logger = createLogger({ level: "info" });
@@ -52,6 +53,9 @@ const runner = createBuildRunner({
   runBuild: (a) =>
     runAgentBuild({ ...a, port: env.PORT, jwksUrl: env.SUPERJAM_JWKS_URL }),
   maxConcurrent: env.MAX_CONCURRENT_BUILDS,
+  // Record the REAL Vercel production alias — the agent reports a guessed URL
+  // that 404s for long project names (Vercel truncates the auto-alias).
+  resolveEntryUrl: makeVercelEntryUrlResolver(env.VERCEL_TOKEN),
 });
 
 // The x402 "hire" resource (§14): when this builder has a wallet + price set, the

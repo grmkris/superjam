@@ -11,16 +11,12 @@
 //   recon (no writes):  DEV_DB_URL=… BUILDER_URL=… BUILDER_TOKEN=… bun packages/api/scripts/build-demo-jams.ts
 //   build:              … RUN=1 [ONLY=reflex-rush] bun packages/api/scripts/build-demo-jams.ts
 import { createDb, schema } from "@superjam/db";
-import { eq, sql } from "drizzle-orm";
-import type { AppSpec } from "@superjam/shared";
-import { typeIdGenerator, typeIdToUuid } from "@superjam/shared/typeid";
-
-// NOTE: we allocate/finalize the app row with RAW SQL (not the apps-router
-// Drizzle helpers) on purpose. A parallel lane has app.db.ts edited in the
-// working tree with new columns (game_contract_*, built_by_agent_id) that the
-// dev DB hasn't migrated yet, so any full-schema INSERT / `returning *` errors
-// against dev. Raw SQL touching only the columns that exist keeps us isolated
-// from that in-flight migration.
+import { eq } from "drizzle-orm";
+import type { AppManifest, AppSpec } from "@superjam/shared";
+import {
+  allocateExternalApp,
+  finalizeExternalApp,
+} from "../src/routers/apps.ts";
 
 const DEV_DB_URL = process.env.DEV_DB_URL;
 const BUILDER_URL = process.env.BUILDER_URL;
@@ -146,29 +142,14 @@ const SPECS: AppSpec[] = [
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-type Dbh = ReturnType<typeof createDb>["db"];
-
-/** Insert the app row (status=building) with a fresh appId. Raw SQL, real
- *  columns only. Returns the TypeID appId the builder bakes as SUPERJAM_APP_ID. */
-const allocate = async (db: Dbh, spec: AppSpec, ownerId: string): Promise<string> => {
-  const appId = typeIdGenerator("app");
-  const idUuid = typeIdToUuid(appId).uuid;
-  const ownerUuid = typeIdToUuid(ownerId as never).uuid;
-  await db.execute(sql`
-    insert into "app" (id, slug, name, description, icon_emoji, category, owner_user_id, status, capabilities)
-    values (${idUuid}::uuid, ${spec.slug}, ${spec.name}, ${spec.description}, ${spec.iconEmoji},
-            ${spec.category}, ${ownerUuid}::uuid, 'building', ${JSON.stringify(spec.capabilities)}::jsonb)`);
-  return appId;
-};
-
-/** Attach the deployed URL + list the app. Raw SQL, real columns only. */
-const finalize = async (db: Dbh, appId: string, entryUrl: string): Promise<void> => {
-  const idUuid = typeIdToUuid(appId as never).uuid;
-  const origin = new URL(entryUrl).origin;
-  await db.execute(sql`
-    update "app" set entry_url=${entryUrl}, entry_origin=${origin}, status='listed', updated_at=now()
-    where id=${idUuid}::uuid`);
-};
+const manifestOf = (s: AppSpec): AppManifest => ({
+  name: s.name,
+  slug: s.slug,
+  description: s.description,
+  iconEmoji: s.iconEmoji,
+  category: s.category,
+  capabilities: s.capabilities,
+});
 
 interface BuildState {
   status: "running" | "done" | "failed";
@@ -246,14 +227,20 @@ try {
     }
     console.log(`\n▶ ${spec.iconEmoji} ${spec.name} (${spec.slug})`);
     // 1) allocate → appId baked into the app as SUPERJAM_APP_ID (the token aud).
-    const appId = await allocate(db, spec, owner.id);
+    const allocated = await allocateExternalApp(db, {
+      manifest: manifestOf(spec),
+      ownerUserId: owner.id,
+    });
+    const appId = allocated.id;
     console.log(`   allocated appId=${appId} (status=building)`);
     try {
       // 2+3) build via the agentic builder + poll to done.
       const entryUrl = await runBuild(spec, appId);
-      // 4) finalize: attach the live URL + list it (no onchain ENS — stays un-named).
-      await finalize(db, appId, entryUrl);
-      console.log(`   ✅ ${spec.slug} → ${entryUrl}  (status=listed)`);
+      // 4) finalize: attach the live URL + list it. No onchain here — ENS is
+      // minted separately (mint-jam-ens.ts); the platform builds.create path
+      // passes onchain so production builds name themselves.
+      const row = await finalizeExternalApp(db, { appId, entryUrl });
+      console.log(`   ✅ ${row.slug} → ${entryUrl}  (status=${row.status})`);
     } catch (e) {
       console.log(`   ✗ build failed: ${e instanceof Error ? e.message : String(e)}`);
       console.log(`     (app row ${appId} left status=building — re-run or clean up)`);

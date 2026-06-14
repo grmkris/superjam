@@ -57,7 +57,7 @@ const makeApp = (overrides?: {
     reportToken,
   }) => {
     const proj = projectName(appId);
-    runnerRef?.report(buildId, reportToken, {
+    await runnerRef?.report(buildId, reportToken, {
       kind: "done",
       entryUrl: `https://${proj}.vercel.app`,
       vercelProject: proj,
