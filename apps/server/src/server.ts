@@ -1,4 +1,4 @@
-// SuperJam server (§6/§12): Hono + oRPC over /rpc/*, health, bundle serving
+// SuperJam server (§6/§12): Hono + oRPC over /rpc/*, health, identity JWKS
 // (added M3). Migrations run on boot (§18). The deployed image ships no Claude
 // CLI — agent builds dispatch to the dev-box builder (§11).
 import { serve } from "@hono/node-server";
@@ -38,7 +38,6 @@ import {
 } from "./dynamic-wallet.ts";
 import { env } from "./env.ts";
 import { createGeminiOracle } from "./oracle.ts";
-import { registerServeRoutes } from "./serve.ts";
 
 const logger = createLogger({
   name: "server",
@@ -224,10 +223,10 @@ app.get("/.well-known/jwks.json", (c) => {
   return c.json(issuer.jwks());
 });
 
-// Bundle serving (§17): /a/:slug/* from S3 with the _plays bump. The same store
-// backs attachment uploads + presigned-GET delivery to the builder agent.
+// Object store (S3): backs attachment uploads + presigned-GET delivery to the
+// builder agent. (Track-A /a bundle serving removed 2026-06-14 — apps are external,
+// framed by app.entryUrl; see docs/PIVOT.md.)
 const objectStore = createS3Store(env);
-registerServeRoutes(app, { db, store: objectStore, logger });
 
 // Dynamic delegation webhook (§23) — receives wallet.delegation.created/revoked,
 // decrypts + stores the per-user MPC share so the server can sign privately on the
