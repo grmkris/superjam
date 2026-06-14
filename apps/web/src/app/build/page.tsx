@@ -386,8 +386,8 @@ function MakeFlow() {
     }
   };
 
-  const goBuilders = async () => {
-    go("builder");
+  // Fetch the marketplace builders. Stable so the effect below can depend on it.
+  const loadBuilders = useCallback(async () => {
     try {
       const rows = await client.agents.list();
       setBuilders(
@@ -407,7 +407,18 @@ function MakeFlow() {
     } catch {
       setBuilders([]);
     }
-  };
+  }, [client]);
+
+  // The builder list is NOT persisted in the draft, so load it on EVERY arrival at
+  // the builder step — forward nav, a reload, resuming a paused draft, or coming
+  // back from a builder's /agents/[id] profile (which unmounts this page). Without
+  // this, those re-entries left `builders` null forever → the skeleton cards never
+  // resolve (the "empty / white" builder step). Self-limits: once non-null it stops.
+  useEffect(() => {
+    if (step === "builder" && builders === null) void loadBuilders();
+  }, [step, builders, loadBuilders]);
+
+  const goBuilders = () => go("builder");
 
   const pickBuilder = async (b: Builder) => {
     const price = Number(b.priceUsdc);
@@ -522,7 +533,7 @@ function MakeFlow() {
         <BuilderBeat
           builders={builders}
           onPick={pickBuilder}
-          onInfo={(id) => router.push(`/agents/${id}`)}
+          onInfo={(id) => router.push(`/agents/${id}?from=build&d=${draftId}`)}
         />
       )}
 

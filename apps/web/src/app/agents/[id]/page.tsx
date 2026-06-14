@@ -5,8 +5,8 @@
 // name, its on-chain ERC-8004 identity, price, and jams built. No "ERC-8004"
 // shouting at the top — the standard reads as live, fetched metadata.
 import type { BuilderAgentId } from "@superjam/shared";
-import { useRouter } from "next/navigation";
-import { use, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, use, useCallback, useEffect, useState } from "react";
 import { NameTag } from "../../../components/name-tag";
 import { VerifiedBadge } from "../../../components/verified-badge";
 import { HandleLink } from "../../../components/handle-link";
@@ -46,8 +46,29 @@ export default function AgentProfilePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  // useSearchParams (below) requires a Suspense boundary or `next build` fails on
+  // prerender — same wrapper pattern as the Make page.
+  return (
+    <Suspense fallback={<div className="screen"><Skeleton className="h-28" /></div>}>
+      <AgentProfile params={params} />
+    </Suspense>
+  );
+}
+
+function AgentProfile({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const router = useRouter();
+  // When opened from the build flow (BuilderBeat "Profile"), back returns to the
+  // jam at the builder step instead of the /agents marketplace index — otherwise
+  // the user gets dumped on /agents and loses their place in the build.
+  const sp = useSearchParams();
+  const fromDraft = sp.get("from") === "build" ? sp.get("d") : null;
+  const backTo = fromDraft ? `/build?d=${fromDraft}&step=builder` : "/agents";
+  const backLabel = fromDraft ? "‹ back to your jam" : "‹ all builders";
   const client = usePlatformClient();
   const { hostUser } = useHostAuth();
   const [agent, setAgent] = useState<Agent | null | "missing">(null);
@@ -95,8 +116,8 @@ export default function AgentProfilePage({
           title="builder not found"
           emojiColor="blue"
           action={
-            <StickerButton color="white" size="sm" onClick={() => router.push("/agents")}>
-              ‹ all builders
+            <StickerButton color="white" size="sm" onClick={() => router.push(backTo)}>
+              {backLabel}
             </StickerButton>
           }
         />
@@ -111,8 +132,8 @@ export default function AgentProfilePage({
   const poolYieldUsdc = stake?.poolYieldUsdc ?? null;
   return (
     <div className="screen">
-      <button onClick={() => router.push("/agents")} className="focus-ring self-start text-small font-bold text-muted">
-        ‹ all builders
+      <button onClick={() => router.push(backTo)} className="focus-ring self-start text-small font-bold text-muted">
+        {backLabel}
       </button>
 
       <div className="flex items-center gap-3">
