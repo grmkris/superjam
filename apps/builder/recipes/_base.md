@@ -74,6 +74,21 @@ export default function Page() {
 > leave the backend unused — simpler and faster. (Boundary note for the generator: a spec
 > that only needs a counter should NOT force a Neon project.)
 
+## Look & feel — the Toybox theme (use it, don't reinvent)
+The app already ships the SuperJam **Toybox** theme — `app/globals.css` (imported in
+`app/layout.tsx`) with the design tokens + the **Baloo 2** font, so a framed jam looks
+native in the host. **Use it instead of ad-hoc `system-ui` inline styles.**
+- Wrap your screen in `<div className="tj-app">` (a centered, mobile-first column).
+- Use the `.tj-*` classes: `tj-card` (white, ink border, sticker shadow), `tj-title`,
+  `tj-sub`, `tj-muted`, `tj-btn` (+ `tj-btn-ghost`), `tj-input`, `tj-row`, `tj-grid2`,
+  `tj-list`, `tj-badge`, `tj-stat`, `tj-spin`.
+- Colors come from CSS vars — `var(--accent)` (candy pink), `var(--text)` (ink),
+  `var(--bg)` (cream), `var(--card)`, `var(--muted)`. Candy siblings as inline hex when
+  you need variety: `#FF4D6D` pink · `#FFC940` yellow · `#2FD180` green · `#4D7CFF` blue.
+- Do NOT set `fontFamily: "system-ui"` or re-declare fonts — Baloo 2 is the body font.
+  Inline styles are fine for layout (flex/grid/spacing); pull color/font/buttons/cards
+  from the theme so every jam shares the host's visual language.
+
 ## HARD RULES
 1. `app/page.tsx` starts with `"use client"`. One screen, playable instantly, no routing.
 2. NEVER trust a client-supplied user id — in API routes, take identity ONLY from

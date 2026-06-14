@@ -254,7 +254,7 @@ export function TripMap({ stops, height = 320 }: { stops: TripStop[]; height?: n
         const el = document.createElement("div");
         el.style.cssText =
           "width:26px;height:26px;border-radius:50%;color:#fff;display:flex;align-items:center;" +
-          "justify-content:center;font:700 13px/1 system-ui;border:2px solid #fff;cursor:pointer;" +
+          "justify-content:center;font:700 13px/1 'Baloo 2',ui-rounded,system-ui,sans-serif;border:2px solid #fff;cursor:pointer;" +
           "box-shadow:0 2px 6px rgba(0,0,0,.3);background:" + color;
         el.textContent = String(n);
         const popup = new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(
@@ -361,15 +361,121 @@ ${spec.features.map((f) => `        <li>${f.replace(/</g, "&lt;")}</li>`).join("
 }
 `;
 
-const layout = (spec: AppSpec): string => `export const metadata = { title: "${spec.name.replace(/"/g, "")}" };
+// Root layout — ships the Toybox theme so a framed jam looks native in the host
+// (same Baloo 2 font + tokens as apps/web). globals.css is the deployed-tier theme.
+const layout = (spec: AppSpec): string => `import "./globals.css";
+
+export const metadata = { title: "${spec.name.replace(/"/g, "")}" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );
 }
+`;
+
+// Deployed-tier Toybox theme (matches the host + the SDK \`tj-*\` contract in
+// packages/app-template/src/theme.css), tuned for FULL-WIDTH content pages: the
+// body flows normally (no forced centering) and \`.tj-app\` is the readable column.
+// \`.tj-card\` drops the 380px toy cap so rich pages aren't cramped.
+const globalsCss = (): string => `:root {
+  --bg: #FFF4E3;     /* cream paper */
+  --card: #FFFFFF;
+  --text: #221A33;   /* ink — text AND outlines/shadows */
+  --muted: #6B6478;
+  --accent: #FF4D6D; /* candy pink (primary) */
+  --danger: #E5484D;
+  --radius: 16px;
+}
+* { box-sizing: border-box; }
+html, body { -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+}
+/* Mobile-first readable column for content jams. Toys can nest a single tj-card. */
+.tj-app { max-width: 560px; margin: 0 auto; padding: 16px; }
+
+/* Surfaces */
+.tj-card {
+  background: var(--card);
+  border: 2px solid var(--text);
+  border-radius: var(--radius);
+  padding: 20px;
+  width: 100%;
+  box-shadow: 0 4px 0 var(--text);
+}
+.tj-title { margin: 0 0 4px; font-size: 24px; font-weight: 800; line-height: 1.1; }
+.tj-sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.tj-muted { color: var(--muted); }
+
+/* Buttons */
+.tj-btn {
+  background: var(--accent);
+  color: #fff;
+  border: 2px solid var(--text);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 800;
+  cursor: pointer;
+  font-size: 15px;
+  font-family: inherit;
+  box-shadow: 0 3px 0 var(--text);
+  transition: transform .04s ease, box-shadow .04s ease;
+}
+.tj-btn:active { transform: translateY(3px); box-shadow: 0 0 0 var(--text); }
+.tj-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: 0 3px 0 var(--text); transform: none; }
+.tj-btn-ghost { background: var(--card); color: var(--text); }
+
+/* Inputs */
+.tj-input {
+  width: 100%;
+  background: #fff;
+  border: 2px solid var(--text);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 600;
+}
+.tj-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Layout helpers */
+.tj-row { display: flex; gap: 8px; align-items: center; }
+.tj-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tj-center { display: grid; place-items: center; text-align: center; gap: 8px; }
+.tj-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+
+/* Bits */
+.tj-stat { font-size: 40px; font-weight: 800; line-height: 1; }
+.tj-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg);
+  border: 2px solid var(--text);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tj-empty { display: grid; place-items: center; gap: 6px; padding: 28px 12px; color: var(--muted); font-weight: 600; text-align: center; }
+
+/* Spinner */
+.tj-spin { width: 22px; height: 22px; border: 3px solid var(--bg); border-top-color: var(--accent); border-radius: 50%; animation: tj-rot .7s linear infinite; }
+@keyframes tj-rot { to { transform: rotate(360deg); } }
 `;
 
 /** Build the deterministic file map for one app. `ctx` carries the baked

@@ -45,18 +45,22 @@ always "no text". Write to `public/photo-<slug>.png`, reference as `/photo-<slug
 **Every `<img>` must degrade to an emoji/gradient tile** (image gen can be
 unavailable) — never a broken image. Generate the images FIRST, then write the UI.
 
-## 3. Render it read-first and polished (CSS only — no extra deps)
-- **Hero**: full-width hero image + the trip title + a "trip at a glance" line
-  (`{days} days · {stops.length} stops · {first} → {last}`).
+## 3. Render it read-first and polished (Toybox theme; CSS only — no extra deps)
+Use the shipped Toybox theme (see `_base.md` "Look & feel"): wrap the screen in
+`<div className="tj-app">` and build with `tj-card`/`tj-title`/`tj-sub`/`tj-btn`/
+`tj-input`/`tj-badge` + `var(--accent)`. **No `system-ui` inline fonts** — Baloo 2
+is the body font.
+- **Hero**: full-width hero image, the trip title (`tj-title`), and a "trip at a
+  glance" line (`{days} days · {stops.length} stops · {first} → {last}`).
 - **Map**: `<TripMap stops={stops} height={320} />` — the route across all stops
   (see `map.md`; map tiles are the one allowed external fetch).
-- **Itinerary**: one rich card per stop — the photo, day badge, name, blurb,
+- **Itinerary**: one `tj-card` per stop — the photo, a day `tj-badge`, name, blurb,
   highlights, food picks, a "Getting here" transit line, and the tip. A sticky
   day-nav or numbered rail that scrolls to each stop is a nice touch.
 - Polish with **plain CSS only**: smooth expand/collapse (max-height transition),
   image hover zoom (`transform: scale`), fade-in on scroll, sticky header. Do NOT
   add motion/react or any new dependency — it isn't installed.
-- Toybox-friendly, mobile-first, one screen. Render all text as plain React text.
+- Mobile-first, one screen. Render all text as plain React text.
 
 ## 4. Optional — "ask the guide" (capability `"ai"`)
 A small input that answers questions about THIS trip, grounded in the baked data:
