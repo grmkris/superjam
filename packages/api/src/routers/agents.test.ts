@@ -266,40 +266,38 @@ describe("selectEligibleBuilder (the build-dispatch pick)", () => {
     return { full, fe };
   };
 
-  test("a data spec routes only to a capable builder (frontend-only excluded)", async () => {
+  test("auto-pick returns the preferred (cheapest) active builder, regardless of spec", async () => {
     const h = await harness();
-    const { full } = await seed(h);
+    const { fe } = await seed(h);
+    // Dispatch isn't capability-gated, so even a data spec routes to the cheapest.
     const chosen = await selectEligibleBuilder(h.db, SPEC_NEEDS_DB);
-    expect(chosen?.agent.id).toBe(full.id);
+    expect(chosen?.agent.id).toBe(fe.id); // fe is priceUsdc "0"
+  });
+
+  test("an explicit agentId is honored for any active builder, even a frontend-only one on a data+payments spec", async () => {
+    const h = await harness();
+    const { fe } = await seed(h);
+    // Previously a hard miss (fe lacks database:neon/contracts:evm); dispatch is no
+    // longer capability-gated, so the user's pick goes through.
+    const dataPaySpec = specWith({ capabilities: ["payments"], data: SPEC_NEEDS_DB.data });
+    const chosen = await selectEligibleBuilder(h.db, dataPaySpec, { agentId: fe.id });
+    expect(chosen?.agent.id).toBe(fe.id);
     expect(chosen?.endpointUrl).toBe(REGISTER.endpointUrl);
     expect(chosen?.token).toBe(REGISTER.token);
   });
 
-  test("a static spec prefers the cheaper eligible builder", async () => {
+  test("an unknown/disabled agentId is a hard miss (null), not a silent reroute", async () => {
     const h = await harness();
-    const { fe } = await seed(h);
-    const chosen = await selectEligibleBuilder(h.db, specWith());
-    expect(chosen?.agent.id).toBe(fe.id); // fe is priceUsdc "0"
-  });
-
-  test("an explicit agentId is honored when eligible, refused when not", async () => {
-    const h = await harness();
-    const { full, fe } = await seed(h);
-    const ok = await selectEligibleBuilder(h.db, SPEC_NEEDS_DB, { agentId: full.id });
-    expect(ok?.agent.id).toBe(full.id);
-    // fe can't do database:neon → a hard miss, not a silent reroute
-    const miss = await selectEligibleBuilder(h.db, SPEC_NEEDS_DB, { agentId: fe.id });
+    const { full } = await seed(h);
+    const unknown = typeIdGenerator("builderAgent") as typeof full.id;
+    const miss = await selectEligibleBuilder(h.db, SPEC_NEEDS_DB, { agentId: unknown });
     expect(miss).toBeNull();
   });
 
-  test("returns null when no active builder can deliver", async () => {
+  test("returns null when there are no active builders", async () => {
     const h = await harness();
-    await seed(h);
-    const needsContracts = await selectEligibleBuilder(
-      h.db,
-      specWith({ capabilities: ["payments"] }) // → requires contracts:evm
-    );
-    expect(needsContracts).toBeNull();
+    const none = await selectEligibleBuilder(h.db, SPEC_NEEDS_DB);
+    expect(none).toBeNull();
   });
 });
 

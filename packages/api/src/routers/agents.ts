@@ -14,7 +14,6 @@ import {
   BuilderAgentId,
   BuilderCapabilityList,
   eligibleAgents,
-  requiredCapabilities,
   SLUG_REGEX,
 } from "@superjam/shared";
 import { ORPCError, os } from "@orpc/server";
@@ -410,28 +409,33 @@ const byPreference = (a: BuilderAgent, b: BuilderAgent): number =>
   a.createdAt.getTime() - b.createdAt.getTime();
 
 /**
- * Pick the builder for a spec (the routing primitive S's `runBuild` calls): the
- * spec's `requiredCapabilities` → the active, capability-matched agents → the
- * requested `agentId` if it's eligible, else the preferred default. Returns null
- * when nothing can deliver (caller decides: error, or fall back to the house
- * builder). Pure DB read; no dispatch, no side effects.
+ * Pick the builder for a spec (the routing primitive S's `runBuild` calls):
+ * honor the requested `agentId` if it's active, else the preferred default.
+ * Dispatch is NOT gated on a capability checklist — all builders share the same
+ * under-the-hood toolchain (data/payments/hosting ride the platform bridge + SDK);
+ * they differ only by coding model, so any active builder can take any spec.
+ * Returns null only when the pick is unknown/disabled or the registry is empty —
+ * the caller (builds.create) REJECTS the build; there is no house fallback.
+ * Pure DB read; no dispatch, no side effects.
  */
 export const selectEligibleBuilder = async (
   db: Database,
-  spec: AppSpec,
+  _spec: AppSpec, // kept for signature stability; no longer used for gating
   opts: { agentId?: BuilderAgentId } = {}
 ): Promise<SelectedBuilder | null> => {
-  const eligible = await findEligibleBuilders(db, requiredCapabilities(spec));
-  if (eligible.length === 0) {
+  const active = await db.query.builderAgent.findMany({
+    where: eq(builderAgent.status, "active"),
+  });
+  if (active.length === 0) {
     return null;
   }
   if (opts.agentId) {
-    const picked = eligible.find((a) => a.id === opts.agentId);
-    // An explicit pick that can't deliver is a hard miss — don't silently
-    // reroute the user's chosen (possibly paid) agent to someone else.
+    const picked = active.find((a) => a.id === opts.agentId);
+    // Honor the user's pick if it's a real, active builder; a missing/disabled
+    // pick is a hard miss, not a silent reroute to someone else.
     return picked ? toSelected(picked) : null;
   }
-  return toSelected(eligible.toSorted(byPreference)[0]!);
+  return toSelected(active.toSorted(byPreference)[0]!);
 };
 
 const toSelected = (agent: BuilderAgent): SelectedBuilder => ({

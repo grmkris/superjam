@@ -413,13 +413,13 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
         }
 
         // No house fallback: every build must route to a registered agent. With
-        // the fleet present this only fires for an explicit pick that can't deliver
-        // (the requested agent is missing a required capability / is disabled) or
-        // an empty registry — reject clearly instead of silently free-building.
+        // the fleet present this only fires for an explicit pick that's unknown or
+        // disabled, or an empty registry — reject clearly instead of silently
+        // free-building. (Dispatch is not capability-gated; see selectEligibleBuilder.)
         if (!selected) {
           throw new ORPCError("BAD_REQUEST", {
             message: input.agentId
-              ? "That builder can't build this app."
+              ? "That builder isn't available."
               : "No builder is available to build this right now.",
           });
         }
