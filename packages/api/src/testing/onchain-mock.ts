@@ -9,6 +9,8 @@ export interface MockOnchain extends Onchain {
   sends: { to: Address; value: Usdc }[];
   /** Every fundViaCctp (Sepolia→Arc bridge) call, in order. */
   bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[];
+  /** Every stakeViaCctp (cross-chain stake top-up) call, in order. */
+  stakeBridges: { builder: Address; amount: Usdc }[];
   /** Every unlink.payX402 (private→x402 build fee) call, in order. */
   x402Pays: { url: string; amount: Usdc; fromUnlinkAddress: string }[];
   /** Every game.write (onchain-game move) call, in order — assert the player
@@ -41,6 +43,7 @@ export const createMockOnchain = (
 ): MockOnchain => {
   const sends: { to: Address; value: Usdc }[] = [];
   const bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[] = [];
+  const stakeBridges: { builder: Address; amount: Usdc }[] = [];
   const x402Pays: { url: string; amount: Usdc; fromUnlinkAddress: string }[] = [];
   const gameWrites: { address: Address; functionName: string; args: readonly unknown[] }[] = [];
   let gameRead: () => unknown = () => 0n;
@@ -55,6 +58,7 @@ export const createMockOnchain = (
       opts.serverAddress ?? "0x000000000000000000000000000000000000eeee",
     sends,
     bridges,
+    stakeBridges,
     x402Pays,
     gameWrites,
     stakeSlash: null,
@@ -93,6 +97,10 @@ export const createMockOnchain = (
       bridges.push({ amount, mintRecipient, fast });
       // mock: no fee deducted — `minted` == amount (real adapter returns amount − maxFee).
       return { burnTxHash: fakeHash(), mintTxHash: fakeHash(), minted: amount };
+    },
+    stakeViaCctp: async ({ builder, amount }) => {
+      stakeBridges.push({ builder, amount });
+      return { burnTxHash: fakeHash(), mintTxHash: fakeHash(), staked: amount };
     },
     mintV2Subname: async ({ slug }) => ({
       ensName: `${slug}.superjam.eth`,

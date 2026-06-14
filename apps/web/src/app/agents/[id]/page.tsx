@@ -6,7 +6,7 @@
 // shouting at the top — the standard reads as live, fetched metadata.
 import type { BuilderAgentId } from "@superjam/shared";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { NameTag } from "../../../components/name-tag";
 import { VerifiedBadge } from "../../../components/verified-badge";
 import { HandleLink } from "../../../components/handle-link";
@@ -15,11 +15,14 @@ import { HumanBackedBadge, MakerLine } from "../../../components/builder-bits";
 import { EmojiToken, StickerButton, StickerCard } from "../../../components/ui/sticker";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { Skeleton } from "../../../components/ui/skeleton";
+import { StakeSheet } from "../../../components/stake-sheet";
 import { usePlatformClient } from "../../../components/use-platform-client";
+import { useHostAuth } from "../../../lib/use-host-auth";
 
 interface Agent {
   id: string;
   name: string;
+  ownerUserId: string;
   ensName: string | null;
   model: string | null;
   erc8004Id: string | null;
@@ -32,6 +35,12 @@ interface Agent {
   owner: { username: string; worldVerified: boolean };
 }
 
+interface StakeInfo {
+  stakedUsdc: string | null;
+  poolYieldUsdc: string | null;
+  live: boolean;
+}
+
 export default function AgentProfilePage({
   params,
 }: {
@@ -40,7 +49,18 @@ export default function AgentProfilePage({
   const { id } = use(params);
   const router = useRouter();
   const client = usePlatformClient();
+  const { hostUser } = useHostAuth();
   const [agent, setAgent] = useState<Agent | null | "missing">(null);
+  const [stake, setStake] = useState<StakeInfo | null>(null);
+  const [stakeOpen, setStakeOpen] = useState(false);
+
+  // Live on-chain stake + pool yield (the trust badge made real). Best-effort.
+  const loadStake = useCallback(() => {
+    client.agents
+      .stakeInfo({ agentId: id as BuilderAgentId })
+      .then((s) => setStake(s))
+      .catch(() => {});
+  }, [client, id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,10 +72,11 @@ export default function AgentProfilePage({
       .catch(() => {
         if (!cancelled) setAgent("missing");
       });
+    loadStake();
     return () => {
       cancelled = true;
     };
-  }, [client, id]);
+  }, [client, id, loadStake]);
 
   if (agent === null) {
     return (
@@ -84,6 +105,10 @@ export default function AgentProfilePage({
   }
 
   const free = Number(agent.priceUsdc) === 0;
+  const isOwner = Boolean(hostUser && hostUser.id === agent.ownerUserId);
+  // Prefer the live on-chain read; fall back to the registration snapshot.
+  const stakedUsdc = stake?.stakedUsdc ?? agent.stakedUsdc;
+  const poolYieldUsdc = stake?.poolYieldUsdc ?? null;
   return (
     <div className="screen">
       <button onClick={() => router.push("/agents")} className="focus-ring self-start text-small font-bold text-muted">
@@ -152,16 +177,29 @@ export default function AgentProfilePage({
             </span>
           </Row>
         )}
-        {agent.stakedUsdc && (
+        {(stakedUsdc || isOwner) && (
           <Row label="staked">
             <span className="flex flex-col gap-0.5">
               <span className="font-extrabold">
-                {agent.stakedUsdc} USDC{" "}
+                {stakedUsdc ?? "0"} USDC{" "}
                 <span className="text-muted font-semibold">· earning yield · slashable</span>
               </span>
+              {poolYieldUsdc && Number(poolYieldUsdc) > 0 && (
+                <span className="text-tiny font-bold text-green-ink leading-snug">
+                  🌱 pool earning {poolYieldUsdc} USDC yield
+                </span>
+              )}
               <span className="text-tiny font-semibold text-muted leading-snug">
                 puts USDC on the line — bad work can be slashed
               </span>
+              {isOwner && (
+                <button
+                  onClick={() => setStakeOpen(true)}
+                  className="focus-ring self-start mt-1 border-2 border-ink rounded-full bg-green text-ink px-3 py-1 text-tiny font-extrabold shadow-sticker-sm sticker-press"
+                >
+                  + Top up stake
+                </button>
+              )}
             </span>
           </Row>
         )}
@@ -176,6 +214,20 @@ export default function AgentProfilePage({
       <StickerButton color="pink" size="lg" block onClick={() => router.push("/build")}>
         Make a jam with {agent.name} →
       </StickerButton>
+
+      {isOwner && (
+        <StakeSheet
+          open={stakeOpen}
+          onClose={() => setStakeOpen(false)}
+          agentId={agent.id}
+          agentName={agent.name}
+          onStaked={(s) => {
+            // optimistic, then re-read the live stake
+            setStake((prev) => (prev ? { ...prev, stakedUsdc: s } : prev));
+            loadStake();
+          }}
+        />
+      )}
     </div>
   );
 }

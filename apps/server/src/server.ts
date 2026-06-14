@@ -186,6 +186,9 @@ const onchain =
     // StakeSlash yield-escrow on Arc (Circle #1) — agent stakes earn yield. Absent
     // ⇒ onchain.stakeSlash is null and staking degrades (never blocks a register).
     stakeSlashAddress: env.STAKE_SLASH_ADDRESS,
+    // CctpEscrowHook on Arc (Circle #2) — cross-chain stake top-up lands here. Absent
+    // ⇒ stakeViaCctp rejects; same-chain stake + funding unaffected.
+    cctpEscrowHookAddress: env.CCTP_ESCROW_HOOK_ADDRESS,
     // World AgentBook (World prize) — read-only human-backed detection on World Chain.
     // Both default (canonical contract + public RPC), so this works with no env set.
     worldchainRpcUrl: env.WORLDCHAIN_RPC_URL,

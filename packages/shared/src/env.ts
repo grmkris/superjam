@@ -75,6 +75,9 @@ export const serverEnvSchema = z.object({
   ERC8004_REGISTRY: optionalStr,
   // StakeSlash yield-escrow on Arc (Circle #1). Absent ⇒ agent staking degrades.
   STAKE_SLASH_ADDRESS: optionalStr,
+  // CctpEscrowHook on Arc (Circle #2 cross-chain stake). Absent ⇒ stakeViaCctp
+  // rejects; same-chain stake top-up + funding are unaffected.
+  CCTP_ESCROW_HOOK_ADDRESS: optionalStr,
   TREASURY_ADDRESS: optionalStr,
   // World Chain (480) RPC for the AgentBook human-backed read. Absent ⇒ public default.
   WORLDCHAIN_RPC_URL: optionalStr,

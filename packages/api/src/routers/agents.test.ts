@@ -4,11 +4,46 @@ import { createPgliteDb } from "@superjam/db/pglite";
 import { createLogger } from "@superjam/logger";
 import type { AppSpec, BuilderCapability } from "@superjam/shared";
 import { typeIdGenerator } from "@superjam/shared";
+import { type Onchain, type Usdc, usdc } from "@superjam/onchain";
+import type { Address, Hex } from "viem";
 import type { AgentIdentity } from "../lib/agent-identity.ts";
 import { createTestAuth } from "../auth/test-auth.ts";
 import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
+import { createMockOnchain } from "../testing/onchain-mock.ts";
 import { createTestUser } from "../testing/factories.ts";
+
+// A mock Onchain whose StakeSlash is backed by an in-memory stake balance, so the
+// staking procedures (depositFor / stakeOf / accruedYield / stakeViaCctp) are
+// exercisable without a chain. `stakeBridges` (from createMockOnchain) records the
+// cross-chain top-up; `state.staked` accumulates same-chain + the re-read.
+const HASH = ("0x" + "1".repeat(64)) as Hex;
+const onchainWithStake = (state: { staked: bigint }): Onchain => {
+  const mock = createMockOnchain();
+  return {
+    ...mock,
+    stakeSlash: {
+      depositFor: async (_b: Address, amount: Usdc) => {
+        state.staked += amount;
+        return HASH;
+      },
+      stakeOf: async () => usdc(state.staked),
+      freeStake: async () => usdc(state.staked),
+      accruedYield: async () => usdc(120_000n), // 0.12 USDC pool yield
+      deposit: async () => HASH,
+      withdraw: async () => HASH,
+      registerBuild: async () => HASH,
+      markDelivered: async () => HASH,
+      resolve: async () => HASH,
+      getBuild: async () => null,
+    },
+    // stakeViaCctp credits the same in-memory stake so the re-read reflects it.
+    stakeViaCctp: async ({ amount }: { builder: Address; amount: Usdc }) => {
+      state.staked += amount;
+      return { burnTxHash: HASH, mintTxHash: HASH, staked: usdc(amount) };
+    },
+  } as unknown as Onchain;
+};
 import {
   agentsRouter,
   findEligibleBuilders,
@@ -53,12 +88,17 @@ const harness = async () => {
   const { db, client } = await createPgliteDb();
   const auth = await createTestAuth();
   const rateLimiter = createRateLimiter();
-  const ctxFor = (token?: string, agentIdentity?: AgentIdentity) => ({
+  const ctxFor = (
+    token?: string,
+    agentIdentity?: AgentIdentity,
+    onchain?: Onchain
+  ) => ({
     ...createContext({
       db,
       logger,
       auth: auth.verifier,
       rateLimiter,
+      ...(onchain ? { onchain } : {}),
       headers: new Headers(token ? { authorization: `Bearer ${token}` } : {}),
     }),
     ...(agentIdentity ? { agentIdentity } : {}),
@@ -329,5 +369,84 @@ describe("agents.get", () => {
         { context: ctxFor() }
       )
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("agents staking", () => {
+  const register = async (
+    h: Awaited<ReturnType<typeof harness>>,
+    token: string
+  ) => call(agentsRouter.register, REGISTER, { context: h.ctxFor(token) });
+
+  test("stakeInfo reads live stake + pool yield when the escrow is configured", async () => {
+    const h = await harness();
+    const owner = await createTestUser(h.db, { worldVerified: true });
+    const agent = await register(h, await h.signIn(owner));
+    const info = await call(
+      agentsRouter.stakeInfo,
+      { agentId: agent.id },
+      { context: h.ctxFor(undefined, undefined, onchainWithStake({ staked: 2_000_000n })) }
+    );
+    expect(info.live).toBe(true);
+    expect(info.stakedUsdc).toBe("2");
+    expect(info.poolYieldUsdc).toBe("0.12");
+  });
+
+  test("stakeInfo falls back to the DB snapshot when the escrow is null", async () => {
+    const h = await harness();
+    const owner = await createTestUser(h.db, { worldVerified: true });
+    const agent = await register(h, await h.signIn(owner));
+    const info = await call(
+      agentsRouter.stakeInfo,
+      { agentId: agent.id },
+      { context: h.ctxFor() } // nullOnchain → no live read
+    );
+    expect(info.live).toBe(false);
+    expect(info.poolYieldUsdc).toBeNull();
+  });
+
+  test("the owner tops up stake same-chain (sponsored depositFor)", async () => {
+    const h = await harness();
+    const owner = await createTestUser(h.db, { worldVerified: true });
+    const token = await h.signIn(owner);
+    const agent = await register(h, token);
+    const state = { staked: 1_000_000n };
+    const res = await call(
+      agentsRouter.topUpStake,
+      { agentId: agent.id, amount: "3" },
+      { context: h.ctxFor(token, undefined, onchainWithStake(state)) }
+    );
+    expect(state.staked).toBe(4_000_000n); // 1 + 3
+    expect(res.stakedUsdc).toBe("4");
+  });
+
+  test("a non-owner cannot top up stake (FORBIDDEN)", async () => {
+    const h = await harness();
+    const owner = await createTestUser(h.db, { worldVerified: true });
+    const stranger = await createTestUser(h.db, { worldVerified: true });
+    const agent = await register(h, await h.signIn(owner));
+    await expect(
+      call(
+        agentsRouter.topUpStake,
+        { agentId: agent.id, amount: "1" },
+        { context: h.ctxFor(await h.signIn(stranger), undefined, onchainWithStake({ staked: 0n })) }
+      )
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  test("cross-chain top-up bridges via CCTP + credits the stake", async () => {
+    const h = await harness();
+    const owner = await createTestUser(h.db, { worldVerified: true });
+    const token = await h.signIn(owner);
+    const agent = await register(h, token);
+    const state = { staked: 0n };
+    const res = await call(
+      agentsRouter.topUpStakeCrossChain,
+      { agentId: agent.id, amount: "2" },
+      { context: h.ctxFor(token, undefined, onchainWithStake(state)) }
+    );
+    expect(res.mintTxHash).toBe(HASH);
+    expect(res.stakedUsdc).toBe("2");
+    expect(state.staked).toBe(2_000_000n);
   });
 });

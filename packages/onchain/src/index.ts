@@ -11,6 +11,7 @@ import {
   type PublicClient,
   createPublicClient,
   createWalletClient,
+  encodeAbiParameters,
   http,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -72,6 +73,10 @@ export interface OnchainDeps {
   /** StakeSlash yield-bearing escrow on Arc (builder stakes earn yield). Absent ⇒
    *  `onchain.stakeSlash` is null and staking degrades (never fails a register). */
   stakeSlash?: StakeSlash;
+  /** CctpEscrowHook (Arc) — the CCTP destination receiver that decodes a builder
+   *  from hookData and atomically credits its StakeSlash stake (Circle #2). Absent
+   *  (with `cctp`) ⇒ `stakeViaCctp` rejects with CHAIN_UNAVAILABLE. */
+  cctpEscrowHookAddress?: Address;
   /** World AgentBook reader (human-backed detection, World Chain). Read-only +
    *  public; defaults to the null stub (always-callable, resolves null). */
   agentBook?: AgentBook;
@@ -85,6 +90,17 @@ export interface FundViaCctpParams {
   mintRecipient: Address;
   /** Fast Transfer (soft finality, ~min) when true — the default for funding;
    *  false = standard finalized (~13-19 min on Ethereum L1). */
+  fast?: boolean;
+}
+
+/** Cross-chain stake top-up (Circle #2 flagship): burn USDC on a source chain with
+ *  hookData = the builder address → the CctpEscrowHook mints on Arc + credits the
+ *  builder's StakeSlash stake atomically. */
+export interface StakeViaCctpParams {
+  /** The builder wallet whose stake gets credited (encoded into hookData). */
+  builder: Address;
+  amount: Usdc;
+  /** Fast Transfer (~min) by default; false = standard finalized. */
   fast?: boolean;
 }
 
@@ -104,6 +120,7 @@ export const createOnchain = ({
   ensV2,
   cctp,
   stakeSlash,
+  cctpEscrowHookAddress,
   agentBook = nullAgentBook,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
@@ -187,6 +204,34 @@ export const createOnchain = ({
       return { burnTxHash, mintTxHash, minted: usdc(amount - maxFee) };
     },
 
+    /** Cross-chain stake top-up (Circle #2 flagship): burn USDC on the source
+     *  chain with `hookData = abi.encode(builder)` and mint to the CctpEscrowHook,
+     *  whose `relay` decodes the builder and calls `StakeSlash.depositFor` — the
+     *  mint + escrow credit happen atomically on Arc. Fast Transfer by default
+     *  (~min). Rejects if the bridge or hook address isn't configured. */
+    stakeViaCctp: async ({
+      builder,
+      amount,
+      fast = true,
+    }: StakeViaCctpParams): Promise<{
+      burnTxHash: Hex;
+      mintTxHash: Hex;
+      staked: Usdc;
+    }> => {
+      if (!cctp || !cctpEscrowHookAddress) {
+        throw new OnchainError("CHAIN_UNAVAILABLE", "CCTP stake hook not configured");
+      }
+      const maxFee = fast ? usdc(amount / 50n) : usdc(0n);
+      const { burnTxHash, mintTxHash } = await cctp.bridge({
+        amount,
+        mintRecipient: cctpEscrowHookAddress,
+        hookData: encodeAbiParameters([{ type: "address" }], [builder]),
+        finalityThreshold: fast ? FINALITY_FAST : FINALITY_STANDARD,
+        maxFee,
+      });
+      return { burnTxHash, mintTxHash, staked: usdc(amount - maxFee) };
+    },
+
     // --- ENS (§16) — the SINGLE naming path: ENSv2-native `<label>.superjam.eth`,
     //     resolvable in standard ENS tooling (viem/ethers/app.ens.domains). Used
     //     for apps, users, AND agents. Durin (the old L2 registry) was removed.
@@ -255,6 +300,9 @@ export interface OnchainConfig {
   /** StakeSlash yield-escrow address on Arc (Circle #1). Absent ⇒ staking degrades.
    *  Signs via the Arc server wallet (the Dynamic MPC wallet sponsors seed stakes). */
   stakeSlashAddress?: string;
+  /** CctpEscrowHook address on Arc (Circle #2 cross-chain stake). Absent ⇒
+   *  `stakeViaCctp` rejects; same-chain top-up + funding are unaffected. */
+  cctpEscrowHookAddress?: string;
   /** World Chain (480) RPC for the AgentBook read. Absent ⇒ viem's public default. */
   worldchainRpcUrl?: string;
   /** AgentBook contract override. Absent ⇒ the canonical World Chain deployment. */
@@ -380,6 +428,7 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     ensV2: ensV2Adapter,
     cctp: cctpBridge,
     stakeSlash: stakeSlashAdapter,
+    cctpEscrowHookAddress: cfg.cctpEscrowHookAddress as Address | undefined,
     agentBook: agentBookAdapter,
   });
 };
@@ -400,6 +449,8 @@ export const nullOnchain: Onchain = {
   sendUsdc: () =>
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
   fundViaCctp: () =>
+    Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
+  stakeViaCctp: () =>
     Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
   mintV2Subname: () =>
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),

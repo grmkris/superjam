@@ -15,12 +15,16 @@ import {
   BuilderCapabilityList,
   eligibleAgents,
   SLUG_REGEX,
+  TX_CAP_USDC,
 } from "@superjam/shared";
+import { formatUsdc, parseUsdc } from "@superjam/onchain";
 import { ORPCError, os } from "@orpc/server";
 import { desc, eq } from "drizzle-orm";
+import type { Address } from "viem";
 import { z } from "zod";
 import type { ApiContext } from "../context.ts";
 import { type AgentIdentity, nullAgentIdentity } from "../lib/agent-identity.ts";
+import { tryOnchain } from "../lib/onchain-errors.ts";
 import { protectedProcedure, publicProcedure, worldVerifiedProcedure } from "../orpc.ts";
 
 const { builderAgent, user: userTable } = schema;
@@ -61,6 +65,7 @@ export const toAgentCard = (
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const USDC_AMOUNT = /^\d+(\.\d{1,6})?$/;
+const TX_CAP = parseUsdc(TX_CAP_USDC);
 
 const RegisterInput = z.object({
   name: z.string().min(1).max(80),
@@ -312,6 +317,41 @@ export const agentsRouter = {
       });
     }),
 
+  // Live on-chain stake + pool yield for a builder — the trust signal made real
+  // (the `🌱 staked` badge reads a snapshot; this reads the chain). `poolYieldUsdc`
+  // is the escrow-wide accrued yield (the vault is shared; yield isn't per-builder).
+  // Falls back to the DB snapshot when the escrow isn't configured or a read fails.
+  stakeInfo: publicProcedure
+    .input(z.object({ agentId: BuilderAgentId }))
+    .handler(async ({ context, input }) => {
+      const row = await context.db.query.builderAgent.findFirst({
+        where: eq(builderAgent.id, input.agentId),
+      });
+      if (!row) {
+        throw new ORPCError("NOT_FOUND", { message: "Builder not found" });
+      }
+      const stakeSlash = context.onchain.stakeSlash;
+      if (stakeSlash && EVM_ADDRESS.test(row.walletAddress)) {
+        try {
+          const [staked, poolYield] = await Promise.all([
+            stakeSlash.stakeOf(row.walletAddress as Address),
+            stakeSlash.accruedYield(),
+          ]);
+          return {
+            stakedUsdc: formatUsdc(staked),
+            poolYieldUsdc: formatUsdc(poolYield),
+            live: true,
+          };
+        } catch (err) {
+          context.logger.debug(
+            { err: String(err), agentId: row.id },
+            "stakeInfo live read failed"
+          );
+        }
+      }
+      return { stakedUsdc: row.stakedUsdc, poolYieldUsdc: null, live: false };
+    }),
+
   // Owner re-provisions their agent's onchain identity — backfills a missing
   // ERC-8004 id / ENS name / seed stake without re-registering. Idempotent.
   refreshIdentity: protectedProcedure
@@ -347,6 +387,108 @@ export const agentsRouter = {
         username: r.username,
         worldVerified: r.worldVerified,
       });
+    }),
+
+  // Owner tops up their builder's stake. Sponsored on testnet: the server wallet
+  // executes `depositFor(builderWallet, amount)` (same rail as the seed stake), so
+  // no user funds move. Bumps the on-chain stake + the persisted snapshot.
+  topUpStake: protectedProcedure
+    .input(
+      z.object({
+        agentId: BuilderAgentId,
+        amount: z.string().regex(USDC_AMOUNT),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const row = await context.db.query.builderAgent.findFirst({
+        where: eq(builderAgent.id, input.agentId),
+      });
+      if (!row) {
+        throw new ORPCError("NOT_FOUND", { message: "Agent not found" });
+      }
+      if (row.ownerUserId !== context.user.id) {
+        throw new ORPCError("FORBIDDEN", { message: "Not your agent" });
+      }
+      const stakeSlash = context.onchain.stakeSlash;
+      if (!stakeSlash) {
+        throw new ORPCError("INTERNAL", { message: "Staking unavailable" });
+      }
+      const amount = parseUsdc(input.amount);
+      if (amount > TX_CAP) {
+        throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
+      }
+      const wallet = row.walletAddress as Address;
+      const txHash = await tryOnchain(() => stakeSlash.depositFor(wallet, amount));
+      // Re-read the live stake for the persisted snapshot (best-effort).
+      const stakedUsdc = await stakeSlash
+        .stakeOf(wallet)
+        .then(formatUsdc)
+        .catch(() => row.stakedUsdc);
+      await context.db
+        .update(builderAgent)
+        .set({ stakedUsdc, stakeTxHash: txHash })
+        .where(eq(builderAgent.id, row.id));
+      return { txHash, stakedUsdc };
+    }),
+
+  // Owner tops up their builder's stake from ANOTHER chain via CCTP (Circle #2):
+  // burns USDC on Sepolia with hookData=builder → the Arc CctpEscrowHook mints +
+  // credits the stake atomically (~1 min, Fast Transfer). Server-orchestrated on
+  // testnet (the platform's Sepolia USDC is the source).
+  topUpStakeCrossChain: protectedProcedure
+    .input(
+      z.object({
+        agentId: BuilderAgentId,
+        amount: z.string().regex(USDC_AMOUNT),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const row = await context.db.query.builderAgent.findFirst({
+        where: eq(builderAgent.id, input.agentId),
+      });
+      if (!row) {
+        throw new ORPCError("NOT_FOUND", { message: "Agent not found" });
+      }
+      if (row.ownerUserId !== context.user.id) {
+        throw new ORPCError("FORBIDDEN", { message: "Not your agent" });
+      }
+      const amount = parseUsdc(input.amount);
+      if (amount > TX_CAP) {
+        throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
+      }
+      const wallet = row.walletAddress as Address;
+      try {
+        const { burnTxHash, mintTxHash } = await tryOnchain(() =>
+          context.onchain.stakeViaCctp({ builder: wallet, amount })
+        );
+        // Re-read the live stake for the persisted snapshot (best-effort).
+        const stakeSlash = context.onchain.stakeSlash;
+        const stakedUsdc = stakeSlash
+          ? await stakeSlash
+              .stakeOf(wallet)
+              .then(formatUsdc)
+              .catch(() => row.stakedUsdc)
+          : row.stakedUsdc;
+        await context.db
+          .update(builderAgent)
+          .set({ stakedUsdc, stakeTxHash: mintTxHash })
+          .where(eq(builderAgent.id, row.id));
+        return { burnTxHash, mintTxHash, stakedUsdc };
+      } catch (err) {
+        // Surface the real cause (CCTP/hook fault) — the client only sees a generic
+        // failure otherwise (mirrors the addFunds logging).
+        const e = err as { code?: string; message?: string };
+        context.logger.error(
+          {
+            path: "agents.topUpStakeCrossChain",
+            agentId: row.id,
+            code: e?.code,
+            message: e?.message,
+          },
+          "stakeViaCctp failed"
+        );
+        throw err;
+      }
     }),
 
   // The caller's own agents (any status).
