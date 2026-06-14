@@ -15,6 +15,7 @@ import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/stic
 import { usePlatformClient } from "../../components/use-platform-client";
 import { VerifySheet } from "../../components/verify-sheet";
 import { WalletCard } from "../../components/wallet/wallet-card";
+import { EnablePrivacy } from "../../components/wallet/enable-privacy";
 import { useLogin } from "../../components/login";
 import { useHostAuth } from "../../lib/use-host-auth";
 
@@ -154,6 +155,9 @@ export default function ProfilePage() {
 
       {/* wallet — a single private (shielded) balance; public USDC auto-shields. */}
       <WalletCard walletAddress={me?.walletAddress ?? null} />
+
+      {/* delegate the embedded wallet so the private rail can sign on your behalf */}
+      <EnablePrivacy />
 
       {/* World verify block */}
       <StickerCard color={me?.worldVerified ? "white" : "cream"} className="p-4 flex items-center gap-3">

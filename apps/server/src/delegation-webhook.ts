@@ -9,6 +9,7 @@ import type { Logger } from "@superjam/logger";
 import type { UserId } from "@superjam/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
+import type { EncryptedDelegatedPayload } from "@dynamic-labs-wallet/node";
 import { type DelegationCreds, decryptDelegation } from "./delegated-signer.ts";
 
 const { user, userDelegation } = schema;
@@ -78,9 +79,11 @@ export const registerDelegationWebhook = (
       data?: {
         userId?: string;
         walletId?: string;
+        // `publicKey` IS the embedded wallet's EVM address (per Dynamic's webhook
+        // payload), not a raw secp256k1 key — usable directly as walletAddress.
         publicKey?: string;
-        encryptedDelegatedShare?: never;
-        encryptedWalletApiKey?: never;
+        encryptedDelegatedShare?: EncryptedDelegatedPayload;
+        encryptedWalletApiKey?: EncryptedDelegatedPayload;
       };
     };
     try {
@@ -97,10 +100,25 @@ export const registerDelegationWebhook = (
       const u = await deps.db.query.user.findFirst({
         where: eq(user.dynamicUserId, d.userId),
       });
-      if (!u || !u.walletAddress) {
-        // 200 so Dynamic doesn't retry forever; the user must exist + have a wallet.
+      if (!u) {
+        // 200 so Dynamic doesn't retry forever; the user must have signed in once.
         deps.logger.warn({ dynamicUserId: d.userId }, "delegation for unknown user");
         return c.json({ ok: true, skipped: "unknown user" });
+      }
+      // Self-provision walletAddress from the payload when login didn't set it (the
+      // dev JWT omits verified_credentials, so auth/verifier.ts can't extract it).
+      // `data.publicKey` is the wallet's EVM address. This is what faucetPublic +
+      // the private rail key off, so granting delegation also fills it in.
+      const address = (u.walletAddress ?? d.publicKey) as `0x${string}` | undefined;
+      if (!address) {
+        deps.logger.warn({ dynamicUserId: d.userId }, "delegation without resolvable address");
+        return c.json({ ok: true, skipped: "no address" });
+      }
+      if (!u.walletAddress) {
+        await deps.db
+          .update(user)
+          .set({ walletAddress: address })
+          .where(eq(user.id, u.id));
       }
       const { decryptedDelegatedShare, decryptedWalletApiKey } = decryptDelegation({
         privateKeyPem: deps.privateKeyPem,
@@ -111,7 +129,7 @@ export const registerDelegationWebhook = (
         userId: u.id,
         dynamicUserId: d.userId,
         walletId: d.walletId,
-        address: u.walletAddress,
+        address,
         walletApiKey: decryptedWalletApiKey,
         keyShare: decryptedDelegatedShare as unknown as object,
       };
