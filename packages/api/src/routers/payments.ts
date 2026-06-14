@@ -438,51 +438,68 @@ export const paymentsRouter = {
       if (amount > TX_CAP) {
         throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
       }
-      // Ensure the caller has a shielded account (idempotent); persist the address.
-      const { unlinkAddress } = await tryOnchain(() =>
-        context.unlink.enable(context.user.id)
-      );
-      if (context.user.unlinkAddress !== unlinkAddress) {
-        await context.db
-          .update(user)
-          .set({ unlinkAddress })
-          .where(eq(user.id, context.user.id));
-      }
-
-      let bridge: { burnTxHash: Hex; mintTxHash: Hex } | null = null;
-      if (input.sourceChain === "sepolia") {
-        // Chain-abstracted rail (production-shaped): claim → bridge → swap-into-
-        // confidential. CCTP-fast mints the USDC to the USER's Arc wallet, then we
-        // deposit it into THEIR confidential balance — the same dollars flow through.
-        if (!context.user.walletAddress) {
-          throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
-        }
-        const { burnTxHash, mintTxHash, minted } = await tryOnchain(() =>
-          context.onchain.fundViaCctp({
-            amount,
-            mintRecipient: context.user.walletAddress as Hex,
-            fast: true,
-          })
+      try {
+        // Ensure the caller has a shielded account (idempotent); persist the address.
+        const { unlinkAddress } = await tryOnchain(() =>
+          context.unlink.enable(context.user.id)
         );
-        bridge = { burnTxHash, mintTxHash };
-        // swap into the confidential asset: deposit the arrived Arc USDC → shielded.
-        await tryOnchain(() => context.unlink.deposit(context.user.id, minted));
-      } else {
-        // Arc rail — instant: platform pool → shielded (testnet free-grant / welcome
-        // path). Production Arc rail is the user's own depositPrivate.
-        await tryOnchain(() => context.unlink.faucet(unlinkAddress, amount));
-      }
+        if (context.user.unlinkAddress !== unlinkAddress) {
+          await context.db
+            .update(user)
+            .set({ unlinkAddress })
+            .where(eq(user.id, context.user.id));
+        }
 
-      const shieldedUsdc = await context.unlink
-        .balance(context.user.id)
-        .then(formatUsdc)
-        .catch(() => null);
-      return {
-        sourceChain: input.sourceChain,
-        shieldedUsdc,
-        burnTxHash: bridge?.burnTxHash ?? null,
-        mintTxHash: bridge?.mintTxHash ?? null,
-      };
+        let bridge: { burnTxHash: Hex; mintTxHash: Hex } | null = null;
+        if (input.sourceChain === "sepolia") {
+          // Chain-abstracted rail (production-shaped): claim → bridge → swap-into-
+          // confidential. CCTP-fast mints the USDC to the USER's Arc wallet, then we
+          // deposit it into THEIR confidential balance — the same dollars flow through.
+          if (!context.user.walletAddress) {
+            throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
+          }
+          const { burnTxHash, mintTxHash, minted } = await tryOnchain(() =>
+            context.onchain.fundViaCctp({
+              amount,
+              mintRecipient: context.user.walletAddress as Hex,
+              fast: true,
+            })
+          );
+          bridge = { burnTxHash, mintTxHash };
+          // swap into the confidential asset: deposit the arrived Arc USDC → shielded.
+          await tryOnchain(() => context.unlink.deposit(context.user.id, minted));
+        } else {
+          // Arc rail — instant: platform pool → shielded (testnet free-grant / welcome
+          // path). Production Arc rail is the user's own depositPrivate.
+          await tryOnchain(() => context.unlink.faucet(unlinkAddress, amount));
+        }
+
+        const shieldedUsdc = await context.unlink
+          .balance(context.user.id)
+          .then(formatUsdc)
+          .catch(() => null);
+        return {
+          sourceChain: input.sourceChain,
+          shieldedUsdc,
+          burnTxHash: bridge?.burnTxHash ?? null,
+          mintTxHash: bridge?.mintTxHash ?? null,
+        };
+      } catch (err) {
+        // Surface the real cause: the client only ever sees a generic "couldn't
+        // add funds" — without this the Unlink/CCTP fault (e.g. CHAIN_UNAVAILABLE,
+        // an unfunded faucet pool, a delegated-signer failure) is invisible in logs.
+        const e = err as { code?: string; message?: string };
+        context.logger.error(
+          {
+            path: "payments.addFunds",
+            source: input.sourceChain,
+            code: e?.code,
+            message: e?.message,
+          },
+          "addFunds failed"
+        );
+        throw err;
+      }
     }),
 };
 

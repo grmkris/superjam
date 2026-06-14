@@ -17,7 +17,7 @@ import {
   useUser,
   useWalletAccounts,
 } from "@dynamic-labs-sdk/react-hooks";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { HostUser } from "../components/app-frame";
 import { browserRpcUrl, createPlatformClient } from "./orpc";
 
@@ -35,6 +35,11 @@ export interface HostAuth {
   isLoggedIn: boolean;
   meStatus: MeStatus;
   getAddress: () => Promise<string>;
+  /** Resolve the viewer's Bearer token at request time — awaits Dynamic init so
+   *  a protected call fired before the SDK is ready WAITS for the token instead
+   *  of going out tokenless (which 401s). Returns null once init settles with no
+   *  signed-in user. Stable across renders (safe as an oRPC `getToken`). */
+  getToken: () => Promise<string | null>;
 }
 
 export function useHostAuth(): HostAuth {
@@ -49,6 +54,37 @@ export function useHostAuth(): HostAuth {
 
   const evmAddress =
     walletAccounts?.find((w) => w.chain === "EVM")?.address ?? null;
+
+  // Live ref to the Dynamic client so the token resolver reads `client.token`
+  // (a live getter) at request time rather than a stale React snapshot.
+  const clientRef = useRef(client);
+  clientRef.current = client;
+
+  // One-time deferred that resolves once Dynamic init SETTLES (finished OR
+  // failed — resolve on failed too so requests never hang). The token resolver
+  // awaits this before reading the token, so calls fired pre-init wait instead
+  // of going out without a Bearer header.
+  const initSettled = useRef<{
+    promise: Promise<void>;
+    resolve: () => void;
+  } | null>(null);
+  if (!initSettled.current) {
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => {
+      resolve = r;
+    });
+    initSettled.current = { promise, resolve };
+  }
+  useEffect(() => {
+    if (initStatus === "finished" || initStatus === "failed") {
+      initSettled.current?.resolve();
+    }
+  }, [initStatus]);
+
+  const getToken = useCallback(async (): Promise<string | null> => {
+    await initSettled.current?.promise;
+    return clientRef.current?.token ?? null;
+  }, []);
 
   useEffect(() => {
     // The client's JWT is only populated once init has finished and the user is
@@ -102,5 +138,6 @@ export function useHostAuth(): HostAuth {
     isLoggedIn: Boolean(authToken),
     meStatus,
     getAddress,
+    getToken,
   };
 }
