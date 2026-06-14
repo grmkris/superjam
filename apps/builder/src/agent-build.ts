@@ -184,6 +184,7 @@ Next.js 16 (app-router) + React 19, TypeScript. \`@superjam/sdk\` is aliased to 
 EDIT ONLY: app/page.tsx, app/layout.tsx, lib/schema.ts, and any app/api/*/route.ts you add. Never touch the DO-NOT-EDIT files — they carry the app's identity + embedding contract.
 
 ## Two data paths — pick the SIMPLEST that fits
+STRONGLY prefer zero-backend. Provisioning a Neon DB adds ~30–60s to the build and a slow runtime hop, so only do it when the spec genuinely needs relational queries the primitives can't express (joins, filters, ranked queries over many fields). Leaderboards, tallies, click counts, scores, walls, posts, picks, votes, simple per-user state — these are ALL zero-backend (sdk.data.counter / sdk.data.collection / sdk.storage). A clicker, arcade, quiz, poll, or guestbook should NEVER touch a database. If you find yourself reaching for the Neon MCP on a simple game, stop and use the SDK primitives instead.
 1. ZERO-BACKEND (default, no database): use the SuperJam SDK primitives — sdk.data.collection (shared docs: walls, posts, picks), sdk.data.counter (atomic leaderboards/tallies), sdk.storage (per-user private KV), sdk.pot (escrowed USDC wagers), sdk.payments (USDC), sdk.ai.chat (text/JSON/image judging), sdk.files.upload (photos), sdk.messages/share (notify/invite). Identity is server-stamped — never trust client-supplied user ids. The full SDK reference and worked examples are in the SDK reference + recipes below; follow them exactly.
 2. OWN NEON DB (only when the spec lists relational "Data collections" that the primitives can't express): use the Neon MCP to create a project, run the CREATE TABLE DDL matching the collections (an \`id\` text PK + the listed fields + a \`created_at\`), and take the POOLED connection string. Read/write via \`db\` from lib/db.ts in app/api/*/route.ts, and authenticate every route with verifyUser() from lib/auth.ts using the caller's \`Authorization: Bearer\` token (from sdk.auth.getToken()) — stamp identity from the token, never the request body.
 
@@ -215,7 +216,9 @@ The workspace has a \`contracts/\` Foundry project (self-contained — no OpenZe
 4. Play via the SDK — GASLESS, server-relayed: \`await sdk.onchain.write({ fn: "move", args: [...] })\` → \`{hash}\` (player auto-stamped; NEVER pass an address as the first arg) and \`await sdk.onchain.read({ fn: "stateOf", args: [addr] })\` (view; big numbers return as decimal strings — \`BigInt(x)\`). Gate value-ish actions on \`ctx.user.worldVerified\`.
 
 ## Reporting
-You MUST stream progress and exactly ONE terminal result via the callback in the task. The build is only recorded when you POST \`done\` (with the live URL + the projects you created) or \`failed\`. For an onchain game, include the deployed \`contractAddress\` + \`contractAbi\` in the \`done\` payload (write the JSON body to a file and \`curl … -d @done.json\` — the ABI is too big for an inline \`-d\` string) so the platform wires sdk.onchain to your contract.
+You MUST stream progress and exactly ONE terminal result via the callback in the task. The build is only recorded when you POST \`done\` (with the live URL + the projects you created) or \`failed\`.
+Report OFTEN — the user is staring at a live status feed and silence reads as "stuck". POST a short, human, present-tense status \`label\` at EVERY meaningful step, and never go more than ~20s of work without one. Make labels specific to THIS game, not generic ("drawing the dragon sprite", "wiring the high-score board", "deploying to the web") — not "building the app" over and over. A typical build emits 6–12 status updates before the terminal report. Send one as soon as you start, before any slow tool call (asset generation, DB setup, vercel deploy), and after it finishes.
+For an onchain game, include the deployed \`contractAddress\` + \`contractAbi\` in the \`done\` payload (write the JSON body to a file and \`curl … -d @done.json\` — the ABI is too big for an inline \`-d\` string) so the platform wires sdk.onchain to your contract.
 
 Below: the authoritative SuperJam SDK reference, then the archetype recipes that match this spec — imitate the closest one.`;
 
@@ -240,8 +243,8 @@ ${renderSpec(args.spec)}
 ${renderAttachments(args.attachmentUrls)}
 
 ## Reporting (REQUIRED) — POST to the callback as you go, and once at the end:
-Progress (call a few times so the user sees movement):
-  curl -s -X POST ${url} -H "Authorization: Bearer ${args.reportToken}" -H "Content-Type: application/json" -d '{"kind":"status","label":"building the app"}'
+Progress (call OFTEN — at every step, never >~20s of silence; use a specific, present-tense label for THIS game, e.g. "designing the screen", "drawing the sprite", "wiring the leaderboard", "deploying to the web"):
+  curl -s -X POST ${url} -H "Authorization: Bearer ${args.reportToken}" -H "Content-Type: application/json" -d '{"kind":"status","label":"designing the screen"}'
 On success (the production URL + the projects you created):
   curl -s -X POST ${url} -H "Authorization: Bearer ${args.reportToken}" -H "Content-Type: application/json" -d '{"kind":"done","entryUrl":"https://${project}.vercel.app","vercelProject":"${project}","neonProjectId":"<neon project id, or omit if no DB>"}'
 On unrecoverable failure:
