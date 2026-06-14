@@ -16,6 +16,29 @@ const cliToken = (): string | undefined => {
   }
 };
 
+/** Make a freshly-deployed app project PUBLIC: Vercel turns on "Vercel
+ *  Authentication" (deployment protection) for new projects, which 401s every
+ *  visitor — so the live app is unreachable until we clear it. Best-effort; never
+ *  throws (a build is never blocked on this). Runs post-deploy in the resolver. */
+export const disableVercelProtection = async (
+  project: string,
+  token: string
+): Promise<boolean> => {
+  try {
+    const res = await fetch(`https://api.vercel.com/v9/projects/${project}`, {
+      method: "PATCH",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ ssoProtection: null }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
 /** The clean PUBLIC production alias (no `-projects.` scope suffix), shortest first. */
 export const resolveVercelProdAlias = async (
   project: string,
@@ -48,6 +71,9 @@ export const makeVercelEntryUrlResolver =
     const token = envToken ?? cliToken();
     if (!token || !vercelProject) return fallback;
     try {
+      // Make the app publicly reachable before recording its URL — new Vercel
+      // projects default to "Vercel Authentication" (401s every visitor).
+      await disableVercelProtection(vercelProject, token);
       const alias = await resolveVercelProdAlias(vercelProject, token);
       return alias ? `https://${alias}` : fallback;
     } catch {
