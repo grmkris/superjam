@@ -15,6 +15,9 @@ export const SKILLS = [
   "art",
   "judge",
   "market",
+  // map: the app renders an interactive MapLibre GL map (free keyless tiles).
+  // generate.ts adds the `maplibre-gl` dep + seeds a <TripMap> component when set.
+  "map",
   // onchain games: the builder deploys a bespoke Solidity contract to Arc and
   // the jam plays against it via sdk.onchain (implies the "onchain" capability).
   "onchain",

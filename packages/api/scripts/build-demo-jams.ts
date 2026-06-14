@@ -138,6 +138,44 @@ const SPECS: AppSpec[] = [
       "Fully playable with touch on a phone; no keyboard required; degrades gracefully in standalone mode.",
     ],
   },
+  {
+    name: "Trip Guide",
+    slug: "trip-guide",
+    description:
+      "Describe a trip in plain words and get a day-by-day itinerary plotted on a real map — markers, a route, and a postcard for every stop.",
+    iconEmoji: "🧭",
+    category: "other",
+    capabilities: ["ai"],
+    features: [
+      "The player types a trip request; sdk.ai.chat returns a day-by-day itinerary as JSON with real lat/lng per stop (loading state + a hard-coded fallback itinerary if the AI is slow or returns junk).",
+      "Stops render on the seeded interactive map (components/trip-map.tsx, MapLibre) as day-coloured numbered markers joined by a dashed route line, auto-fit to the trip.",
+      "Each stop shows a postcard image baked per vibe category (city/beach/mountains/countryside/food/culture) with an emoji fallback if image generation is unavailable.",
+      "Save the last itinerary to per-user storage and restore it on open; Share copies a deep link that reopens the trip read-only (via ctx.launch).",
+      "A community ‘Top destinations’ leaderboard counts trips per country (sdk.data.counter).",
+    ],
+    data: {
+      collections: [],
+      counters: [
+        { name: "destinations", keyedBy: "country", meaning: "how many trips the community has planned to each country" },
+      ],
+      storage: [{ key: "trip", meaning: "the player's most recently planned itinerary" }],
+    },
+    ai: { uses: ["plan a day-by-day trip itinerary as JSON with stop coordinates"] },
+    ui: {
+      layout: "single card: a trip prompt + Plan button, the map, a list of stop cards with postcards, then a destinations leaderboard",
+      sections: ["trip-prompt", "map", "stop-cards", "leaderboard"],
+    },
+    skills: ["map", "art"],
+    acceptance: [
+      "Entering a prompt and tapping Plan calls sdk.ai.chat, shows a loading state, and renders an itinerary; on AI error/junk a sensible fallback itinerary renders instead.",
+      "Stops appear on the seeded <TripMap> as numbered, day-coloured markers with a route line connecting them in visit order, auto-fit to the trip.",
+      "AI coordinates are validated (finite, in-range) before plotting; invalid stops are dropped and the map is never empty.",
+      "Each stop card shows a postcard for its category (baked via generate_image) or an emoji fallback — never a broken image.",
+      "The trip saves to storage and restores on reopen; Share copies a link that reopens the same trip from ctx.launch.",
+      "Planning a trip increments counter('destinations') for the country and the leaderboard shows the top places.",
+      "Works in standalone mode (degrades the AI plan to the fallback gracefully).",
+    ],
+  },
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

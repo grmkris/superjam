@@ -188,7 +188,7 @@ function MakeFlow() {
 
   // Other PENDING drafts (for the "pick up where you left off" banner on home).
   const [otherDrafts, setOtherDrafts] = useState<
-    { id: string; step: string; prompt: string; name: string | null }[]
+    { id: string; step: string; prompt: string; name: string | null; iconEmoji: string | null }[]
   >([]);
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -200,7 +200,13 @@ function MakeFlow() {
         setOtherDrafts(
           rows
             .filter((r) => r.id !== draftId)
-            .map((r) => ({ id: r.id, step: r.step, prompt: r.prompt, name: r.name }))
+            .map((r) => ({
+              id: r.id,
+              step: r.step,
+              prompt: r.prompt,
+              name: r.name,
+              iconEmoji: r.iconEmoji,
+            }))
         );
       })
       .catch(() => {});
@@ -208,6 +214,15 @@ function MakeFlow() {
       cancelled = true;
     };
   }, [isLoggedIn, client, draftId]);
+
+  // Discard a paused draft from the home list (same mutation as the profile).
+  const discardDraft = useCallback(
+    (id: string) => {
+      setOtherDrafts((d) => d.filter((x) => x.id !== id));
+      client.builds.deleteDraft({ draftId: id as BuildDraftId }).catch(() => {});
+    },
+    [client]
+  );
 
   // Upload reference files (images + CSV/Excel/PDF) for the build prompt: images
   // feed Gemini vision in refine, all are handed to the builder agent as URLs.
@@ -423,6 +438,9 @@ function MakeFlow() {
           uploading={uploading}
           onAttach={onAttach}
           onRemoveAttachment={removeAttachment}
+          drafts={otherDrafts.slice(1)}
+          onResumeDraft={(id, s) => router.push(`/build?d=${id}&step=${s}`)}
+          onDiscardDraft={discardDraft}
         />
       )}
 
@@ -516,6 +534,9 @@ function HomeBeat({
   uploading,
   onAttach,
   onRemoveAttachment,
+  drafts,
+  onResumeDraft,
+  onDiscardDraft,
 }: {
   idea: string;
   setIdea: (v: string) => void;
@@ -529,6 +550,9 @@ function HomeBeat({
   uploading: boolean;
   onAttach: (files: FileList) => void;
   onRemoveAttachment: (key: string) => void;
+  drafts: { id: string; step: string; prompt: string; name: string | null; iconEmoji: string | null }[];
+  onResumeDraft: (id: string, step: string) => void;
+  onDiscardDraft: (id: string) => void;
 }) {
   const atCap = attachments.length >= BUILD_ATTACH_MAX;
   return (
@@ -640,6 +664,42 @@ function HomeBeat({
           )
         )}
       </div>
+
+      {drafts.length > 0 && (
+        <div className="mt-2 flex flex-col gap-2.5">
+          <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
+            More drafts
+          </div>
+          <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
+            {drafts.map((d) => (
+              <StickerCard key={d.id} color="cream" className="p-3 flex items-center gap-3">
+                <EmojiToken emoji={d.iconEmoji ?? "✏️"} color="yellow" size={36} rounded="toy" />
+                <div className="flex flex-col min-w-0">
+                  <div className="font-extrabold text-small truncate">
+                    {d.name ?? d.prompt ?? "Untitled idea"}
+                  </div>
+                  <div className="text-tiny font-semibold text-muted">draft · paused</div>
+                </div>
+                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => onResumeDraft(d.id, d.step)}
+                    className="focus-ring whitespace-nowrap border-2 border-ink rounded-full bg-pink text-white px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                  >
+                    Resume →
+                  </button>
+                  <button
+                    onClick={() => onDiscardDraft(d.id)}
+                    aria-label="discard draft"
+                    className="focus-ring text-muted font-extrabold px-1.5 text-body"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </StickerCard>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isLoggedIn && <BuildHistory />}
     </div>

@@ -20,6 +20,7 @@ export const selectRecipes = (spec: AppSpec): string[] => {
     else if (s === "charts") want.add("poll-charts");
     else if (s === "judge") want.add("judge");
     else if (s === "market") want.add("market");
+    else if (s === "map") want.add("map");
     else if (s === "onchain") want.add("onchain");
   }
   if (spec.category === "game") want.add("game");
@@ -32,12 +33,16 @@ export const selectRecipes = (spec: AppSpec): string[] => {
     [/vote|poll|survey/, "poll-charts"],
     [/csv|spreadsheet|dataset|data set|analy/, "data"],
     [/live|real-?time|multiplayer/, "realtime"],
+    [/trip|travel|itinerary|vacation|holiday|tour|destination/, "travel"],
+    [/\bmap\b|atlas|geo|location|marker/, "map"],
     [/wall|guestbook|feed|\bpost\b/, "social"],
     [/draw|photo|judge|contest|\brate\b/, "judge"],
     [/game|arcade|clicker|score/, "game"],
     [/onchain|on-chain|\bchain\b|coin\s?flip|\bdice\b|\bnft\b|mint|token|smart contract|solidity/, "onchain"],
   ];
   for (const [re, r] of kw) if (re.test(hay)) want.add(r);
+  // travel apps render on the map → always include the map component contract.
+  if (want.has("travel")) want.add("map");
   return [...want];
 };
 

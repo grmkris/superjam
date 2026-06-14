@@ -50,6 +50,9 @@ export {
   type CreateExternalAppInput,
 } from "./routers/apps.ts";
 export { commonErrors, type CommonErrorCode } from "./errors.ts";
+// PAT resolution (§MCP) — so the composition root can validate a `sjat_…` token
+// (e.g. before emitting the install one-liner).
+export { PAT_PREFIX, resolveUserFromPat } from "./auth/pat.ts";
 // Onchain wiring re-exported so the composition root (apps/server) gets it
 // without a second direct dependency (§15).
 export {

@@ -99,8 +99,15 @@ Return EXACTLY ONE of two shapes:
    - skills: 0-3 build skills, ONLY when clearly needed — game-3d (3D scene),
        game-2d (canvas arcade), charts (visualize shared data), motion
        (animated polished UI), art (AI-generated image assets), judge (AI
-       scoring/resolution), market (on-chain/marketplace). Omit when none fit.
+       scoring/resolution), market (on-chain/marketplace), map (an interactive
+       map with markers/route — trip planners, "near me", anything that plots
+       places). Omit when none fit.
    - acceptance: a self-check list the build agent verifies before shipping.
+
+   TRAVEL / TRIP GUIDES: when the idea is "plan a trip", an itinerary, a travel
+   guide, or "places on a map", use skills ["map","art"] and capability "ai"
+   (the in-app AI plans the itinerary; the map plots the stops; art bakes a
+   postcard per place vibe).
 
 Mini apps get a SuperJam SDK: per-user storage, shared collections + a shared
 leaderboard, the user's identity (username/wallet) + friends, one-way messages,

@@ -13,6 +13,7 @@ import {
   createWorldVerifier,
   loadLiveUnlinkTransport,
   nullOnchain,
+  resolveUserFromPat,
 } from "@superjam/api";
 import { createDb, runMigrations, schema } from "@superjam/db";
 import { createLogger } from "@superjam/logger";
@@ -38,6 +39,7 @@ import {
   dynamicWalletEnv,
 } from "./dynamic-wallet.ts";
 import { env } from "./env.ts";
+import { PAT_RE, renderInstallScript } from "./install-script.ts";
 import { registerMcp } from "./mcp.ts";
 import { createGeminiOracle } from "./oracle.ts";
 
@@ -217,6 +219,29 @@ app.use(
 );
 
 app.get("/health", (c) => c.text("OK"));
+
+// `curl …/install.sh?token=sjat_… | bash` (§MCP onboarding) — emits the installer
+// that registers the SuperJam MCP (Bearer PAT) + drops the usage skill into the
+// caller's Claude Code. The token is interpolated into bash, so we validate its
+// exact shape AND that it resolves to a live user before emitting anything.
+app.get("/install.sh", async (c) => {
+  const token = c.req.query("token") ?? "";
+  if (!PAT_RE.test(token)) {
+    return c.text("# Invalid or missing token.\nexit 1\n", 400, {
+      "content-type": "text/x-shellscript; charset=utf-8",
+    });
+  }
+  const user = await resolveUserFromPat(db, token);
+  if (!user) {
+    return c.text("# Unknown or expired token — re-issue from SuperJam.\nexit 1\n", 401, {
+      "content-type": "text/x-shellscript; charset=utf-8",
+    });
+  }
+  const mcpUrl = `${SERVICE_URLS[env.APP_ENV].web}/mcp`;
+  c.header("content-type", "text/x-shellscript; charset=utf-8");
+  c.header("cache-control", "no-store");
+  return c.body(renderInstallScript(token, mcpUrl));
+});
 
 // Public key set external app backends verify our identity tokens against (§1).
 app.get("/.well-known/jwks.json", (c) => {

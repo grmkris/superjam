@@ -12,7 +12,7 @@
 }
 
 :{$PORT} {
-	@server path /rpc/* /api/* /f/* /health /.well-known/*
+	@server path /rpc/* /api/* /f/* /health /.well-known/* /mcp /install.sh
 	handle @server {
 		reverse_proxy {$SERVER_URL}
 	}

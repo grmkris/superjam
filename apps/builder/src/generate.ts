@@ -29,7 +29,7 @@ const manifestOf = (spec: AppSpec): AppManifest => ({
   capabilities: spec.capabilities,
 });
 
-const packageJson = (spec: AppSpec, needsData: boolean): string =>
+const packageJson = (spec: AppSpec, needsData: boolean, needsMap: boolean): string =>
   JSON.stringify(
     {
       name: spec.slug,
@@ -48,6 +48,9 @@ const packageJson = (spec: AppSpec, needsData: boolean): string =>
               "drizzle-orm": "^0.45.0",
             }
           : {}),
+        // Only when the spec carries the "map" skill — keeps the WebGL map lib
+        // (~400KB) out of apps that don't render a map.
+        ...(needsMap ? { "maplibre-gl": "^4.7.1" } : {}),
       },
       // Standalone Vercel build needs TS + types in the app itself (literal
       // versions only — `catalog:`/`workspace:` don't resolve off-monorepo).
@@ -182,6 +185,100 @@ const schemaLib = (spec: AppSpec): string => {
 // arg), which is what makes sdk.onchain.write gasless + player-stamped.
 const isOnchain = (spec: AppSpec): boolean => spec.skills?.includes("onchain") ?? false;
 
+// --- Map (§ "map" skill) ---------------------------------------------------
+// When the spec carries the "map" skill we seed a self-contained <TripMap>
+// client component built directly on maplibre-gl (free, keyless Carto tiles).
+// The build agent only edits app/page.tsx / app/api/* / lib/schema.ts, so the
+// fiddly WebGL setup lives here — page.tsx just does `<TripMap stops={...} />`.
+const isMap = (spec: AppSpec): boolean => spec.skills?.includes("map") ?? false;
+
+const tripMapComponent = (): string => `"use client";
+import { useEffect, useRef } from "react";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+
+export type TripStop = {
+  name: string;
+  lat: number;
+  lng: number;
+  day?: number;
+  blurb?: string;
+};
+
+// Toybox candy palette — one hue per trip day (wraps after 6).
+const DAY_COLORS = ["#4D7CFF", "#FF4D6D", "#FFC940", "#2FD180", "#A66BFF", "#FF8A3D"];
+// Free, keyless vector basemap (CORS-enabled). No API token required.
+const STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+}
+
+/** Renders trip stops as day-coloured numbered markers + a dashed route line,
+ *  auto-fit to the itinerary. Pass stops in visit order. */
+export function TripMap({ stops, height = 320 }: { stops: TripStop[]; height?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const pts = stops.filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng));
+    const map = new maplibregl.Map({
+      container: ref.current,
+      style: STYLE,
+      center: pts.length ? [pts[0].lng, pts[0].lat] : [0, 20],
+      zoom: pts.length ? 4 : 1,
+    });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+    map.on("load", () => {
+      if (pts.length >= 2) {
+        map.addSource("route", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: { type: "LineString", coordinates: pts.map((s) => [s.lng, s.lat]) },
+          },
+        });
+        map.addLayer({
+          id: "route",
+          type: "line",
+          source: "route",
+          paint: { "line-color": "#221A33", "line-width": 3, "line-dasharray": [2, 1.5], "line-opacity": 0.55 },
+        });
+      }
+      const bounds = new maplibregl.LngLatBounds();
+      pts.forEach((s, i) => {
+        const n = s.day ?? i + 1;
+        const color = DAY_COLORS[(n - 1) % DAY_COLORS.length];
+        const el = document.createElement("div");
+        el.style.cssText =
+          "width:26px;height:26px;border-radius:50%;color:#fff;display:flex;align-items:center;" +
+          "justify-content:center;font:700 13px/1 system-ui;border:2px solid #fff;cursor:pointer;" +
+          "box-shadow:0 2px 6px rgba(0,0,0,.3);background:" + color;
+        el.textContent = String(n);
+        const popup = new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(
+          "<strong>" + escapeHtml(s.name) + "</strong>" +
+            (s.blurb ? '<br/><span style="font-size:12px">' + escapeHtml(s.blurb) + "</span>" : "")
+        );
+        new maplibregl.Marker({ element: el }).setLngLat([s.lng, s.lat]).setPopup(popup).addTo(map);
+        bounds.extend([s.lng, s.lat]);
+      });
+      if (pts.length === 1) {
+        map.setCenter([pts[0].lng, pts[0].lat]);
+        map.setZoom(9);
+      } else if (pts.length > 1) {
+        map.fitBounds(bounds, { padding: 48, maxZoom: 9, duration: 0 });
+      }
+    });
+
+    return () => map.remove();
+  }, [stops]);
+
+  return <div ref={ref} style={{ width: "100%", height, borderRadius: 16, overflow: "hidden" }} />;
+}
+`;
+
 const foundryToml = (): string => `[profile.default]
 src = "src"
 out = "out"
@@ -279,8 +376,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
  * identity (appId + JWKS); absent in unit tests that don't deploy. */
 export const generateApp = (spec: AppSpec, ctx?: GenerateContext): GeneratedApp => {
   const needsData = specNeedsData(spec);
+  const needsMap = isMap(spec);
   const files: Record<string, string> = {
-    "package.json": packageJson(spec, needsData),
+    "package.json": packageJson(spec, needsData, needsMap),
     "tsconfig.json": tsconfig(),
     "next.config.ts": nextConfig(),
     "superjam.json": JSON.stringify(manifestOf(spec), null, 2),
@@ -295,6 +393,9 @@ export const generateApp = (spec: AppSpec, ctx?: GenerateContext): GeneratedApp 
   if (needsData) {
     files["lib/db.ts"] = dbLib();
     files["lib/schema.ts"] = schemaLib(spec);
+  }
+  if (needsMap) {
+    files["components/trip-map.tsx"] = tripMapComponent();
   }
   if (isOnchain(spec)) {
     files["contracts/foundry.toml"] = foundryToml();

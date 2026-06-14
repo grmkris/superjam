@@ -1,0 +1,37 @@
+{
+  "name": "Trip Guide",
+  "slug": "trip-guide",
+  "description": "Describe a trip and get a day-by-day itinerary plotted on a map with markers and a route.",
+  "iconEmoji": "🧭",
+  "category": "other",
+  "capabilities": ["ai"],
+  "features": [
+    "Player types a trip in plain words; sdk.ai.chat returns a day-by-day itinerary as JSON with coordinates",
+    "Stops render on the seeded map as day-coloured numbered markers joined by a route line",
+    "A postcard image per stop (by vibe category) with an emoji fallback",
+    "Save the last trip to sdk.storage and restore it on open; share it via sdk.share.link",
+    "A community destinations leaderboard via sdk.data.counter"
+  ],
+  "data": {
+    "collections": [],
+    "counters": [
+      { "name": "destinations", "keyedBy": "country", "meaning": "how many trips the community has planned to each country" }
+    ],
+    "storage": [
+      { "key": "trip", "meaning": "the player's most recently planned itinerary" }
+    ]
+  },
+  "ai": { "uses": ["plan a day-by-day trip itinerary as JSON with stop coordinates"] },
+  "ui": {
+    "layout": "single card: a prompt box, the map, a list of stop cards, then a leaderboard",
+    "sections": ["trip prompt", "map", "stop cards", "destinations leaderboard"]
+  },
+  "skills": ["map", "art"],
+  "acceptance": [
+    "Entering a prompt and tapping Plan produces an itinerary plotted on the map",
+    "Each stop shows a numbered, day-coloured marker and a route line connects them in order",
+    "Coordinates from the AI are validated; a fallback itinerary renders if the AI output is unusable",
+    "The trip is saved and restored on reopen, and Share copies a working link",
+    "Planning a trip increments the destinations leaderboard"
+  ]
+}

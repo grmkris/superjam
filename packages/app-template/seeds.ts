@@ -91,6 +91,18 @@ export const SEED_JAMS: SeedJam[] = [
     },
   },
   {
+    entry: "examples/trip-guide.tsx",
+    skills: ["map", "art"],
+    manifest: {
+      name: "Trip Guide",
+      slug: "trip-guide",
+      description: "Describe a trip; get a day-by-day plan on a map with markers, postcards, and a route.",
+      iconEmoji: "🧭",
+      category: "other",
+      capabilities: ["ai"],
+    },
+  },
+  {
     entry: "examples/match-pot.tsx",
     skills: ["market"],
     manifest: {
