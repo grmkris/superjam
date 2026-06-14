@@ -21,3 +21,6 @@ public.txt
 /*.png
 /apps/*.png
 **/Screenshot*.png
+
+# local demo/test inputs (camera exports, CSV/PNG fed to the builder) — not source
+/sample-data/
