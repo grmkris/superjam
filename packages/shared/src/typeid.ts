@@ -23,6 +23,7 @@ export const idTypesMapNameToPrefix = {
   directMessage: "dm",
   userDelegation: "udl",
   buildDraft: "bdr",
+  userToken: "utk",
 } as const;
 
 type IdTypesMapNameToPrefix = typeof idTypesMapNameToPrefix;

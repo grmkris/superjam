@@ -85,6 +85,13 @@
       "when": 1781399472657,
       "tag": "0011_charming_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781403676065,
+      "tag": "0012_last_angel",
+      "breakpoints": true
     }
   ]
 }

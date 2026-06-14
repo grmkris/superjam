@@ -3,6 +3,7 @@
 // CLI — agent builds dispatch to the dev-box builder (§11).
 import { serve } from "@hono/node-server";
 import {
+  type ApiContext,
   appRouter,
   createAppTokenIssuer,
   createContext,
@@ -37,6 +38,7 @@ import {
   dynamicWalletEnv,
 } from "./dynamic-wallet.ts";
 import { env } from "./env.ts";
+import { registerMcp } from "./mcp.ts";
 import { createGeminiOracle } from "./oracle.ts";
 
 const logger = createLogger({
@@ -228,6 +230,28 @@ app.get("/.well-known/jwks.json", (c) => {
 // framed by app.entryUrl; see docs/PIVOT.md.)
 const objectStore = createS3Store(env);
 
+// One request-context factory, shared by /rpc and /mcp (the MCP tools call the
+// same oRPC procedures in-process as the bearer's user).
+const makeContext = (headers: Headers): ApiContext =>
+  createContext({
+    db,
+    logger,
+    auth,
+    rateLimiter,
+    issuer,
+    onchain,
+    oracle,
+    unlink,
+    world,
+    objectStore,
+    treasuryAddress,
+    headers,
+  });
+
+// MCP endpoint (§MCP) — external agents (a user's Claude Code) hire builders AS the
+// user via a `sjat_…` PAT. Tools run the existing build flow + pay via delegation.
+registerMcp(app, { makeContext });
+
 // Dynamic delegation webhook (§23) — receives wallet.delegation.created/revoked,
 // decrypts + stores the per-user MPC share so the server can sign privately on the
 // user's behalf. Gateway routes /api/* → server. Mounted only when configured.
@@ -243,20 +267,7 @@ if (env.DYNAMIC_DELEGATION_PRIVATE_KEY && env.DYNAMIC_WEBHOOK_SECRET) {
 app.use("/rpc/*", async (c, next) => {
   const { matched, response } = await rpc.handle(c.req.raw, {
     prefix: "/rpc",
-    context: createContext({
-      db,
-      logger,
-      auth,
-      rateLimiter,
-      issuer,
-      onchain,
-      oracle,
-      unlink,
-      world,
-      objectStore,
-      treasuryAddress,
-      headers: c.req.raw.headers,
-    }),
+    context: makeContext(c.req.raw.headers),
   });
   if (matched && response) {
     return response;

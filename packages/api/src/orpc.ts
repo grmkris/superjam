@@ -3,6 +3,7 @@
 import type { schema } from "@superjam/db";
 import { ORPCError, os } from "@orpc/server";
 import { extractBearer } from "./auth/bearer.ts";
+import { PAT_PREFIX, resolveUserFromPat } from "./auth/pat.ts";
 import { upsertUserFromClaims } from "./auth/user-service.ts";
 import type { ApiContext } from "./context.ts";
 import { commonErrors } from "./errors.ts";
@@ -19,12 +20,18 @@ const requireAuth = base.middleware(async ({ context, next }) => {
   if (!token) {
     throw new ORPCError("UNAUTHORIZED", { message: "Authentication required" });
   }
-  let user: User;
+  let user: User | null;
   try {
-    const claims = await context.auth.verify(token);
-    user = await upsertUserFromClaims(context.db, claims);
+    // A `sjat_` Personal Access Token (the MCP/agent path) resolves to its owner;
+    // anything else is a Dynamic JWT (the web path).
+    user = token.startsWith(PAT_PREFIX)
+      ? await resolveUserFromPat(context.db, token)
+      : await upsertUserFromClaims(context.db, await context.auth.verify(token));
   } catch (err) {
     context.logger.debug({ err: String(err) }, "auth verify failed");
+    throw new ORPCError("UNAUTHORIZED", { message: "Invalid token" });
+  }
+  if (!user) {
     throw new ORPCError("UNAUTHORIZED", { message: "Invalid token" });
   }
   return next({ context: { user } });
@@ -39,9 +46,10 @@ const maybeAuth = base.middleware(async ({ context, next }) => {
   const token = extractBearer(context.headers);
   if (!token) return next({ context: { user: undefined as User | undefined } });
   try {
-    const claims = await context.auth.verify(token);
-    const user = await upsertUserFromClaims(context.db, claims);
-    return next({ context: { user: user as User | undefined } });
+    const user = token.startsWith(PAT_PREFIX)
+      ? await resolveUserFromPat(context.db, token)
+      : await upsertUserFromClaims(context.db, await context.auth.verify(token));
+    return next({ context: { user: (user ?? undefined) as User | undefined } });
   } catch {
     return next({ context: { user: undefined as User | undefined } });
   }
