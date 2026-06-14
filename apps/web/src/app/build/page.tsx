@@ -137,27 +137,40 @@ function MakeFlow() {
     load().then((snap) => {
       if (cancelled) return;
       if (snap) {
-        setIdea(snap.prompt || "");
-        setSpec(snap.spec);
+        // Hydrate ONLY values the draft actually carries — NEVER overwrite
+        // something the user produced while this async load was in flight. A
+        // fast refine fired right after mount can set a real spec + navigate to
+        // the plan BEFORE load() resolves; the old unconditional
+        // `setSpec(snap.spec)` (snap.spec === null for a home-stage draft) then
+        // wiped that spec, so `step === "plan" && spec` went false and the
+        // screen showed nothing. Same for a just-typed idea / fresh attachments.
         const s = snap.state ?? {};
-        setQuestions(s.questions ?? []);
-        setPicks((s.picks ?? {}) as Record<number, string>);
-        setComments(s.comments ?? []);
-        setExchange(s.exchange ?? []);
-        setSimilar(s.similar ?? []);
-        setChosen((s.chosen ?? null) as Chosen | null);
-        setAttachments((s.attachments ?? []) as Attachment[]);
-        setRevealSlug(s.revealSlug ?? null);
-        setBuildId(snap.buildId ?? null);
+        if (snap.prompt) setIdea(snap.prompt);
+        if (snap.spec) setSpec(snap.spec);
+        if (s.questions?.length) setQuestions(s.questions);
+        if (s.picks && Object.keys(s.picks).length) setPicks(s.picks as Record<number, string>);
+        if (s.comments?.length) setComments(s.comments);
+        if (s.exchange?.length) setExchange(s.exchange);
+        if (s.similar?.length) setSimilar(s.similar);
+        if (s.chosen) setChosen(s.chosen as Chosen);
+        if (s.attachments?.length) setAttachments(s.attachments as Attachment[]);
+        if (s.revealSlug) setRevealSlug(s.revealSlug);
+        if (snap.buildId) setBuildId(snap.buildId);
       }
-      const urlStep = search.get("step");
-      const needD = search.get("d") !== draftId;
-      const resumeStep = !urlStep && snap?.step && snap.step !== "home" ? snap.step : null;
+      // Read the LIVE url (not the mount-time `search` snapshot): if the user
+      // already navigated (e.g. a refine pushed ?step=plan) while load() ran, a
+      // replace built from the stale snapshot would yank them back to home. So
+      // we only inject the missing ?d / resume token, and always preserve the
+      // step the URL currently shows.
+      const live = new URLSearchParams(window.location.search);
+      const liveStep = live.get("step");
+      const needD = live.get("d") !== draftId;
+      const resumeStep = !liveStep && snap?.step && snap.step !== "home" ? snap.step : null;
       if (needD || resumeStep) {
         const params = new URLSearchParams();
         if (remixSlug) params.set("remix", remixSlug);
         params.set("d", draftId);
-        params.set("step", urlStep ?? resumeStep ?? "home");
+        params.set("step", liveStep ?? resumeStep ?? "home");
         router.replace(`/build?${params.toString()}`, { scroll: false });
       }
       setHydrated(true);
@@ -276,12 +289,21 @@ function MakeFlow() {
           attachmentKeys: attachments.map((a) => a.key),
         });
         setSimilar(res.similar ?? []);
-        if (res.type === "questions" && res.questions) {
-          setQuestions(res.questions);
-          go("followups");
-        } else if (res.spec) {
+        // Branch on the PAYLOAD, not just `type`. A spec always wins (→ plan);
+        // follow-ups only when there are real questions. `spec`/`questions` are
+        // both optional in the schema, so a degenerate result (a `type` with an
+        // empty payload — which Gemini can emit on the image/multimodal path)
+        // used to match NEITHER old branch and silently leave the user staring
+        // at the home screen. Now any usable payload advances, and anything else
+        // surfaces a retry instead of doing nothing.
+        if (res.spec) {
           setSpec(res.spec);
           go("plan");
+        } else if (res.questions?.length) {
+          setQuestions(res.questions);
+          go("followups");
+        } else {
+          setErr("hmm, I didn't quite catch that — mind trying once more?");
         }
       } catch {
         // Refiner unavailable — keep the user moving with a friendly fallback.
