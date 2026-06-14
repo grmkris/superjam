@@ -12,10 +12,9 @@ import { NameTag } from "../../components/name-tag";
 import { VerifiedBadge } from "../../components/verified-badge";
 import { ensApp, userEns } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
-import { Skeleton } from "../../components/ui/skeleton";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { VerifySheet } from "../../components/verify-sheet";
-import { AddFundsSheet } from "../../components/add-funds-sheet";
+import { WalletCard } from "../../components/wallet/wallet-card";
 import { useLogin } from "../../components/login";
 import { useHostAuth } from "../../lib/use-host-auth";
 
@@ -49,8 +48,6 @@ interface Jam {
   buildStatus: string | null;
 }
 
-const short = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
-
 // Feed order within "your jams": running (building) first, then live, then failed.
 const jamRank = (j: { status: string; buildStatus: string | null }): number =>
   j.buildStatus === "failed" ? 2 : j.status === "listed" ? 1 : 0;
@@ -63,24 +60,15 @@ export default function ProfilePage() {
   const { mutate: logOut } = useLogout();
 
   const [me, setMe] = useState<Me | null>(null);
-  const [balance, setBalance] = useState<string | null | "loading">("loading");
-  const [shielded, setShielded] = useState<string | null | "loading">("loading");
   const [builders, setBuilders] = useState<Builder[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [jams, setJams] = useState<Jam[]>([]);
   const [verifying, setVerifying] = useState(false);
-  const [adding, setAdding] = useState(false);
 
   const discardDraft = (id: string) => {
     setDrafts((d) => d.filter((x) => x.id !== id));
     client.builds.deleteDraft({ draftId: id as BuildDraftId }).catch(() => {});
   };
-
-  const loadShielded = () =>
-    client.payments
-      .privateBalance()
-      .then((b) => setShielded(b.shieldedUsdc))
-      .catch(() => setShielded(null));
 
   const loadMe = () =>
     client.profile.me().then((m) =>
@@ -95,8 +83,6 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!isLoggedIn) return;
     loadMe();
-    client.payments.balance().then((b) => setBalance(b.publicUsdc)).catch(() => setBalance(null));
-    loadShielded();
     client.agents
       .mine()
       .then((rows) =>
@@ -166,50 +152,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* wallet block — the SHIELDED (private) balance is the in-app wallet (hero);
-          public on-chain USDC is the secondary on/off-ramp line. */}
-      <StickerCard color="white" className="p-5 flex flex-col gap-1 shadow-sticker-md">
-        <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
-          your balance · private 🔒
-        </div>
-        {shielded === "loading" ? (
-          <Skeleton className="mt-1 h-11 w-44" />
-        ) : (
-          <div className="text-hero font-extrabold">
-            {shielded ?? "0.00"}{" "}
-            <span className="text-2xl text-muted">USDC</span>
-          </div>
-        )}
-        <div className="text-small font-semibold text-muted">
-          {balance === "loading" ? "…" : `${balance ?? "0.00"} USDC on-chain (public)`}
-        </div>
-        <div className="mt-2 flex items-center gap-2">
-          <StickerButton
-            color="green"
-            size="sm"
-            onClick={() => setAdding(true)}
-            className="rounded-full"
-          >
-            + Add funds
-          </StickerButton>
-          <StickerButton
-            color="cream"
-            size="sm"
-            onClick={() => router.push("/wallet")}
-            className="rounded-full"
-          >
-            Wallet →
-          </StickerButton>
-          {me?.walletAddress && (
-            <button
-              onClick={() => navigator.clipboard?.writeText(me.walletAddress!).catch(() => {})}
-              className="focus-ring font-mono text-small font-semibold text-muted"
-            >
-              {short(me.walletAddress)} 📋
-            </button>
-          )}
-        </div>
-      </StickerCard>
+      {/* wallet — a single private (shielded) balance; public USDC auto-shields. */}
+      <WalletCard walletAddress={me?.walletAddress ?? null} />
 
       {/* World verify block */}
       <StickerCard color={me?.worldVerified ? "white" : "cream"} className="p-4 flex items-center gap-3">
@@ -350,15 +294,6 @@ export default function ProfilePage() {
         onVerified={loadMe}
         title="Verify you're human"
         blurb="verify once to publish, review & build — one human, one account."
-      />
-
-      <AddFundsSheet
-        open={adding}
-        onClose={() => setAdding(false)}
-        onFunded={(shieldedUsdc) => {
-          if (shieldedUsdc !== undefined) setShielded(shieldedUsdc);
-          loadShielded();
-        }}
       />
     </div>
   );
