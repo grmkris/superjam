@@ -13,11 +13,10 @@
 // Injected into <ConfirmProvider> by client-root's WiredConfirm (which sits inside
 // <Providers> so the wallet is reachable).
 //
-// New headless SDK: the EVM wallet account comes from useWalletAccounts(); a viem
-// WalletClient is built with createWalletClientForWalletAccount().
-import type { EvmWalletAccount } from "@dynamic-labs-sdk/evm";
-import { createWalletClientForWalletAccount } from "@dynamic-labs-sdk/evm/viem";
-import { useWalletAccounts } from "@dynamic-labs-sdk/react-hooks";
+// Dynamic React SDK: the EVM wallet is the primaryWallet from useDynamicContext();
+// a viem WalletClient comes from wallet.getWalletClient().
+import { isEthereumWallet } from "@dynamic-labs/ethereum";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import type { AppId, BuilderAgentId } from "@superjam/shared";
 import {
   PUBLIC_CHAIN,
@@ -33,10 +32,9 @@ import { usePlatformClient } from "../use-platform-client";
 
 export function useRelayExecutor(): PayExecutor {
   const client = usePlatformClient();
-  const { data: walletAccounts } = useWalletAccounts();
-  const evmAccount = walletAccounts?.find((w) => w.chain === "EVM") as
-    | EvmWalletAccount
-    | undefined;
+  const { primaryWallet } = useDynamicContext();
+  const evmWallet =
+    primaryWallet && isEthereumWallet(primaryWallet) ? primaryWallet : undefined;
 
   return useCallback<PayExecutor>(
     async (intent) => {
@@ -71,7 +69,7 @@ export function useRelayExecutor(): PayExecutor {
 
       // Public rail (publish fee / pot stake) — the platform must verify these by
       // reading the on-chain receipt, so they stay on the EIP-3009 gasless relay.
-      if (!evmAccount) {
+      if (!evmWallet) {
         throw new Error("Connect your wallet to pay");
       }
 
@@ -82,9 +80,7 @@ export function useRelayExecutor(): PayExecutor {
       });
 
       // 2) build the EIP-3009 transfer authorization
-      const walletClient = await createWalletClientForWalletAccount({
-        walletAccount: evmAccount,
-      });
+      const walletClient = await evmWallet.getWalletClient();
       const from = walletClient.account.address;
       const nowSec = BigInt(Math.floor(Date.now() / 1000));
       const { validAfter, validBefore } = authWindow(nowSec);
@@ -122,6 +118,6 @@ export function useRelayExecutor(): PayExecutor {
       });
       return { txHash };
     },
-    [client, evmAccount]
+    [client, evmWallet]
   );
 }

@@ -5,7 +5,7 @@
 // number), your registered builders, and the World verify block. USDC only — no
 // gas / network / token lists.
 import type { BuildDraftId } from "@superjam/shared";
-import { useLogout } from "@dynamic-labs-sdk/react-hooks";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NameTag } from "../../components/name-tag";
@@ -58,7 +58,7 @@ export default function ProfilePage() {
   const client = usePlatformClient();
   const { isLoggedIn } = useHostAuth();
   const { openLogin } = useLogin();
-  const { mutate: logOut } = useLogout();
+  const { handleLogOut } = useDynamicContext();
 
   const [me, setMe] = useState<Me | null>(null);
   const [builders, setBuilders] = useState<Builder[]>([]);
@@ -286,7 +286,7 @@ export default function ProfilePage() {
         color="cream"
         size="md"
         block
-        onClick={() => logOut(undefined, { onSuccess: () => router.push("/welcome") })}
+        onClick={() => void handleLogOut().then(() => router.push("/welcome"))}
         className="mt-2"
       >
         Log out
