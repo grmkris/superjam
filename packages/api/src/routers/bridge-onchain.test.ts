@@ -13,6 +13,7 @@ import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
 import { appRouter } from "../router.ts";
 import { createMockOnchain } from "../testing/onchain-mock.ts";
+import { createTestApp } from "../testing/factories.ts";
 
 setDefaultTimeout(20_000);
 
@@ -73,20 +74,22 @@ const seedUser = async (over: Partial<typeof schema.user.$inferInsert> = {}) => 
   return { user: u!, token };
 };
 
-const seedApp = async (over: Partial<typeof schema.app.$inferInsert> = {}) => {
-  const [a] = await db
-    .insert(schema.app)
-    .values({
+const seedApp = (over: Partial<typeof schema.app.$inferInsert> = {}) => {
+  const { ownerUserId, ...rest } = over;
+  // Route through the shared factory so ownerUserId stays the branded UserId type
+  // (the inline `?? "user_x"` widened it to string → broke the .values() overload).
+  return createTestApp(
+    db,
+    (ownerUserId ?? "user_x") as Parameters<typeof createTestApp>[1],
+    {
       slug: "coinflip",
       name: "Coinflip",
-      ownerUserId: (over.ownerUserId as string) ?? "user_x",
       capabilities: ["onchain"],
       gameContractAddress: CONTRACT,
       gameContractAbi: ABI as unknown as readonly unknown[],
-      ...over,
-    })
-    .returning();
-  return a!;
+      ...rest,
+    }
+  );
 };
 
 describe("bridge.onchain.write", () => {
