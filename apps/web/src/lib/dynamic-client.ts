@@ -12,18 +12,19 @@
 // this module is only evaluated into a real client in the browser (null on the
 // server pass, where <Providers> renders the env-guard screen instead).
 import { createDynamicClient } from "@dynamic-labs-sdk/client";
-import { addWaasEvmExtension } from "@dynamic-labs-sdk/evm/waas";
+import { addEvmExtension } from "@dynamic-labs-sdk/evm";
 
 const ENVIRONMENT_ID = process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID ?? "";
 
 function build() {
   // Match Dynamic's working headless example (dynamic-labs-oss/examples →
-  // nextjs-js-sdk-wallet-demo): autoInitialize:true + register the extension, and
-  // do NOT call initializeClient() manually. Our previous `autoInitialize:false`
-  // + a manual initializeClient() AFTER the extension rebuilt the wallet-provider
-  // registry and dropped the WaaS provider — so createWalletClientForWalletAccount
-  // and delegateWaasKeyShares both threw NoWalletProviderFoundError. autoInitialize
-  // sequences init so the extension's provider survives.
+  // nextjs-js-sdk-wallet-demo): autoInitialize:true, then addEvmExtension (NOT the
+  // narrower addWaasEvmExtension — addEvmExtension is the superset that wires
+  // EIP-6963 + the WaaS embedded-wallet provider together, which is what makes
+  // createWalletClientForWalletAccount + delegateWaasKeyShares resolve the provider).
+  // No manual initializeClient() — autoInitialize sequences it so the provider
+  // survives. (addWaasEvmExtension alone left the WaaS provider unregistered →
+  // NoWalletProviderFoundError on every sign/delegate.)
   const client = createDynamicClient({
     autoInitialize: true,
     environmentId: ENVIRONMENT_ID,
@@ -35,7 +36,7 @@ function build() {
           : "https://superjam.fun",
     },
   });
-  addWaasEvmExtension(client);
+  addEvmExtension(client);
   return client;
 }
 
