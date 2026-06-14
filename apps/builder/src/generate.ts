@@ -239,12 +239,14 @@ cd "$(dirname "$0")"
 export PATH="$HOME/.foundry/bin:$PATH"
 : "\${ARC_RPC_URL:=https://rpc.testnet.arc.network}"
 forge build --silent
+# NOTE: --constructor-args is variadic — it MUST be the last flag (else it eats
+# the next flag as a 2nd arg). --json goes before it for parseable deploy output.
 ADDR=$(forge create src/Game.sol:Game \\
   --rpc-url "$ARC_RPC_URL" \\
   --private-key "$ARC_DEPLOYER_KEY" \\
   --broadcast \\
-  --constructor-args "$ARC_OPERATOR_ADDRESS" \\
-  --json | jq -r '.deployedTo')
+  --json \\
+  --constructor-args "$ARC_OPERATOR_ADDRESS" | jq -r '.deployedTo')
 jq -nc --arg a "$ADDR" --argjson abi "$(jq -c '.abi' out/Game.sol/Game.json)" \\
   '{address:$a, abi:$abi}'
 `;
