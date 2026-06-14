@@ -7,6 +7,7 @@ import { schema } from "@superjam/db";
 import {
   AppId,
   TX_CAP_USDC,
+  type UserId,
   X402_MAX_USDC,
   X402_QUOTA_COUNTER,
   X402_CALLS_PER_USER_APP_DAY,
@@ -26,6 +27,7 @@ import { z } from "zod";
 import { requireApp } from "../lib/app-context.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
 import { protectedProcedure } from "../orpc.ts";
+import { createChatService } from "../services/chat-service.ts";
 import { createCounterService } from "../services/counter-service.ts";
 
 const { publishPayment, potStake, user } = schema;
@@ -316,9 +318,18 @@ export const paymentsRouter = {
     }),
 
   /** THE send primitive: a private transfer (tip / pay-a-friend / miniapp payUSDC,
-   *  sub-cent capable). `to` = a `@username` or a raw `unlink1…` address. */
+   *  sub-cent capable). `to` = a `@username`, a raw `unlink1…` address, or
+   *  "appTreasury" (a miniapp tip — needs `appId`; lands in the app owner's shielded
+   *  balance). For a friend `@username` send, a "tip" money-line is recorded in the
+   *  chat thread server-side (no separate recordTip round-trip). */
   privateSend: protectedProcedure
-    .input(z.object({ to: z.string().min(1), amount: z.string().min(1) }))
+    .input(
+      z.object({
+        to: z.string().min(1),
+        amount: z.string().min(1),
+        appId: AppId.optional(),
+      })
+    )
     .handler(async ({ context, input }) => {
       const amount = parseUsdc(input.amount);
       if (amount > TX_CAP) {
@@ -326,10 +337,48 @@ export const paymentsRouter = {
       }
       const raw = input.to.trim();
 
-      // resolve the recipient's shielded (unlink1…) address.
+      // Auto-provision a user's shielded account if absent (only possible if THEY
+      // have delegated — getUserSigner resolves; else a clean error).
+      const ensureUnlink = async (
+        u: { id: UserId; unlinkAddress: string | null },
+        absentMsg: string
+      ): Promise<string> => {
+        if (u.unlinkAddress) return u.unlinkAddress;
+        try {
+          const enabled = await context.unlink.enable(u.id);
+          await context.db
+            .update(user)
+            .set({ unlinkAddress: enabled.unlinkAddress })
+            .where(eq(user.id, u.id));
+          return enabled.unlinkAddress;
+        } catch {
+          throw new ORPCError("BAD_REQUEST", { message: absentMsg });
+        }
+      };
+
+      // resolve the recipient's shielded (unlink1…) address. Track the friend the
+      // send resolved to (if any) so we can record the chat money-line after.
       let toUnlink: string;
+      let friendUsername: string | null = null;
       if (raw.startsWith("unlink1")) {
         toUnlink = raw;
+      } else if (raw === "appTreasury") {
+        // miniapp tip → the app owner's shielded balance (mirrors resolveRecipient's
+        // treasury→owner fallback; the shielded rail has no app-level account).
+        if (!input.appId) {
+          throw new ORPCError("BAD_REQUEST", { message: "Missing appId for a tip" });
+        }
+        const appRow = await requireApp(context.db, input.appId);
+        const owner = await context.db.query.user.findFirst({
+          columns: { id: true, unlinkAddress: true },
+          where: eq(user.id, appRow.ownerUserId),
+        });
+        if (!owner) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "This jam can't receive tips yet",
+          });
+        }
+        toUnlink = await ensureUnlink(owner, "This jam can't receive tips yet");
       } else if (raw.startsWith("@")) {
         const handle = raw.slice(1).toLowerCase();
         const u = await context.db.query.user.findFirst({
@@ -339,24 +388,11 @@ export const paymentsRouter = {
         if (!u) {
           throw new ORPCError("BAD_REQUEST", { message: `Unknown user @${handle}` });
         }
-        if (u.unlinkAddress) {
-          toUnlink = u.unlinkAddress;
-        } else {
-          // Auto-provision the recipient — only possible if THEY have delegated
-          // (getUserSigner resolves); else a clean "hasn't enabled private payments".
-          try {
-            const enabled = await context.unlink.enable(u.id);
-            await context.db
-              .update(user)
-              .set({ unlinkAddress: enabled.unlinkAddress })
-              .where(eq(user.id, u.id));
-            toUnlink = enabled.unlinkAddress;
-          } catch {
-            throw new ORPCError("BAD_REQUEST", {
-              message: `@${handle} hasn't enabled private payments yet`,
-            });
-          }
-        }
+        toUnlink = await ensureUnlink(
+          u,
+          `@${handle} hasn't enabled private payments yet`
+        );
+        friendUsername = u.username;
       } else {
         throw new ORPCError("BAD_REQUEST", { message: "Unrecognized recipient" });
       }
@@ -364,6 +400,23 @@ export const paymentsRouter = {
       const txHash = await tryOnchain(() =>
         context.unlink.transfer(context.user.id, toUnlink, amount)
       );
+
+      // Server-authoritative chat money-line for a friend send (best-effort: the
+      // money has already moved; a non-friend @send simply records no line).
+      if (friendUsername) {
+        await createChatService({
+          db: context.db,
+          rateLimiter: context.rateLimiter,
+        })
+          .recordPrivateTip(
+            { id: context.user.id, username: context.user.username },
+            friendUsername,
+            formatUsdc(amount),
+            txHash
+          )
+          .catch(() => {});
+      }
+
       return { txHash };
     }),
 

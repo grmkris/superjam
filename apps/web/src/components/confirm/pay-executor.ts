@@ -1,12 +1,17 @@
 "use client";
 
-// useRelayExecutor — the REAL confirm-sheet executor (DESIGN_BRIEF §3d). Turns
-// an approved ConfirmIntent into money: resolve recipient → build the EIP-3009
-// transfer authorization → sign it with the Dynamic embedded wallet (in the
-// browser; the key never leaves the user) → relay it gaslessly via C's
-// payments.relay → return the real tx hash. Injected into <ConfirmProvider> by
-// client-root's WiredConfirm (which sits inside <Providers> so the wallet is
-// reachable).
+// useRelayExecutor — the REAL confirm-sheet executor (DESIGN_BRIEF §3d). Turns an
+// approved ConfirmIntent into money over the right rail (§15):
+//   • tip / payFriend → the SHIELDED Unlink rail (payments.privateSend), private
+//     by default, server-signed (no browser signature).
+//   • buildFee → the x402 private rail (builds.payBuildFee), settled server-side.
+//   • publish / stake → the PUBLIC EIP-3009 gasless relay: resolve recipient →
+//     build the transfer authorization → sign it with the Dynamic embedded wallet
+//     (in the browser; the key never leaves the user) → relay via payments.relay.
+//     These are the payments the platform must verify by reading an on-chain
+//     receipt, so they stay public.
+// Injected into <ConfirmProvider> by client-root's WiredConfirm (which sits inside
+// <Providers> so the wallet is reachable).
 //
 // New headless SDK: the EVM wallet account comes from useWalletAccounts(); a viem
 // WalletClient is built with createWalletClientForWalletAccount().
@@ -48,11 +53,26 @@ export function useRelayExecutor(): PayExecutor {
         return { txHash, paymentToken };
       }
 
-      if (!evmAccount) {
-        throw new Error("Connect your wallet to pay");
-      }
       if (!intent.to) {
         throw new Error("Missing recipient");
+      }
+
+      // Tips + in-jam payUSDC → the SHIELDED Unlink rail (§15, private by default).
+      // Server-side via the delegated signer — no browser signature, no public
+      // wallet, no on-chain Transfer log. A friend send also records the chat line.
+      if (intent.kind === "tip" || intent.kind === "payFriend") {
+        const { txHash } = await client.payments.privateSend({
+          to: intent.to,
+          amount: String(intent.amountUsdc),
+          appId: intent.appId as AppId | undefined,
+        });
+        return { txHash };
+      }
+
+      // Public rail (publish fee / pot stake) — the platform must verify these by
+      // reading the on-chain receipt, so they stay on the EIP-3009 gasless relay.
+      if (!evmAccount) {
+        throw new Error("Connect your wallet to pay");
       }
 
       // 1) recipient string → on-chain address (server-side lookup)

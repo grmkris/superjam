@@ -100,9 +100,11 @@ What is actually live, superseding the historical body where they differ:
 - **Payments:** build fees settle over the **x402 private rail** (Unlink shielded →
   Circle Gateway) and the server returns a **signed build-payment token** the
   `builds.create` gate verifies; **free for a World-verified human using a
-  human-backed builder**. Tips and in-jam sends use the EIP-3009 gasless relay,
-  **private by default** (Unlink). `sdk.payments.payX402` (private nanopayments) is
-  **proven live**, not gated.
+  human-backed builder**. Tips and in-jam sends settle over the **Unlink shielded
+  rail** (`payments.privateSend`) on Arc — **private by default**, gasless,
+  server-signed. The EIP-3009 gasless relay is reserved for the payments the
+  platform must verify by reading an on-chain receipt (publish fee, pot stakes).
+  `sdk.payments.payX402` (private nanopayments) is **proven live**, not gated.
 - **Builders are a marketplace — no house builder.** Every jam is built by a
   registered agent (own ENS name + ERC-8004 identity/reputation + a StakeSlash
   yield stake + revenue share); a build with no eligible agent is rejected. The
@@ -1345,12 +1347,14 @@ Web client: `RPCLink` with auth header injection; TanStack Query via
 
 **The rule:** the only payments that CAN'T be private are the ones the platform
 must cryptographically verify by reading an on-chain receipt — publish fee, pot
-stakes, paid agent builds (§12). Those go to platform-controlled addresses and
-their provability IS the feature, so they're **public** (Base Sepolia,
-sponsored). Everything peer-to-peer — **tips + app `payUSDC` pay-actions** — has
-no such constraint (social proof = the server-stamped leaderboard counter the
-user opts into by tapping), so it is **private by default** (Unlink on Arc
-testnet). No public/private toggle; not a user-facing choice.
+stakes (§12). Those go to platform-controlled addresses and their provability IS
+the feature, so they're **public** (Arc, gasless via the EIP-3009 relay). (Paid
+agent builds settle over the **x402 private rail** and are verified by a signed
+build-payment token instead — §14.) Everything peer-to-peer — **tips + app
+`payUSDC` pay-actions** — has no such constraint (social proof = the
+server-stamped leaderboard counter the user opts into by tapping), so it is
+**private by default** (Unlink on Arc testnet). No public/private toggle; not a
+user-facing choice.
 
 - `packages/onchain`: chain defs baseSepolia (core) / arcTestnet (privacy,
   5042002 — ships in `viem/chains`, RPC `https://rpc.testnet.arc.network`;
@@ -1358,26 +1362,26 @@ testnet). No public/private toggle; not a user-facing choice.
   18-dec native ⟷ 6-dec ERC-20 at `0x3600…0000` are the SAME balance — never
   mix units, never sum the two reads); USDC addresses per chain;
   `parseUsdc/formatUsdc` (6 dec).
-- **Private rail (default for tips/pay-actions):** `payUSDC` → Unlink shielded
-  transfer on Arc testnet, relayed (sender pays no gas, §15.1); recipient
-  resolved `@username` → `user.unlinkAddress`; the confirm sheet reads "Send
-  0.50 USDC privately 🕶". ONE adapter in the host payments handler — if the
-  Unlink client errors / `UNLINK_API_KEY` absent, it **silently falls back to a
-  public Base Sepolia ERC-20 transfer** (same call shape, "(privacy
-  unavailable — sent publicly)" toast). The demo never dies. The same Unlink
-  adapter has a SECOND operation (gated, §3/§9): **`payX402`** — instead of a
+- **Private rail (default for tips/pay-actions):** `payUSDC` → `payments.privateSend`
+  → Unlink shielded transfer on Arc testnet, relayed (sender pays no gas, §15.1);
+  recipient resolved `@username` → `user.unlinkAddress` (a friend send also records
+  the chat money-line server-side), app tips → the app owner's shielded balance;
+  the confirm sheet reads "Send 0.50 USDC privately 🕶". **No public/EIP-3009
+  fallback** — Unlink is assumed configured; if it's unavailable the send fails
+  cleanly (the public rail is only for the verifiable payments below). The same
+  Unlink adapter has a SECOND operation (gated, §3/§9): **`payX402`** — instead of a
   private→private `transfer`, it `withdraw`s to a platform plain payer EOA →
   Circle Gateway `deposit`+`pay(url)`, paying an x402 resource privately. Two
   Unlink-guide constraints hold verbatim: *"the Gateway payer must be a plain
   EOA — never an Unlink execution/smart account"*, and *"avoid a same-size
   deposit and withdrawal in the same flow"* (park a larger pool balance,
   withdraw smaller amounts).
-- **Public rail (publish / pot stakes / paid builds):** ERC-20 transfer on Base
-  Sepolia; host builds calldata; sheet shows amount + recipient (ENS name if
-  known); cap §2; gasless via EIP-3009 relay (`useSignAndSend`, §13/§15.1). Pay-to-publish:
-  1 USDC → treasury → `publish.submit` (§12).
+- **Public rail (publish / pot stakes):** ERC-20 transfer on Arc; host builds
+  calldata; sheet shows amount + recipient (ENS name if known); cap §2; gasless
+  via EIP-3009 relay (`useSignAndSend`, §13/§15.1). Pay-to-publish: 1 USDC →
+  treasury → `publish.submit` (§12). (Paid builds use the x402 private rail — §14.)
 - **Arc/Unlink rehearsal = Thu go/no-go (§23)**, isolated in `packages/onchain`
-  + the Unlink adapter. Fail ⇒ tips stay public, nanopayments submission drops.
+  + the Unlink adapter. Fail ⇒ tips + nanopayments drop (no public fallback).
 - Demo funding: the **Top-up button** (§15.1 rung 3) seeds both rails; demo
   wallets may also be pre-funded beforehand (no onramp needed — why Blink was
   dropped).
@@ -1394,9 +1398,9 @@ Users NEVER hold or think about ETH; the agent runs on pre-funded ETH.
 | ENS user-node + app mints, agent ENS | Sepolia (L1) + Base Sepolia (Durin L2) | agent server wallet | pre-funded ETH (Dynamic server wallets have NO sponsorship — checked docs) |
 | ERC-8004 register + reputation writes | Base Sepolia / Sepolia | agent server wallet | pre-funded ETH |
 | **Tips + app pay-actions (default)** | Arc testnet | Unlink relayer | private transfers relayed — sender pays no gas (§15) |
-| Publish fee, paid builds, pot stakes | Base Sepolia | **gasless** | EIP-3009 `transferWithAuthorization` — user signs, platform server wallet relays + pays ETH (§13) |
-| Pot payouts / refunds | Base Sepolia | agent server wallet | pre-funded ETH (escrow custodian, §9) |
-| Public-tip fallback (Unlink down) | Base Sepolia | **gasless** | same EIP-3009 relay path as the public rail |
+| Publish fee, pot stakes | Arc testnet | **gasless** | EIP-3009 `transferWithAuthorization` — user signs, platform server wallet relays (Arc gas = USDC, §13) |
+| Pot payouts / refunds | Arc testnet | agent server wallet | escrow custodian, gas = USDC (§9) |
+| Paid agent builds | Arc testnet | Unlink relayer + Circle Gateway | x402 private rail — shielded withdraw → Gateway settle (§14) |
 | `payX402` private nanopayment (gated) | Arc testnet | Unlink relayer + Circle Gateway | withdraw relayed; Gateway pays in USDC (Arc gas = USDC) |
 | Anything else on Arc | Arc testnet | user, in USDC | gas IS USDC natively — no paymaster |
 

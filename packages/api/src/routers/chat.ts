@@ -77,20 +77,6 @@ export const chatRouter = {
       )
     ),
 
-  recordTip: protectedProcedure
-    .input(z.object({ to: z.string().min(1), txHash: z.string().min(1) }))
-    .handler(({ context, input }) =>
-      createChatService({
-        db: context.db,
-        rateLimiter: context.rateLimiter,
-      }).recordTip(
-        { id: context.user.id, username: context.user.username },
-        input.to,
-        input.txHash,
-        context.onchain
-      )
-    ),
-
   markRead: protectedProcedure
     .input(z.object({ withUsername: z.string().min(1) }))
     .handler(({ context, input }) =>

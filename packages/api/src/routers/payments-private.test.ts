@@ -17,6 +17,7 @@ import { createRateLimiter } from "../lib/rate-limit.ts";
 import { appRouter } from "../router.ts";
 import type { UnlinkService } from "../services/unlink-service.ts";
 import { createMockOnchain } from "../testing/onchain-mock.ts";
+import { createExternalApp } from "./apps.ts";
 
 setDefaultTimeout(20_000);
 
@@ -187,6 +188,57 @@ describe("payments.privateSend", () => {
         context: ctxFor(token),
       })
     ).rejects.toBeDefined();
+  });
+
+  test("a friend @send records a 'tip' chat money-line server-side", async () => {
+    const sender = await seedUser({ username: "alice", dynamicUserId: "dyn_alice" });
+    await seedUser({
+      username: "bob",
+      dynamicUserId: "dyn_bob",
+      unlinkAddress: "unlink1bob",
+    });
+    await call(appRouter.friends.add, { username: "bob" }, {
+      context: ctxFor(sender.token),
+    });
+    await call(appRouter.payments.depositPrivate, { amount: "1.00" }, {
+      context: ctxFor(sender.token),
+    });
+    await call(appRouter.payments.privateSend, { to: "@bob", amount: "0.25" }, {
+      context: ctxFor(sender.token),
+    });
+    const hist = await call(appRouter.chat.history, { withUsername: "bob" }, {
+      context: ctxFor(sender.token),
+    });
+    expect(hist.messages[0]!.kind).toBe("tip");
+    expect(hist.messages[0]!.amountUsdc).toBe("0.25");
+  });
+
+  test("an appTreasury tip lands in the app owner's shielded balance", async () => {
+    const sender = await seedUser({ username: "alice", dynamicUserId: "dyn_alice" });
+    const owner = await seedUser({ username: "owner", dynamicUserId: "dyn_owner" });
+    const app = await createExternalApp(db, {
+      manifest: {
+        name: "Tipjar",
+        slug: "tipjar",
+        description: "tips",
+        iconEmoji: "💸",
+        category: "game",
+        capabilities: ["payments"],
+      },
+      entryUrl: "https://tipjar.vercel.app",
+      ownerUserId: owner.user.id,
+    });
+    await call(appRouter.payments.depositPrivate, { amount: "1.00" }, {
+      context: ctxFor(sender.token),
+    });
+    const res = await call(
+      appRouter.payments.privateSend,
+      { to: "appTreasury", appId: app.id, amount: "0.50" },
+      { context: ctxFor(sender.token) }
+    );
+    expect(res.txHash).toBe(HASH);
+    // owner had no unlinkAddress → auto-provisioned to unlink1<ownerId>
+    expect(mock.transfers.at(-1)!.to).toBe(mock.addr(owner.user.id));
   });
 });
 

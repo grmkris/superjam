@@ -13,15 +13,8 @@ import {
   TX_CAP_USDC,
   type UserId,
 } from "@superjam/shared";
-import {
-  type Onchain,
-  PUBLIC_CHAIN,
-  formatUsdc,
-  usdc,
-} from "@superjam/onchain";
 import { ORPCError } from "@orpc/server";
 import { aliasedTable, and, desc, eq, inArray, or } from "drizzle-orm";
-import { type Hex, isAddressEqual } from "viem";
 import type { RateLimiter } from "../lib/rate-limit.ts";
 import { normalizeInboxLink } from "./../lib/validate.ts";
 import { createFriendService } from "./friend-service.ts";
@@ -320,13 +313,19 @@ export const createChatService = ({
       });
     },
 
-    /** Record a completed pay-a-friend as a money line. SERVER-AUTHORITATIVE: the
-     *  txHash is verified on-chain (Transfer LOG → the friend's wallet) and the
-     *  amount is DERIVED from the receipt — a client can't forge a money line.
-     *  relayTransfer awaits the receipt, so the tx is mined by the time we're
-     *  called. Idempotent on txHash (no double-record / replay). */
-    async recordTip(from: Sender, to: string, txHash: string, onchain: Onchain) {
-      const other = await friends.resolveUserId(to);
+    /** Record a completed PRIVATE (Unlink) tip / pay-a-friend as a money line.
+     *  SERVER-AUTHORITATIVE: payments.privateSend has ALREADY executed the shielded
+     *  transfer server-side (the server holds the delegated signer), so there's no
+     *  public Transfer log to read — we trust the move and record the line, with the
+     *  amount taken from the same call that moved the money. Friends-only +
+     *  idempotent on txHash (no double-record / replay). */
+    async recordPrivateTip(
+      from: Sender,
+      toUsername: string,
+      amountUsdc: string,
+      txHash: string
+    ) {
+      const other = await friends.resolveUserId(toUsername);
       await assertFriend(from.id, other);
 
       const dup = await db.query.directMessage.findFirst({
@@ -335,29 +334,6 @@ export const createChatService = ({
       });
       if (dup) return { id: dup.id };
 
-      const wallets = await db
-        .select({ id: user.id, walletAddress: user.walletAddress })
-        .from(user)
-        .where(inArray(user.id, [from.id, other]));
-      const friendWallet = wallets.find((w) => w.id === other)?.walletAddress;
-      const myWallet = wallets.find((w) => w.id === from.id)?.walletAddress;
-      if (!friendWallet) {
-        throw new ORPCError("BAD_REQUEST", { message: "Friend has no wallet" });
-      }
-
-      const { from: payer, value } = await onchain.verifyUsdcTransfer({
-        hash: txHash as Hex,
-        chain: PUBLIC_CHAIN,
-        expectedTo: friendWallet as `0x${string}`,
-        minAmount: usdc(1n),
-      });
-      if (myWallet && !isAddressEqual(payer, myWallet as `0x${string}`)) {
-        throw new ORPCError("BAD_REQUEST", {
-          message: "Tip must come from your wallet",
-        });
-      }
-
-      const amountUsdc = formatUsdc(value);
       return insert({
         fromUserId: from.id,
         toUserId: other,

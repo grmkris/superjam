@@ -78,9 +78,20 @@ export function ConfirmSheet({
       {phase === "review" && intent.kind === "buildFee" && (
         <BuildFeeReview intent={intent} onApprove={onApprove} onReject={onReject} />
       )}
-      {phase === "review" && intent.kind !== "buildFee" && (
-        <ReviewBody intent={intent} onApprove={onApprove} onReject={onReject} />
-      )}
+      {phase === "review" &&
+        (intent.kind === "tip" || intent.kind === "payFriend") && (
+          <PrivateSendReview
+            intent={intent}
+            onApprove={onApprove}
+            onReject={onReject}
+          />
+        )}
+      {phase === "review" &&
+        intent.kind !== "buildFee" &&
+        intent.kind !== "tip" &&
+        intent.kind !== "payFriend" && (
+          <ReviewBody intent={intent} onApprove={onApprove} onReject={onReject} />
+        )}
       {phase === "pending" && <PendingBody txHash={txHash} />}
       {phase === "success" && <SuccessBody intent={intent} txHash={txHash} />}
       {phase === "error" && <ErrorBody error={error} onClose={onReject} />}
@@ -125,6 +136,126 @@ function ReviewBody({
             “{intent.memo}”
           </div>
         )}
+      </div>
+      <div className="flex gap-3">
+        <StickerButton color="white" size="lg" block onClick={onReject}>
+          Reject
+        </StickerButton>
+        <StickerButton color="green" size="lg" block onClick={onApprove}>
+          Approve
+        </StickerButton>
+      </div>
+    </>
+  );
+}
+
+// Tip / pay-a-friend review — the SHIELDED Unlink rail (§15, private by default).
+// The "🕶 private" framing tells the user this leaves no public trace; it reads the
+// caller's shielded balance and, if short, offers a top-up before sending. Settles
+// server-side via the delegated signer on Approve (no browser signature).
+function PrivateSendReview({
+  intent,
+  onApprove,
+  onReject,
+}: {
+  intent: ConfirmIntent;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const client = usePlatformClient();
+  const [shielded, setShielded] = useState<string | null | "loading">("loading");
+  const [topup, setTopup] = useState(false);
+
+  const load = useCallback(() => {
+    setShielded("loading");
+    client.payments
+      .privateBalance()
+      .then((b) => setShielded(b.shieldedUsdc))
+      .catch(() => setShielded(null));
+  }, [client]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (shielded === "loading") {
+    return (
+      <div className="flex flex-col items-center gap-3 py-5">
+        <div className="h-12 w-40 bg-card border-2 border-ink rounded-toy animate-pulse" />
+        <div className="h-7 w-28 bg-card border-2 border-ink rounded-full animate-pulse" />
+      </div>
+    );
+  }
+
+  // recipient: a friend's name tag, the jam being tipped, or the raw address.
+  const recipientName =
+    intent.toName ?? (intent.kind === "tip" ? intent.jam?.name : undefined);
+  const recipient = recipientName ? (
+    <NameTag name={recipientName} />
+  ) : (
+    <span className="font-mono text-small font-bold bg-card border-2 border-ink rounded-full px-3 py-1">
+      {shortAddr(intent.to ?? "")}
+    </span>
+  );
+
+  const sufficient = shielded !== null && Number(shielded) >= intent.amountUsdc;
+
+  // shielded balance is short — top up first, then re-read.
+  if (!sufficient) {
+    return (
+      <>
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="text-body font-bold text-muted">
+            {intent.kind === "tip" ? "Tip" : "Send"} privately 🕶
+          </div>
+          <div className="text-hero font-extrabold">
+            {intent.amountUsdc.toFixed(2)}{" "}
+            <span className="text-2xl text-muted">USDC</span>
+          </div>
+          <div className="mt-1">{recipient}</div>
+          <div className="text-small font-semibold text-pink text-center mt-1">
+            not enough in your private balance ({shielded ?? "0"} USDC) — top up to send.
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <StickerButton color="white" size="lg" block onClick={onReject}>
+            Reject
+          </StickerButton>
+          <StickerButton color="green" size="lg" block onClick={() => setTopup(true)}>
+            Top up
+          </StickerButton>
+        </div>
+        <AddFundsSheet
+          open={topup}
+          onClose={() => setTopup(false)}
+          onFunded={() => {
+            setTopup(false);
+            load();
+          }}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-col items-center gap-1.5">
+        <div className="text-body font-bold text-muted">
+          {intent.kind === "tip" ? "Tip" : "Send"} privately 🕶
+        </div>
+        <div className="text-hero font-extrabold">
+          {intent.amountUsdc.toFixed(2)}{" "}
+          <span className="text-2xl text-muted">USDC</span>
+        </div>
+        <div className="mt-1">{recipient}</div>
+        {intent.memo && (
+          <div className="text-small font-semibold text-ink text-center mt-1">
+            “{intent.memo}”
+          </div>
+        )}
+        <div className="text-tiny font-semibold text-muted mt-1">
+          from your private balance · {shielded ?? "—"} USDC
+        </div>
       </div>
       <div className="flex gap-3">
         <StickerButton color="white" size="lg" block onClick={onReject}>

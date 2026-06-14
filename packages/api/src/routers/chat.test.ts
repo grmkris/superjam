@@ -4,7 +4,6 @@ import { createPgliteDb } from "@superjam/db/pglite";
 import { createLogger } from "@superjam/logger";
 
 setDefaultTimeout(20_000);
-import { parseUsdc } from "@superjam/onchain";
 import { createTestAuth } from "../auth/test-auth.ts";
 import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
@@ -165,54 +164,6 @@ describe("chat shareJam (card + deeplink)", () => {
         { context: h.ctxFor(aliceTok) }
       )
     ).rejects.toBeInstanceOf(ORPCError);
-  });
-});
-
-describe("chat recordTip (server-authoritative)", () => {
-  const ALICE_WALLET = `0x${"a".repeat(40)}`;
-  const BOB_WALLET = `0x${"b".repeat(40)}`;
-
-  test("verifies the txHash on-chain + derives the amount from the receipt", async () => {
-    const h = await harness();
-    const alice = await createTestUser(h.db, { username: "alice", walletAddress: ALICE_WALLET });
-    const bob = await createTestUser(h.db, { username: "bob", walletAddress: BOB_WALLET });
-    const aliceTok = await h.tokenFor(alice);
-    await call(appRouter.friends.add, { username: "bob" }, { context: h.ctxFor(aliceTok) });
-
-    // on-chain says: alice's wallet sent 2.00 USDC to bob's wallet
-    h.onchain.setVerify(async () => ({
-      from: ALICE_WALLET as `0x${string}`,
-      value: parseUsdc("2.00"),
-    }));
-
-    await call(
-      appRouter.chat.recordTip,
-      { to: "bob", txHash: "0xfeed" },
-      { context: h.ctxFor(aliceTok) }
-    );
-    const hist = await call(
-      appRouter.chat.history,
-      { withUsername: "bob" },
-      { context: h.ctxFor(aliceTok) }
-    );
-    expect(hist.messages[0]!.kind).toBe("tip");
-    expect(hist.messages[0]!.amountUsdc).toBe("2"); // derived from the receipt, not the client
-  });
-
-  test("rejects a forged tip whose transfer doesn't verify", async () => {
-    const h = await harness();
-    const alice = await createTestUser(h.db, { username: "alice", walletAddress: ALICE_WALLET });
-    const bob = await createTestUser(h.db, { username: "bob", walletAddress: BOB_WALLET });
-    const aliceTok = await h.tokenFor(alice);
-    await call(appRouter.friends.add, { username: "bob" }, { context: h.ctxFor(aliceTok) });
-    // default mock verify throws (no qualifying transfer)
-    await expect(
-      call(
-        appRouter.chat.recordTip,
-        { to: "bob", txHash: "0xdeadbeef" },
-        { context: h.ctxFor(aliceTok) }
-      )
-    ).rejects.toBeTruthy();
   });
 });
 
