@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#fff4e3"/>
+
+  <!-- decorative candy tiles in the gutters -->
+  
+  <g transform="rotate(-10 70 74)">
+    <rect x="40" y="49" width="60" height="60" rx="16.8" fill="#221a33"/>
+    <rect x="40" y="44" width="60" height="60" rx="16.8" fill="#2fd180" stroke="#221a33" stroke-width="5"/>
+    <path d="M52,50 L97.6,74 L52,98 Z" fill="#ffffff"/>
+  </g>
+  
+  <g transform="rotate(9 570 68)">
+    <rect x="542" y="45" width="56" height="56" rx="15.680000000000001" fill="#221a33"/>
+    <rect x="542" y="40" width="56" height="56" rx="15.680000000000001" fill="#c9b6ff" stroke="#221a33" stroke-width="5"/>
+    <path d="M570,91.184 C519.6,56.408 554.88,28.587199999999996 570,58.7264 C585.12,28.587199999999996 620.4,56.408 570,91.184 Z" fill="#ff4d6d"/>
+  </g>
+  
+  <g transform="rotate(8 65 279)">
+    <rect x="36" y="255" width="58" height="58" rx="16.240000000000002" fill="#221a33"/>
+    <rect x="36" y="250" width="58" height="58" rx="16.240000000000002" fill="#4d7cff" stroke="#221a33" stroke-width="5"/>
+    <path d="M65.00,259.28L70.11,271.96L83.75,272.91L73.27,281.69L76.59,294.95L65.00,287.70L53.41,294.95L56.73,281.69L46.25,272.91L59.89,271.96Z" fill="#ffffff"/>
+  </g>
+  
+  <g transform="rotate(-8 578 282)">
+    <rect x="548" y="257" width="60" height="60" rx="16.8" fill="#221a33"/>
+    <rect x="548" y="252" width="60" height="60" rx="16.8" fill="#ffc940" stroke="#221a33" stroke-width="5"/>
+    <circle cx="578" cy="282" r="18" fill="none" stroke="#221a33" stroke-width="6"/><circle cx="578" cy="282" r="6" fill="#221a33"/>
+  </g>
+  
+  <g transform="rotate(11 492 322)">
+    <rect x="470" y="305" width="44" height="44" rx="12.32" fill="#221a33"/>
+    <rect x="470" y="300" width="44" height="44" rx="12.32" fill="#ff4d6d" stroke="#221a33" stroke-width="5"/>
+    <path d="M492.00,307.04L495.11,318.89L506.96,322.00L495.11,325.11L492.00,336.96L488.89,325.11L477.04,322.00L488.89,318.89Z" fill="#ffffff"/>
+  </g>
+  <path d="M150.00,58.00L152.55,67.45L162.00,70.00L152.55,72.55L150.00,82.00L147.45,72.55L138.00,70.00L147.45,67.45Z" fill="#221a33"/>
+  <path d="M498.00,289.00L500.33,297.67L509.00,300.00L500.33,302.33L498.00,311.00L495.67,302.33L487.00,300.00L495.67,297.67Z" fill="#2fd180"/>
+  <path d="M610.00,140.00L612.12,147.88L620.00,150.00L612.12,152.12L610.00,160.00L607.88,152.12L600.00,150.00L607.88,147.88Z" fill="#4d7cff"/>
+
+  <!-- lightning token tile -->
+  <rect x="84" y="119" width="92" height="92" rx="26" fill="#221a33"/>
+  <rect x="84" y="112" width="92" height="92" rx="26" fill="#ffc940" stroke="#221a33" stroke-width="7"/>
+  <path d="M118,108 L86,165 L106,165 L90,205 L124,150 L104,150 Z" fill="#221a33" stroke="#221a33" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- wordmark: pink fill, ink outline, hard ink drop -->
+  <text x="200" y="186" font-family="Baloo 2" font-weight="800" font-size="92"
+        fill="#221a33">superjam</text>
+  <text x="200" y="180" font-family="Baloo 2" font-weight="800" font-size="92"
+        fill="#ff4d6d" stroke="#221a33" stroke-width="6" paint-order="stroke" stroke-linejoin="round">superjam</text>
+
+  <!-- tagline -->
+  <text x="320" y="262" text-anchor="middle" font-family="Baloo 2" font-weight="700"
+        font-size="30" fill="#221a33">make a jam. share the jam.</text>
+</svg>
