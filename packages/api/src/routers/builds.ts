@@ -13,10 +13,14 @@
 // the AppSpec to a builder (apps/builder, pivot §6: it DEPLOYS + returns an
 // entryUrl), then FINALIZES the app (attaches entryUrl + lists it).
 //
-// The build fee is x402-only (§14): the paid-agent gate verifies the agent was
-// paid over x402 (`onchain.verifyUsdcTransfer`, expectedTo = the agent wallet);
-// the legacy EIP-3009 receipt path is gone. The deploy dispatch is a DI seam
-// (the live builder, M5); `refine` + `deploy` are stubbed in tests.
+// The build fee is x402-only (§14): `payBuildFee` settles it (Unlink shielded →
+// Circle Gateway) and signs a payment token; the paid-agent gate here TRUSTS that
+// token (the settlement is a batched Circle UUID, not an on-chain Transfer, and the
+// user's leg is a private shielded withdraw — there's no on-chain receipt to verify;
+// auth/build-payment.ts). The legacy EIP-3009 path is gone. Every build routes to a registered
+// marketplace agent — there is NO env "house" fallback (a build with no eligible
+// agent is rejected). The deploy dispatch is a DI seam (the live builder, M5);
+// `refine` + `deployerFor` are stubbed in tests.
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
 import {
@@ -39,10 +43,9 @@ import {
 import { ORPCError } from "@orpc/server";
 import { and, count, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
-import { type Address, type Hex } from "viem";
 import type { Logger } from "@superjam/logger";
 import type { Onchain } from "@superjam/onchain";
-import { PUBLIC_CHAIN, formatUsdc, parseUsdc } from "@superjam/onchain";
+import { formatUsdc, parseUsdc } from "@superjam/onchain";
 import {
   type BuildDeployer,
   createRemoteDeployer,
@@ -50,6 +53,7 @@ import {
 import { modelMimeOf, presignAll } from "../lib/attachments.ts";
 import { isUniqueViolation } from "../lib/db-errors.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
+import { buildPaymentSigner } from "../auth/build-payment.ts";
 import { protectedProcedure } from "../orpc.ts";
 import { type SelectedBuilder, selectEligibleBuilder } from "./agents.ts";
 import { allocateExternalApp, finalizeExternalApp } from "./apps.ts";
@@ -72,23 +76,9 @@ export type DeployerFor = (builder: {
 
 export interface BuildsRouterDeps {
   refine?: RefineFn;
-  /** Dispatch a spec to a builder + await the deploy result (the house builder). */
-  deploy?: BuildDeployer;
-  /** Build a deployer for a routed marketplace agent. Tests inject a stub. */
+  /** Build a deployer for the routed marketplace agent. Tests inject a stub. */
   deployerFor?: DeployerFor;
 }
-
-/** Default deployer: remote dispatch to BUILDER_URL (unset ⇒ build fails clean). */
-const envRemoteDeployer = (): BuildDeployer => {
-  const url = process.env.BUILDER_URL;
-  const token = process.env.BUILDER_TOKEN;
-  if (!url || !token) {
-    return async () => {
-      throw new Error("no builder configured (BUILDER_URL/BUILDER_TOKEN unset)");
-    };
-  }
-  return createRemoteDeployer({ url, token });
-};
 
 /** Listed apps rendered into the similar-check prompt (capped, first-pass only). */
 const listedCatalog = async (db: Database): Promise<RefineCatalogApp[]> => {
@@ -162,7 +152,7 @@ export const runBuild = async (
     appId: AppId;
     spec: AppSpec;
     /** The marketplace agent this build was routed to (§14) — credited a build
-     *  on success. Null ⇒ the house builder (env deployer). */
+     *  on success. Always set from create(); optional only for direct unit tests. */
     routedAgentId?: BuilderAgentId | null;
     /** The routed agent's coding model — forwarded to the builder per build. */
     model?: string | null;
@@ -251,7 +241,6 @@ export const runBuild = async (
 
 export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
   const runRefine = deps.refine ?? defaultRefine;
-  const deploy = deps.deploy ?? envRemoteDeployer();
   const deployerFor =
     deps.deployerFor ??
     ((b) => createRemoteDeployer({ url: b.endpointUrl, token: b.token }));
@@ -327,16 +316,18 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           /** The original idea, for the build feed. Defaults to the description. */
           prompt: z.string().min(1).max(2000).optional(),
           remixOfAppId: AppId.optional(),
-          /** The marketplace agent the wizard picked (§14). Absent ⇒ auto/house. */
+          /** The marketplace agent the wizard picked (§14). Absent ⇒ auto-route to
+           *  the preferred (cheapest) eligible agent. */
           agentId: BuilderAgentId.optional(),
-          /** Proof the build fee was paid: the x402-private fee outcome
-           *  `{ via: "x402", txHash }` from `builds.payBuildFee` — `txHash: null`
-           *  ⇒ the World free build (verified human × human-backed builder).
-           *  Hiring is x402-only; the legacy EIP-3009 receipt path is gone. */
+          /** Proof the build fee was paid: the server-signed token from
+           *  `builds.payBuildFee` (which settled the x402 payment — or granted the
+           *  World free build — for this user). The token is the trust anchor: the
+           *  x402/Unlink settlement has NO public on-chain receipt to verify
+           *  (auth/build-payment.ts). Hiring is x402-only; the legacy EIP-3009 path is gone. */
           payment: z
             .object({
               via: z.literal("x402"),
-              txHash: z.string().min(1).nullable(),
+              token: z.string().min(1),
             })
             .optional(),
           /** Object-store keys of the user's reference attachments (§17) — all of
@@ -350,33 +341,37 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
       .handler(async ({ context, input }) => {
         // Pick the marketplace builder up front (pure read): a PAID pick gates
         // payment, and an explicit paid pick must be verified BEFORE we allocate
-        // anything. A routing hiccup is non-fatal — it falls back to the house
-        // builder (and a free house build skips the agent-payment gate below).
-        let selected: SelectedBuilder | null = null;
-        try {
-          selected = await selectEligibleBuilder(context.db, input.spec, {
-            agentId: input.agentId,
+        // anything. There is no house fallback — a build with no eligible agent is
+        // rejected (the `if (!selected)` guard below), never silently free-built.
+        const selected: SelectedBuilder | null = await selectEligibleBuilder(
+          context.db,
+          input.spec,
+          { agentId: input.agentId }
+        );
+
+        // The build fee is x402-only. `payBuildFee` settled it (or granted the free
+        // build) for THIS authenticated user and signed a token attesting it — the
+        // trust anchor, since the x402/Unlink settlement has no public on-chain
+        // receipt to verify (auth/build-payment.ts). Verify it + bind it to the caller.
+        const payClaims = input.payment
+          ? buildPaymentSigner.verify(input.payment.token)
+          : null;
+        if (input.payment && !payClaims) {
+          throw new ORPCError("PAYMENT_REQUIRED", {
+            message: "Payment proof invalid or expired — approve again.",
           });
-        } catch (err) {
-          context.logger.warn(
-            { err: String(err), agentId: input.agentId },
-            "builder routing failed — falling back to the house builder"
-          );
+        }
+        if (payClaims && payClaims.userId !== context.user.id) {
+          throw new ORPCError("FORBIDDEN", { message: "Payment proof isn't yours." });
         }
 
-        // The build fee is x402-only: the `builds.payBuildFee` outcome
-        // (`txHash: null` ⇒ free). A chosen paid agent settles over x402.
-        const x402Pay = input.payment ?? null;
-
-        // Trial quota (platform anti-spam): build #1 is free; past it you must
-        // be world-verified OR present a verified USDC receipt (§11). Orthogonal
-        // to the agent's price below — worldVerified skips THIS gate, not the fee.
+        // Trial quota (platform anti-spam): build #1 is free; past it you must be
+        // world-verified OR have paid (§11). Orthogonal to the agent's price below.
         const prior = await userBuildCount(context.db, context.user.id);
         if (prior >= FREE_BUILDS && !context.user.worldVerified) {
-          // Past the free build, a non-verified user must present a real x402
-          // settlement (verified in the paid-agent gate below). A null/absent hash
-          // is an un-backed "free" claim — the free build requires worldVerified.
-          if (!x402Pay?.txHash) {
+          // A non-verified user must present a real PAID settlement. A free token
+          // can't exist for them (payBuildFee gates free on worldVerified).
+          if (!payClaims || payClaims.free) {
             throw new ORPCError("FORBIDDEN", {
               message: "Verify you're human (or pay) to keep building.",
             });
@@ -384,38 +379,49 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
         }
 
         // Paid-to-agent gate (§14) — the "I paid another human's AI" moment. A
-        // chosen agent with a price must be paid in USDC to ITS wallet. Verified
-        // before dispatch; the txHash is recorded UNIQUE on the build.
+        // chosen agent with a price must be paid; the signed token is the proof.
         const paidAgent =
           selected && Number(selected.agent.priceUsdc) > 0 ? selected.agent : null;
         if (paidAgent) {
-          if (!x402Pay) {
-            // No payment at all → must pay (or qualify for the free build, which
-            // comes through as an x402 outcome with a null hash from payBuildFee).
+          if (!payClaims) {
             throw new ORPCError("PAYMENT_REQUIRED", {
               message: `Pay ${paidAgent.priceUsdc} USDC to build with ${paidAgent.name}.`,
             });
           }
-          if (x402Pay.txHash === null) {
-            // Free build — only a verified human hiring a human-backed (AgentBook)
-            // builder. Re-checked server-side so a forged "free" claim can't pass.
+          if (payClaims.builderId !== paidAgent.id) {
+            // The token must be for the agent this build actually routes to.
+            throw new ORPCError("PAYMENT_REQUIRED", {
+              message: "That payment was for a different builder.",
+            });
+          }
+          if (payClaims.free) {
+            // Free build — re-assert the invariant (verified human × human-backed
+            // builder) server-side so a stale free token can't dodge the fee.
             if (!(context.user.worldVerified && paidAgent.agentbookRegistered)) {
               throw new ORPCError("PAYMENT_REQUIRED", {
                 message: `Pay ${paidAgent.priceUsdc} USDC to build with ${paidAgent.name}.`,
               });
             }
-          } else {
-            // x402 settles from the Circle Gateway, not the user's wallet — verify
-            // the AGENT was paid (≥ price); DON'T assert from == the user's wallet.
-            await tryOnchain(() =>
-              context.onchain.verifyUsdcTransfer({
-                hash: x402Pay.txHash as Hex,
-                chain: PUBLIC_CHAIN,
-                expectedTo: paidAgent.walletAddress as Address,
-                minAmount: parseUsdc(paidAgent.priceUsdc),
-              })
-            );
+          } else if (Number(payClaims.amountUsdc) < Number(paidAgent.priceUsdc)) {
+            // Paid — the token IS the proof (payBuildFee settled it via Circle Gateway;
+            // the settlement is a batched UUID, not an on-chain Transfer — nothing to
+            // re-verify on-chain). Just assert it covers the price.
+            throw new ORPCError("PAYMENT_REQUIRED", {
+              message: `Pay ${paidAgent.priceUsdc} USDC to build with ${paidAgent.name}.`,
+            });
           }
+        }
+
+        // No house fallback: every build must route to a registered agent. With
+        // the fleet present this only fires for an explicit pick that can't deliver
+        // (the requested agent is missing a required capability / is disabled) or
+        // an empty registry — reject clearly instead of silently free-building.
+        if (!selected) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: input.agentId
+              ? "That builder can't build this app."
+              : "No builder is available to build this right now.",
+          });
         }
 
         let buildId: BuildRow["id"];
@@ -427,10 +433,11 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
               prompt: input.prompt ?? input.spec.description,
               spec: input.spec,
               status: "queued",
-              agentId: selected?.agent.id ?? null,
-              // x402 free build ⇒ no hash; otherwise the settlement/receipt hash
-              // (the UNIQUE index guards replay for non-null hashes).
-              paymentTxHash: paidAgent ? (input.payment?.txHash ?? null) : null,
+              agentId: selected.agent.id,
+              // Paid build ⇒ record the Circle settlement id (the token's uuid) as
+              // the replay key (UNIQUE index); free build ⇒ no hash.
+              paymentTxHash:
+                paidAgent && payClaims && !payClaims.free ? payClaims.uuid : null,
             })
             .returning({ id: build.id });
           buildId = row!.id;
@@ -472,7 +479,7 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             .catch(() => {});
         }
 
-        const buildDeployer = selected ? deployerFor(selected) : deploy;
+        const buildDeployer = deployerFor(selected);
 
         // Fire-and-forget; the driver never throws (it records failures on the
         // build row). The web feed polls build.events / status.
@@ -490,8 +497,8 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             buildId,
             appId: allocated.id,
             spec: input.spec,
-            routedAgentId: selected?.agent.id ?? null,
-            model: selected?.agent.model ?? null,
+            routedAgentId: selected.agent.id,
+            model: selected.agent.model ?? null,
             attachmentUrls: attachmentUrls.length ? attachmentUrls : undefined,
           },
           context.onchain
@@ -638,7 +645,9 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
     /** Pay a builder's fee over the x402 PRIVATE rail (the confirm sheet's
      *  Approve). Free for a verified human hiring a human-backed builder (no
      *  settlement); otherwise withdraw-from-shielded → settle the builder's x402
-     *  endpoint via Circle Gateway. Returns the settlement hash (null when free).
+     *  endpoint via Circle Gateway. Returns the settlement hash (null when free)
+     *  AND a server-signed `paymentToken` — the receipt `builds.create` trusts (the
+     *  x402/Unlink settlement has no public on-chain receipt; auth/build-payment.ts).
      *  Gated-live: an unconfigured rail surfaces as PAYMENT_REQUIRED (§3/§23). */
     payBuildFee: protectedProcedure
       .input(z.object({ builderId: BuilderAgentId }))
@@ -656,7 +665,14 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
         // Free build: a verified human hiring a human-backed (AgentBook) builder.
         // No settlement — the AgentKit endpoint is the authoritative per-N limiter.
         if (context.user.worldVerified && agent.agentbookRegistered) {
-          return { txHash: null as string | null, free: true };
+          const paymentToken = buildPaymentSigner.mint({
+            userId: context.user.id,
+            builderId: agent.id,
+            amountUsdc: "0",
+            free: true,
+            uuid: null,
+          });
+          return { txHash: null as string | null, free: true, paymentToken };
         }
         if (!context.user.unlinkAddress) {
           throw new ORPCError("PAYMENT_REQUIRED", {
@@ -670,7 +686,14 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             amount,
           })
         );
-        return { txHash: hash as string | null, free: false };
+        const paymentToken = buildPaymentSigner.mint({
+          userId: context.user.id,
+          builderId: agent.id,
+          amountUsdc: agent.priceUsdc,
+          free: false,
+          uuid: hash,
+        });
+        return { txHash: hash as string | null, free: false, paymentToken };
       }),
 
     // --- Resumable wizard drafts (§3c) — the make-flow persisted from prompt-start,

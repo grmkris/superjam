@@ -65,7 +65,7 @@ interface Builder {
 /** The picked builder + how its fee was settled, carried into builds.create. */
 interface Chosen {
   agentId: string;
-  payment?: { via: "x402"; txHash: string | null };
+  payment?: { via: "x402"; token: string };
 }
 
 export default function MakePage() {
@@ -342,9 +342,11 @@ function MakeFlow() {
         toName: b.ensName ?? undefined,
         amountUsdc: price,
         jam: spec ? { name: spec.name, iconEmoji: spec.iconEmoji } : undefined,
-      }).catch(() => ({ approved: false, txHash: null }));
-      if (!res.approved) return;
-      pick = { agentId: b.id, payment: { via: "x402", txHash: res.txHash ?? null } };
+      }).catch(() => ({ approved: false, txHash: null, paymentToken: undefined }));
+      // A successful buildFee always returns a server-signed paymentToken (the
+      // receipt builds.create trusts). No token ⇒ treat as not approved.
+      if (!res.approved || !res.paymentToken) return;
+      pick = { agentId: b.id, payment: { via: "x402", token: res.paymentToken } };
     }
     setChosen(pick);
     // Don't treat a not-yet-loaded/failed profile as "unverified" — that would

@@ -14,6 +14,7 @@ import { createContext } from "../context.ts";
 import { createRateLimiter } from "../lib/rate-limit.ts";
 import { createTestApp, createTestUser } from "../testing/factories.ts";
 import { createMockOnchain } from "../testing/onchain-mock.ts";
+import { buildPaymentSigner } from "../auth/build-payment.ts";
 import type { UnlinkService } from "../services/unlink-service.ts";
 import type { Address, Hex } from "viem";
 import type { BuildDeployer } from "../lib/builder-dispatch.ts";
@@ -59,6 +60,13 @@ const seedAgent = async (
 };
 
 const logger = createLogger({ level: "silent" });
+
+// Mint the server-signed receipt builds.create trusts (the x402 settlement has no
+// on-chain receipt to verify — auth/build-payment.ts). `uuid` = the replay key.
+const payTok = (userId: string, builderId: string, uuid: string, amountUsdc = "1") =>
+  buildPaymentSigner.mint({ userId, builderId, amountUsdc, free: false, uuid });
+const freeTok = (userId: string, builderId: string) =>
+  buildPaymentSigner.mint({ userId, builderId, amountUsdc: "0", free: true, uuid: null });
 
 const SPEC: AppSpec = {
   name: "Tip Jar",
@@ -233,7 +241,11 @@ const parkedDeploy: BuildDeployer = () => new Promise<DeployResult>(() => {});
 describe("builds.create — trial quota", () => {
   test("first build is free for a non-verified user; inserts + returns ids", async () => {
     const { db, auth, ctxFor } = await harness();
-    const router = createBuildsRouter({ deploy: parkedDeploy });
+    // A free eligible agent stands in for what was the env "house" build: routing
+    // succeeds and the price-0 agent doesn't trip the paid-to-agent gate.
+    const aOwner = await createTestUser(db, { username: "afree_f" });
+    await seedAgent(db, aOwner.id, { priceUsdc: "0" });
+    const router = createBuildsRouter({ deployerFor: () => parkedDeploy });
     const token = await auth.sign({ dynamicUserId: "dyn_f", email: "f@test.io" });
 
     const res = await call(
@@ -261,7 +273,8 @@ describe("builds.create — trial quota", () => {
       .insert(schema.build)
       .values({ userId: u.id, prompt: "prior", spec: SPEC, status: "done" });
 
-    const router = createBuildsRouter({ deploy: parkedDeploy });
+    // Rejected at the trial-quota gate (before routing), so no agent is needed.
+    const router = createBuildsRouter();
     const token = await auth.sign({ dynamicUserId: "dyn_g", email: "g@test.io" });
     await expect(
       call(router.create, { spec: SPEC }, { context: ctxFor(token) })
@@ -279,7 +292,9 @@ describe("builds.create — trial quota", () => {
       .insert(schema.build)
       .values({ userId: u.id, prompt: "prior", spec: SPEC, status: "done" });
 
-    const router = createBuildsRouter({ deploy: parkedDeploy });
+    const aOwner = await createTestUser(db, { username: "afree_h" });
+    await seedAgent(db, aOwner.id, { priceUsdc: "0" });
+    const router = createBuildsRouter({ deployerFor: () => parkedDeploy });
     const token = await auth.sign({ dynamicUserId: "dyn_h", email: "h@test.io" });
     const res = await call(
       router.create,
@@ -463,7 +478,7 @@ describe("builds — marketplace routing (§14)", () => {
       calls.push({ endpointUrl: b.endpointUrl, token: b.token });
       return parkedDeploy;
     };
-    const router = createBuildsRouter({ deploy: parkedDeploy, deployerFor });
+    const router = createBuildsRouter({ deployerFor });
     const token = await auth.sign({ dynamicUserId: "dyn_r", email: "r@test.io" });
 
     await call(
@@ -477,29 +492,28 @@ describe("builds — marketplace routing (§14)", () => {
     ]);
   });
 
-  test("create falls back to the house deployer when no agent can deliver", async () => {
+  test("create rejects when no agent can deliver (no house fallback)", async () => {
     const { auth, ctxFor } = await harness();
     let routed = false;
     const deployerFor: DeployerFor = () => {
       routed = true;
       return parkedDeploy;
     };
-    const router = createBuildsRouter({ deploy: parkedDeploy, deployerFor });
+    const router = createBuildsRouter({ deployerFor });
     const token = await auth.sign({ dynamicUserId: "dyn_s", email: "s@test.io" });
 
-    // No agents seeded ⇒ selectEligibleBuilder returns null ⇒ house deployer.
-    await call(router.create, { spec: SPEC }, { context: ctxFor(token) });
+    // No agents seeded ⇒ selectEligibleBuilder returns null ⇒ the build is rejected
+    // (there is no env "house" builder to silently free-build on).
+    await expect(
+      call(router.create, { spec: SPEC }, { context: ctxFor(token) })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(routed).toBe(false);
   });
 
   // --- paid-to-agent gate (§14): "I paid another human's AI" ---
   const USER_WALLET = ("0x" + "b".repeat(40)) as `0x${string}`;
-  const paidOnchain = (from: `0x${string}` = USER_WALLET): Onchain => ({
-    ...nullOnchain,
-    verifyUsdcTransfer: async () => ({ from, value: parseUsdc("1") }),
-  });
   const paidRouter = () =>
-    createBuildsRouter({ deploy: parkedDeploy, deployerFor: () => parkedDeploy });
+    createBuildsRouter({ deployerFor: () => parkedDeploy });
 
   test("a paid agent requires payment (PAYMENT_REQUIRED without a receipt)", async () => {
     const { db, auth, ctxFor } = await harness();
@@ -532,13 +546,17 @@ describe("builds — marketplace routing (§14)", () => {
 
     const res = await call(
       paidRouter().create,
-      { spec: SPEC, agentId: agent.id, payment: { via: "x402", txHash: "0xpaid1" } },
-      { context: ctxFor(token, paidOnchain()) }
+      {
+        spec: SPEC,
+        agentId: agent.id,
+        payment: { via: "x402", token: payTok(u.id, agent.id, "0xpaid1") },
+      },
+      { context: ctxFor(token) }
     );
     const b = await db.query.build.findFirst({
       where: eq(schema.build.id, res.buildId),
     });
-    expect(b?.paymentTxHash).toBe("0xpaid1");
+    expect(b?.paymentTxHash).toBe("0xpaid1"); // the token's uuid (replay key)
     expect(b?.agentId).toBe(agent.id);
   });
 
@@ -555,12 +573,12 @@ describe("builds — marketplace routing (§14)", () => {
     const pay = {
       spec: SPEC,
       agentId: agent.id,
-      payment: { via: "x402" as const, txHash: "0xdupe" },
+      payment: { via: "x402" as const, token: payTok(u.id, agent.id, "0xdupe") },
     };
 
-    await call(paidRouter().create, pay, { context: ctxFor(token, paidOnchain()) });
+    await call(paidRouter().create, pay, { context: ctxFor(token) });
     await expect(
-      call(paidRouter().create, pay, { context: ctxFor(token, paidOnchain()) })
+      call(paidRouter().create, pay, { context: ctxFor(token) })
     ).rejects.toThrow(/already used/);
   });
 
@@ -686,7 +704,9 @@ describe("builds.payBuildFee", () => {
       { builderId: agent.id },
       { context: ctxFor(token, onchain) }
     );
-    expect(res).toEqual({ txHash: null, free: true });
+    expect(res.txHash).toBeNull();
+    expect(res.free).toBe(true);
+    expect(res.paymentToken).toBeTruthy();
     expect(onchain.x402Pays).toHaveLength(0);
   });
 
@@ -713,6 +733,7 @@ describe("builds.payBuildFee", () => {
     );
     expect(res.free).toBe(false);
     expect(res.txHash).toMatch(/^0x/);
+    expect(res.paymentToken).toBeTruthy();
     expect(onchain.x402Pays).toHaveLength(1);
     expect(onchain.x402Pays[0]).toMatchObject({
       url: "https://builder.example/x402",
@@ -744,9 +765,9 @@ describe("builds.payBuildFee", () => {
 
 describe("builds.create — x402 build fee gate", () => {
   const x402Router = () =>
-    createBuildsRouter({ deploy: parkedDeploy, deployerFor: () => parkedDeploy });
+    createBuildsRouter({ deployerFor: () => parkedDeploy });
 
-  test("free x402 (txHash null) builds for a verified human + human-backed agent", async () => {
+  test("a free-build token builds for a verified human + human-backed agent", async () => {
     const { db, auth, ctxFor } = await harness();
     const u = await createTestUser(db, {
       dynamicUserId: "dyn_x1",
@@ -760,7 +781,11 @@ describe("builds.create — x402 build fee gate", () => {
     const token = await auth.sign({ dynamicUserId: "dyn_x1", email: "x1@test.io" });
     const res = await call(
       x402Router().create,
-      { spec: SPEC, agentId: agent.id, payment: { via: "x402", txHash: null } },
+      {
+        spec: SPEC,
+        agentId: agent.id,
+        payment: { via: "x402", token: freeTok(u.id, agent.id) },
+      },
       { context: ctxFor(token) }
     );
     expect(res.buildId).toMatch(/^bld_/);
@@ -786,13 +811,17 @@ describe("builds.create — x402 build fee gate", () => {
     await expect(
       call(
         x402Router().create,
-        { spec: SPEC, agentId: agent.id, payment: { via: "x402", txHash: null } },
+        {
+          spec: SPEC,
+          agentId: agent.id,
+          payment: { via: "x402", token: freeTok(u.id, agent.id) },
+        },
         { context: ctxFor(token) }
       )
     ).rejects.toThrow(/Pay 2 USDC/);
   });
 
-  test("a paid x402 receipt verifies the AGENT was paid, ignoring the payer wallet", async () => {
+  test("a valid paid token is trusted (no on-chain re-verify) and records the uuid", async () => {
     const { db, auth, ctxFor } = await harness();
     const u = await createTestUser(db, {
       dynamicUserId: "dyn_x3",
@@ -804,21 +833,59 @@ describe("builds.create — x402 build fee gate", () => {
       agentbookRegistered: false,
     });
     const token = await auth.sign({ dynamicUserId: "dyn_x3", email: "x3@test.io" });
-    // x402 settles from the gateway, NOT the user — `from` differs and must NOT fail.
-    const onchain = createMockOnchain();
-    onchain.setVerify(async () => ({
-      from: ("0x" + "d".repeat(40)) as Address,
-      value: parseUsdc("2"),
-    }));
+    // The signed token (uuid "0xset", amount covers the price) is the only proof —
+    // no onchain verify is configured, and the build must still go through.
     const res = await call(
       x402Router().create,
-      { spec: SPEC, agentId: agent.id, payment: { via: "x402", txHash: "0xset" } },
-      { context: ctxFor(token, onchain) }
+      {
+        spec: SPEC,
+        agentId: agent.id,
+        payment: { via: "x402", token: payTok(u.id, agent.id, "0xset", "2") },
+      },
+      { context: ctxFor(token) }
     );
     const b = await db.query.build.findFirst({
       where: eq(schema.build.id, res.buildId),
     });
     expect(b?.paymentTxHash).toBe("0xset");
     expect(b?.agentId).toBe(agent.id);
+  });
+
+  test("a forged/garbage token is rejected", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const u = await createTestUser(db, {
+      dynamicUserId: "dyn_x4",
+      email: "x4@test.io",
+      worldVerified: true,
+    });
+    const agent = await seedAgent(db, u.id, { priceUsdc: "2", agentbookRegistered: false });
+    const token = await auth.sign({ dynamicUserId: "dyn_x4", email: "x4@test.io" });
+    await expect(
+      call(
+        x402Router().create,
+        { spec: SPEC, agentId: agent.id, payment: { via: "x402", token: "not.a.valid.token" } },
+        { context: ctxFor(token) }
+      )
+    ).rejects.toThrow(/invalid or expired/);
+  });
+
+  test("a token minted for a different user is rejected", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const u = await createTestUser(db, {
+      dynamicUserId: "dyn_x5",
+      email: "x5@test.io",
+      worldVerified: true,
+    });
+    const agent = await seedAgent(db, u.id, { priceUsdc: "2", agentbookRegistered: false });
+    const token = await auth.sign({ dynamicUserId: "dyn_x5", email: "x5@test.io" });
+    // A validly-signed token, but for someone else's userId → not yours.
+    const stolen = payTok("user_someone_else", agent.id, "0xstolen", "2");
+    await expect(
+      call(
+        x402Router().create,
+        { spec: SPEC, agentId: agent.id, payment: { via: "x402", token: stolen } },
+        { context: ctxFor(token) }
+      )
+    ).rejects.toThrow(/isn't yours/);
   });
 });

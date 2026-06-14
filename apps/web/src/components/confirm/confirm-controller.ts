@@ -28,6 +28,8 @@ export interface ConfirmResult {
   approved: boolean;
   /** the settlement hash — null for a free build (no money moved). */
   txHash?: string | null;
+  /** server-signed build-payment receipt (buildFee) — passed to builds.create. */
+  paymentToken?: string;
 }
 
 /** Thrown synchronously when an amount exceeds the single-tx cap — the sheet

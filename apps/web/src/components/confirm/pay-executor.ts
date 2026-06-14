@@ -42,10 +42,10 @@ export function useRelayExecutor(): PayExecutor {
         if (!intent.builderId) {
           throw new Error("Missing builder for the build fee");
         }
-        const { txHash } = await client.builds.payBuildFee({
+        const { txHash, paymentToken } = await client.builds.payBuildFee({
           builderId: intent.builderId as BuilderAgentId,
         });
-        return { txHash };
+        return { txHash, paymentToken };
       }
 
       if (!evmAccount) {

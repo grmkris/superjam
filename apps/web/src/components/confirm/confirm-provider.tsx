@@ -28,7 +28,7 @@ const CAP = Number(TX_CAP_USDC);
 
 export type PayExecutor = (
   intent: ConfirmIntent
-) => Promise<{ txHash: string | null }>;
+) => Promise<{ txHash: string | null; paymentToken?: string }>;
 
 interface ConfirmCtx {
   /** open the sheet and resolve when the user decides. Rejects (OverCapError)
@@ -109,9 +109,9 @@ export function ConfirmProvider({
     const intent = active?.intent;
     if (!intent) return;
     try {
-      const { txHash } = await executor(intent);
+      const { txHash, paymentToken } = await executor(intent);
       setActive((a) => (a ? { ...a, phase: "success", txHash } : a));
-      setTimeout(() => settle({ approved: true, txHash }), 1300);
+      setTimeout(() => settle({ approved: true, txHash, paymentToken }), 1300);
     } catch (e) {
       setActive((a) => (a ? { ...a, phase: "error", error: errText(e) } : a));
     }

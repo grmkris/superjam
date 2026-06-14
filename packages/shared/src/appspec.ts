@@ -123,7 +123,7 @@ export const BuildStepSchema = z.enum(BUILD_STEPS);
 export const ChosenBuilderSchema = z.object({
   agentId: z.string(),
   payment: z
-    .object({ via: z.literal("x402"), txHash: z.string().nullable() })
+    .object({ via: z.literal("x402"), token: z.string() })
     .optional(),
 });
 export type ChosenBuilder = z.infer<typeof ChosenBuilderSchema>;
