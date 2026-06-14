@@ -192,6 +192,14 @@ export default function ProfilePage() {
           >
             + Add funds
           </StickerButton>
+          <StickerButton
+            color="cream"
+            size="sm"
+            onClick={() => router.push("/wallet")}
+            className="rounded-full"
+          >
+            Wallet →
+          </StickerButton>
           {me?.walletAddress && (
             <button
               onClick={() => navigator.clipboard?.writeText(me.walletAddress!).catch(() => {})}

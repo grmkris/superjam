@@ -190,6 +190,30 @@ export const paymentsRouter = {
     }
   }),
 
+  /** Demo airdrop: drop public Arc USDC into the caller's OWN wallet so they can
+   *  then visibly shield it (the /wallet showcase). Public-only, Arc-only — the
+   *  server wallet ERC-20 transfers from its Arc balance. TX_CAP is the only
+   *  guard (no World gate / daily limit; this is a testnet faucet). */
+  faucetPublic: protectedProcedure
+    .input(z.object({ amount: z.string().min(1) }))
+    .handler(async ({ context, input }) => {
+      if (!context.user.walletAddress) {
+        throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
+      }
+      const amount = parseUsdc(input.amount);
+      if (amount > TX_CAP) {
+        throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
+      }
+      const txHash = await tryOnchain(() =>
+        context.onchain.sendUsdc(
+          PUBLIC_CHAIN,
+          context.user.walletAddress as `0x${string}`,
+          amount
+        )
+      );
+      return { txHash };
+    }),
+
   /** The caller's public-rail activity: publish fees paid + pot stakes (§12). */
   mine: protectedProcedure.handler(async ({ context }) => {
     const [publishes, stakes] = [

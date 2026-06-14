@@ -221,3 +221,33 @@
     animation: none !important;
   }
 }
+
+/* ── Shield flight (/wallet showcase) ──────────────────────────────────────
+   Coins drop from the public rail down into the locked vault when you shield.
+   Distance is per-coin via --fly; spawn 2-3 with staggered animation-delay. */
+@keyframes shield-fly {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6) rotate(0deg);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(12px) scale(1) rotate(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--fly, 210px)) scale(0.45) rotate(22deg);
+  }
+}
+
+@layer components {
+  .shield-fly {
+    animation: shield-fly 0.85s cubic-bezier(0.5, 0, 0.7, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shield-fly {
+    display: none;
+  }
+}
