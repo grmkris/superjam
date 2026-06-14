@@ -45,6 +45,13 @@ export function useBuildDraft(opts: { initialDraftId: string | null; isLoggedIn:
         /* private mode / quota — localStorage is best-effort */
       }
       if (!loggedIn) return;
+      // Don't create empty draft rows. Every fresh /build mount runs the wizard's
+      // auto-save once with a blank snapshot (prompt="", no spec, no build); if we
+      // persisted that, each visit would spawn a new "Untitled idea" draft and they
+      // pile up under "More drafts". Only save once there's real content.
+      const hasContent =
+        snap.prompt.trim() !== "" || snap.spec != null || snap.buildId != null;
+      if (!hasContent) return;
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         client.builds

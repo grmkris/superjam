@@ -807,7 +807,10 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
       const rows = await context.db.query.buildDraft.findMany({
         where: and(
           eq(buildDraft.userId, context.user.id),
-          isNull(buildDraft.buildId)
+          isNull(buildDraft.buildId),
+          // Hide blank drafts (no prompt and no spec) — defends the feed against
+          // any empty rows that predate the client-side don't-save-empties guard.
+          sql`(${buildDraft.prompt} <> '' OR ${buildDraft.spec} IS NOT NULL)`
         ),
         orderBy: [desc(buildDraft.updatedAt)],
         limit: 30,
