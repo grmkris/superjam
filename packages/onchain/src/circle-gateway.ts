@@ -117,7 +117,13 @@ export const createLiveCircleGatewayTransport = ({
       // POST = "hire this agent to build"; x402 turns the 402 into a signed,
       // settled USDC payment to the agent (payTo), returning the settlement tx.
       const res = await paidFetch(url, { method: "POST" });
-      const header = res.headers.get("x-payment-response");
+      // Circle's batching facilitator returns the settlement under `PAYMENT-RESPONSE`
+      // (the @x402 standard is `X-PAYMENT-RESPONSE`) — accept both. The decoded
+      // `transaction` is a Circle Gateway transfer id (a UUID; the on-chain batch
+      // settles asynchronously), NOT an Arc tx hash.
+      const header =
+        res.headers.get("x-payment-response") ??
+        res.headers.get("payment-response");
       if (!header) {
         throw new OnchainError(
           "RELAY_FAILED",
