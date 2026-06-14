@@ -18,6 +18,14 @@ import { z } from "zod";
 
 type MakeContext = (headers: Headers) => ApiContext;
 
+/** Hit a builder's AgentKit `/world` endpoint AS the human-backed user (the user's
+ *  delegated wallet, registered in AgentBook). Assembled in server.ts from the
+ *  delegated signer + `hireViaAgentkit`. Absent ⇒ the World lane is not configured. */
+type HumanBackedHire = (
+  userId: string,
+  endpointUrl: string
+) => Promise<{ granted: boolean; status: number; body: unknown }>;
+
 const ok = (data: unknown) => ({
   content: [
     {
@@ -35,7 +43,11 @@ const fail = (e: unknown) => ({
 
 /** Build a per-request McpServer whose tools run AS the bearer's user. Exported
  *  for in-process testing (connect a Client via InMemoryTransport). */
-export const buildServer = (makeContext: MakeContext, headers: Headers): McpServer => {
+export const buildServer = (
+  makeContext: MakeContext,
+  headers: Headers,
+  humanBackedHire?: HumanBackedHire
+): McpServer => {
   const server = new McpServer({ name: "superjam", version: "0.1.0" });
   const ctx = (): ApiContext => makeContext(headers);
 
@@ -137,6 +149,51 @@ export const buildServer = (makeContext: MakeContext, headers: Headers): McpServ
   );
 
   server.registerTool(
+    "verify_human_agent",
+    {
+      description:
+        "Prove to a builder that you (this agent) are backed by a real human — the user's World-verified, AgentBook-registered SuperJam wallet — by calling the builder's AgentKit-protected /world endpoint with an attestation signed by that wallet. A registered human-backed caller gets a FREE build. Returns { granted, status }. Requires the user to be World-verified and their wallet registered in AgentBook.",
+      inputSchema: {
+        builderId: z
+          .string()
+          .describe("A builder id from discover_builders (must expose a /world endpoint)."),
+      },
+    },
+    async ({ builderId }) => {
+      try {
+        if (!humanBackedHire) {
+          return fail(new Error("World/AgentKit lane is not configured on this server"));
+        }
+        const context = ctx();
+        const me = await call(appRouter.profile.me, undefined as never, { context });
+        if (!me.worldVerified) {
+          return ok({
+            granted: false,
+            reason:
+              "Not World-verified. Verify your humanity with World ID in the SuperJam app first, then register your wallet in AgentBook.",
+          });
+        }
+        const builders = await call(appRouter.agents.list, undefined as never, {
+          context,
+        });
+        const builder = builders.find((b) => b.id === builderId);
+        if (!builder) return fail(new Error(`No builder ${builderId}`));
+        const result = await humanBackedHire(me.id, builder.endpointUrl);
+        return ok({
+          builder: { id: builder.id, name: builder.name },
+          wallet: me.unlinkAddress ?? me.walletAddress,
+          ...result,
+          note: result.granted
+            ? "Human-backed free trial granted — the build is free."
+            : "Not granted. If status is 402, the wallet isn't recognized in AgentBook yet (register it out-of-band: agentkit CLI + World App).",
+        });
+      } catch (e) {
+        return fail(e);
+      }
+    }
+  );
+
+  server.registerTool(
     "get_build",
     {
       description:
@@ -163,7 +220,7 @@ export const buildServer = (makeContext: MakeContext, headers: Headers): McpServ
 /** Mount the MCP endpoint on the apps/server Hono app. */
 export const registerMcp = (
   app: Hono,
-  deps: { makeContext: MakeContext }
+  deps: { makeContext: MakeContext; humanBackedHire?: HumanBackedHire }
 ): void => {
   app.all("/mcp", async (c) => {
     // @hono/node-server exposes the raw Node req/res; the transport writes the
@@ -174,7 +231,11 @@ export const registerMcp = (
     };
     const body =
       c.req.method === "POST" ? await c.req.json().catch(() => undefined) : undefined;
-    const server = buildServer(deps.makeContext, c.req.raw.headers);
+    const server = buildServer(
+      deps.makeContext,
+      c.req.raw.headers,
+      deps.humanBackedHire
+    );
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined, // stateless
     });

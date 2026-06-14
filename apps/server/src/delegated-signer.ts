@@ -65,12 +65,20 @@ export interface DelegatedUnlinkDeps {
   loadCreds: (userId: string) => Promise<DelegationCreds | null>;
 }
 
-/** Build the live per-user `UnlinkService` whose `getUserSigner` signs AS the user
- *  via Dynamic delegated signing. Inject the result into `createContext({unlink})`
- *  in server.ts. */
-export const createDelegatedUnlinkService = (
-  deps: DelegatedUnlinkDeps
-): UnlinkService => {
+/** A per-user signer factory: `getUserSigner(userId)` returns a viem `LocalAccount`
+ *  that signs AS the user via Dynamic delegated signing (the decrypted MPC share).
+ *  Used both by the Unlink rail and the World/AgentKit attestation (eip191). */
+export interface DelegatedSigner {
+  getUserSigner: (userId: string) => Promise<LocalAccount>;
+}
+
+/** Build the per-user delegated signer. Standalone so the AgentKit "human-backed"
+ *  lane (§14) can derive the user's eip191 signer without the full Unlink service. */
+export const createDelegatedSigner = (deps: {
+  environmentId: string;
+  dynamicApiKey: string;
+  loadCreds: (userId: string) => Promise<DelegationCreds | null>;
+}): DelegatedSigner => {
   const client: DelegatedEvmWalletClient = createDelegatedEvmWalletClient({
     environmentId: deps.environmentId,
     apiKey: deps.dynamicApiKey,
@@ -115,6 +123,21 @@ export const createDelegatedUnlinkService = (
         })) as Hex,
     });
   };
+
+  return { getUserSigner };
+};
+
+/** Build the live per-user `UnlinkService` whose `getUserSigner` signs AS the user
+ *  via Dynamic delegated signing. Inject the result into `createContext({unlink})`
+ *  in server.ts. */
+export const createDelegatedUnlinkService = (
+  deps: DelegatedUnlinkDeps
+): UnlinkService => {
+  const { getUserSigner } = createDelegatedSigner({
+    environmentId: deps.environmentId,
+    dynamicApiKey: deps.dynamicApiKey,
+    loadCreds: deps.loadCreds,
+  });
 
   return createUnlinkService({
     apiKey: deps.unlinkApiKey,

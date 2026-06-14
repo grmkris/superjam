@@ -216,6 +216,36 @@ describe("builder service", () => {
   });
 });
 
+describe("x402 hire endpoints", () => {
+  test("POST / is 501 when no Circle hire resource is configured", async () => {
+    const { app } = makeApp();
+    const res = await app.request("http://b/", { method: "POST" });
+    expect(res.status).toBe(501);
+  });
+
+  test("POST /world is 501 when no AgentKit resource is configured", async () => {
+    const { app } = makeApp();
+    const res = await app.request("http://b/world", { method: "POST" });
+    expect(res.status).toBe(501);
+  });
+
+  test("POST /world delegates to the AgentKit hire handler", async () => {
+    const runner = createBuildRunner({ runBuild: async () => {} });
+    const app = createBuilderApp({
+      token: TOKEN,
+      runner,
+      hireWorld: async (req) => {
+        expect(req.path).toBe("/world");
+        return { status: 200, headers: { "x-test": "1" }, body: { ok: true, paid: false } };
+      },
+    });
+    const res = await app.request("http://b/world", { method: "POST" });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-test")).toBe("1");
+    expect(await res.json()).toMatchObject({ ok: true, paid: false });
+  });
+});
+
 describe("POST /builds/:id/report (agent callback)", () => {
   // a never-finishing agent keeps the build `running` so we can POST reports
   const inflight = () => makeApp({ runBuild: () => new Promise<void>(() => {}) });

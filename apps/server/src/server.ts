@@ -28,8 +28,12 @@ import { eq } from "drizzle-orm";
 import { RPCHandler } from "@orpc/server/fetch";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { hireViaAgentkit } from "@superjam/onchain/agentkit-client";
 import { createS3Store } from "./bucket.ts";
-import { createDelegatedUnlinkService } from "./delegated-signer.ts";
+import {
+  createDelegatedSigner,
+  createDelegatedUnlinkService,
+} from "./delegated-signer.ts";
 import {
   loadDelegationCreds,
   registerDelegationWebhook,
@@ -273,9 +277,35 @@ const makeContext = (headers: Headers): ApiContext =>
     headers,
   });
 
+// World/AgentKit "human-backed" lane (§14) — lets the MCP prove the user's agent is
+// backed by a real human by signing the AgentKit attestation AS the user's delegated
+// wallet (the AgentBook-registered address), then calling the builder's `/world`
+// endpoint. Live only when delegation is configured (same gate as the Unlink rail).
+const humanBackedHire =
+  dynEnv && env.DYNAMIC_DELEGATION_PRIVATE_KEY
+    ? (() => {
+        const delegated = createDelegatedSigner({
+          environmentId: env.DYNAMIC_ENVIRONMENT_ID,
+          dynamicApiKey: dynEnv.authToken,
+          loadCreds: (userId) => loadDelegationCreds(db, userId),
+        });
+        return async (userId: string, endpointUrl: string) => {
+          const account = await delegated.getUserSigner(userId);
+          return hireViaAgentkit({
+            endpointUrl,
+            signer: {
+              address: account.address,
+              signMessage: (message) => account.signMessage({ message }),
+            },
+          });
+        };
+      })()
+    : undefined;
+
 // MCP endpoint (§MCP) — external agents (a user's Claude Code) hire builders AS the
-// user via a `sjat_…` PAT. Tools run the existing build flow + pay via delegation.
-registerMcp(app, { makeContext });
+// user via a `sjat_…` PAT. Tools run the existing build flow + pay via delegation;
+// `verify_human_agent` exercises the World/AgentKit human-backed lane.
+registerMcp(app, { makeContext, humanBackedHire });
 
 // Dynamic delegation webhook (§23) — receives wallet.delegation.created/revoked,
 // decrypts + stores the per-user MPC share so the server can sign privately on the

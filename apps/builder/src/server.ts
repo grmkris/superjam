@@ -62,13 +62,27 @@ const runner = createBuildRunner({
 // platform's `payBuildFee` settles the build fee here (Circle Gateway, Arc) before
 // dispatching to /builds. Absent the config ⇒ undefined ⇒ POST / answers 501 and
 // the paid path degrades cleanly (the box still boots + builds for free flows).
+// PURE Circle — no AgentKit extension, so plain payers never have to echo it.
 const hire =
   env.AGENT_WALLET_ADDRESS && env.AGENT_PRICE_USDC
     ? createX402HireResource({
         payTo: env.AGENT_WALLET_ADDRESS,
         priceUsdc: env.AGENT_PRICE_USDC,
         circleApiKey: env.CIRCLE_GATEWAY_API_KEY,
-        // AgentKit free-trial (World prize) — set AGENT_FREE_TRIAL_USES to enable.
+      })
+    : undefined;
+
+// The AgentKit "human-backed" resource (World prize) on a SEPARATE route, POST /world.
+// A verified human-backed caller (the user's delegated wallet in AgentBook) gets
+// AGENT_FREE_TRIAL_USES free builds; declaring the AgentKit extension here (not on the
+// Circle `/`) keeps the plain-payment path clean. Enabled only when a free-trial is set.
+const hireWorld =
+  env.AGENT_WALLET_ADDRESS && env.AGENT_PRICE_USDC && env.AGENT_FREE_TRIAL_USES
+    ? createX402HireResource({
+        payTo: env.AGENT_WALLET_ADDRESS,
+        priceUsdc: env.AGENT_PRICE_USDC,
+        circleApiKey: env.CIRCLE_GATEWAY_API_KEY,
+        routePattern: "POST /world",
         freeTrialUses: env.AGENT_FREE_TRIAL_USES,
       })
     : undefined;
@@ -79,6 +93,7 @@ const app = createBuilderApp({
   teardown: (args) => teardownApp(args, { teardownVercel, neon }),
   claudeAuth,
   hire,
+  hireWorld,
 });
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
