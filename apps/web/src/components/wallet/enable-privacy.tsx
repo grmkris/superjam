@@ -1,49 +1,68 @@
 "use client";
 
-// EnablePrivacy (§23) — provisions the user's private (shielded) rail via Dynamic
-// DELEGATED ACCESS. One tap runs Dynamic's delegation flow (initDelegationProcess):
-// the user consents, the SDK generates + encrypts the MPC key share and POSTs it to
-// our `wallet.delegation.created` webhook, which stores it. The server then signs AS
-// the user (getUserSigner delegated branch) — airdrops, private sends, and paid
-// builds settle from the shielded balance with no per-op popup.
-import {
-  useDynamicContext,
-  useWalletDelegation,
-} from "@dynamic-labs/sdk-react-core";
-import { useCallback, useState } from "react";
+// EnablePrivacy (§23) — provisions the user's private (shielded) rail WITHOUT
+// Dynamic delegation. The embedded wallet signs the canonical Unlink derivation
+// message ONCE in the browser; the server stores that signature and replays it to
+// derive + operate the user's REAL shielded account (payments.bootstrapPrivacy +
+// delegated-signer getUserSigner). One popup, then the rail runs automatically —
+// airdrops, private sends, and paid builds all settle from the shielded balance.
+import type { EvmWalletAccount } from "@dynamic-labs-sdk/evm";
+import { createWalletClientForWalletAccount } from "@dynamic-labs-sdk/evm/viem";
+import { useWalletAccounts } from "@dynamic-labs-sdk/react-hooks";
+import { CANON_UNLINK_MESSAGE } from "@superjam/onchain";
+import { useCallback, useEffect, useState } from "react";
+import { usePlatformClient } from "../use-platform-client";
 import { EmojiToken, StickerButton, StickerCard } from "../ui/sticker";
 
 export function EnablePrivacy() {
-  const { primaryWallet } = useDynamicContext();
-  const { initDelegationProcess, getWalletsDelegatedStatus } =
-    useWalletDelegation();
+  const client = usePlatformClient();
+  const { data: walletAccounts } = useWalletAccounts();
+  const evmAccount = walletAccounts?.find((w) => w.chain === "EVM") as
+    | EvmWalletAccount
+    | undefined;
+  const [enabled, setEnabled] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const myStatus = primaryWallet
-    ? getWalletsDelegatedStatus().find(
-        (w) => w.address.toLowerCase() === primaryWallet.address.toLowerCase()
-      )
-    : undefined;
-  const delegated = myStatus?.status === "delegated";
+  // Already provisioned? privateBalance resolves to a number once the shielded
+  // account exists; it nulls/errors before bootstrap.
+  useEffect(() => {
+    let live = true;
+    client.payments
+      .privateBalance()
+      .then((b) => live && setEnabled(b.shieldedUsdc !== null))
+      .catch(() => live && setEnabled(false));
+    return () => {
+      live = false;
+    };
+  }, [client]);
 
   const enable = useCallback(async () => {
-    if (!primaryWallet) return;
+    if (!evmAccount) return;
     setBusy(true);
     setError(null);
     try {
-      await initDelegationProcess({ wallets: [primaryWallet] });
+      const wc = await createWalletClientForWalletAccount({
+        walletAccount: evmAccount,
+      });
+      const address = wc.account.address;
+      const signature = await wc.signMessage({
+        account: address,
+        message: CANON_UNLINK_MESSAGE,
+      });
+      await client.payments.bootstrapPrivacy({ signature, address });
+      setEnabled(true);
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.error("delegation failed", e);
+      console.error("bootstrapPrivacy failed", e);
       setError("Couldn't enable — try again.");
     } finally {
       setBusy(false);
     }
-  }, [primaryWallet, initDelegationProcess]);
+  }, [client, evmAccount]);
 
-  // Hide once delegated (or before a wallet exists).
-  if (!primaryWallet || delegated) return null;
+  // Hide while loading or once enabled.
+  if (enabled !== false || !evmAccount) return null;
 
   return (
     <StickerCard color="cream" className="p-4 flex items-center gap-3">
@@ -51,7 +70,7 @@ export function EnablePrivacy() {
       <div className="flex flex-col min-w-0">
         <div className="font-extrabold text-body">Enable private payments</div>
         <div className="text-small font-semibold text-muted">
-          {error ?? "delegate once — lets airdrops & paid builds settle privately"}
+          {error ?? "one tap — sign once to unlock your private vault"}
         </div>
       </div>
       <StickerButton

@@ -4,7 +4,7 @@
 //   1) email in → a wallet appears (Dynamic, %67's seam — we open setShowAuthFlow)
 //   2) claim your name → kris.superjam.fun, and every jam hangs under it
 // Machinery hidden: no "wallet" jargon, no seed phrase, no crypto talk.
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useInitStatus } from "@dynamic-labs-sdk/react-hooks";
 import { RESERVED_LABELS } from "@superjam/shared";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -13,7 +13,7 @@ import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { JamBackdrop } from "../../components/ui/jam-backdrop";
-import { useLogin } from "../../components/login";
+import { signInWithGoogle, useLogin } from "../../components/login";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { usePlatformClient } from "../../components/use-platform-client";
 
@@ -35,7 +35,7 @@ function nameState(raw: string): NameState {
 export default function WelcomePage() {
   const router = useRouter();
   const { openLogin: startLogin } = useLogin();
-  const { sdkHasLoaded } = useDynamicContext();
+  const { data: initStatus } = useInitStatus();
   const { isLoggedIn, hostUser } = useHostAuth();
   const client = usePlatformClient();
 
@@ -135,7 +135,7 @@ export default function WelcomePage() {
             email={email}
             setEmail={setEmail}
             onContinue={openLogin}
-            ready={sdkHasLoaded}
+            ready={initStatus === "finished"}
           />
         ) : (
           <ClaimBeat
@@ -183,7 +183,7 @@ function EmailBeat({
           size="lg"
           block
           disabled={!ready}
-          onClick={onContinue}
+          onClick={() => void signInWithGoogle()}
         >
           Continue with Google
         </StickerButton>

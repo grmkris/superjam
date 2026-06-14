@@ -9,9 +9,14 @@
 //              mini-app's wallet.getAddress resolves)
 // Opus P's product UI also reads {isLoggedIn} to render login/profile chrome.
 //
-// Dynamic React SDK (@dynamic-labs/sdk-react-core): the JWT comes from
-// getAuthToken(); user/wallet/load state from useDynamicContext().
-import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+// Migrated to the new headless SDK (@dynamic-labs-sdk/*): the JWT is read off the
+// client (`dynamicClient.token`); wallet + auth state come from the SDK hooks.
+import {
+  useDynamicClient,
+  useInitStatus,
+  useUser,
+  useWalletAccounts,
+} from "@dynamic-labs-sdk/react-hooks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HostUser } from "../components/app-frame";
 import { browserRpcUrl, createPlatformClient } from "./orpc";
@@ -30,49 +35,62 @@ export interface HostAuth {
   isLoggedIn: boolean;
   meStatus: MeStatus;
   getAddress: () => Promise<string>;
-  /** Resolve the viewer's Bearer token at request time — awaits Dynamic load so
+  /** Resolve the viewer's Bearer token at request time — awaits Dynamic init so
    *  a protected call fired before the SDK is ready WAITS for the token instead
-   *  of going out tokenless (which 401s). Returns null once load settles with no
+   *  of going out tokenless (which 401s). Returns null once init settles with no
    *  signed-in user. Stable across renders (safe as an oRPC `getToken`). */
   getToken: () => Promise<string | null>;
 }
 
 export function useHostAuth(): HostAuth {
-  // useDynamicContext re-renders on login / logout / wallet change.
-  const { user, primaryWallet, sdkHasLoaded } = useDynamicContext();
+  const client = useDynamicClient();
+  const { data: initStatus } = useInitStatus();
+  // useUser re-renders on login / logout / profile change — drives the effect.
+  const { data: user } = useUser();
+  const { data: walletAccounts } = useWalletAccounts();
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [hostUser, setHostUser] = useState<HostUser | null>(null);
   const [meStatus, setMeStatus] = useState<MeStatus>("pending");
 
-  const evmAddress = primaryWallet?.address ?? null;
+  const evmAddress =
+    walletAccounts?.find((w) => w.chain === "EVM")?.address ?? null;
 
-  // One-time deferred that resolves once the SDK has loaded. The token resolver
-  // awaits this before reading the token, so calls fired pre-load wait instead of
-  // going out without a Bearer header.
-  const loaded = useRef<{ promise: Promise<void>; resolve: () => void } | null>(
-    null
-  );
-  if (!loaded.current) {
+  // Live ref to the Dynamic client so the token resolver reads `client.token`
+  // (a live getter) at request time rather than a stale React snapshot.
+  const clientRef = useRef(client);
+  clientRef.current = client;
+
+  // One-time deferred that resolves once Dynamic init SETTLES (finished OR
+  // failed — resolve on failed too so requests never hang). The token resolver
+  // awaits this before reading the token, so calls fired pre-init wait instead
+  // of going out without a Bearer header.
+  const initSettled = useRef<{
+    promise: Promise<void>;
+    resolve: () => void;
+  } | null>(null);
+  if (!initSettled.current) {
     let resolve!: () => void;
     const promise = new Promise<void>((r) => {
       resolve = r;
     });
-    loaded.current = { promise, resolve };
+    initSettled.current = { promise, resolve };
   }
   useEffect(() => {
-    if (sdkHasLoaded) loaded.current?.resolve();
-  }, [sdkHasLoaded]);
+    if (initStatus === "finished" || initStatus === "failed") {
+      initSettled.current?.resolve();
+    }
+  }, [initStatus]);
 
   const getToken = useCallback(async (): Promise<string | null> => {
-    await loaded.current?.promise;
-    return getAuthToken() ?? null;
+    await initSettled.current?.promise;
+    return clientRef.current?.token ?? null;
   }, []);
 
   useEffect(() => {
-    // The JWT is only populated once the SDK has loaded and the user is signed
-    // in; reading it earlier yields undefined. Re-run when the user changes.
-    if (!sdkHasLoaded) return;
-    const token = getAuthToken() ?? null;
+    // The client's JWT is only populated once init has finished and the user is
+    // signed in; reading it earlier yields null. Re-run when the user changes.
+    if (initStatus !== "finished") return;
+    const token = client?.token ?? null;
     setAuthToken(token);
     if (!token) {
       // Resolved: nobody is signed in (hostUser null is authoritative, not a
@@ -107,7 +125,7 @@ export function useHostAuth(): HostAuth {
     return () => {
       cancelled = true;
     };
-  }, [sdkHasLoaded, user, primaryWallet]);
+  }, [initStatus, user, client]);
 
   const getAddress = useCallback(async (): Promise<string> => {
     if (!evmAddress) throw new Error("No wallet connected");

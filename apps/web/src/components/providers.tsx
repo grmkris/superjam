@@ -1,26 +1,26 @@
 "use client";
 
-// Host auth provider (pivot §1 login seam). Wraps the app in Dynamic's React SDK
-// (@dynamic-labs/sdk-react-core) via <DynamicContextProvider> + the EVM connector.
-// This is the SDK whose embedded-wallet provider + delegated access
-// (useWalletDelegation) are first-class — the headless @dynamic-labs-sdk/* never
-// registered the WaaS provider (NoWalletProviderFoundError). Login uses Dynamic's
-// built-in auth-flow modal (setShowAuthFlow), opened by <LoginProvider>. A single
-// SDK copy (clean install) ⇒ no duplicate-context crash.
-import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
-import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
+// Host auth provider (pivot §1 login seam). Wraps the app in Dynamic's NEW
+// headless SDK (@dynamic-labs-sdk/*): a single client instance (lib/dynamic-client)
+// shared via <DynamicProvider>. The old React-context SDK duplicated under
+// Turbopack and crashed login; the singleton client cannot. <LoginProvider> owns
+// the email→code login UI the headless SDK no longer ships.
+import { DynamicProvider } from "@dynamic-labs-sdk/react-hooks";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { dynamicClient } from "../lib/dynamic-client";
 import { LoginProvider } from "./login";
 
-const ENVIRONMENT_ID = process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID ?? "";
-
+// The new SDK's react-hooks are built on @tanstack/react-query and expect the app
+// to supply the provider (DynamicProvider only takes the dynamic client). One
+// client per browser tab; this module is client-only (under ClientRoot's gate).
 const queryClient = new QueryClient();
 
 export function Providers({ children }: { children: ReactNode }) {
-  // Guard a build shipped without NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID (every Dynamic
-  // call would otherwise crash cryptically) with a clear, actionable message.
-  if (!ENVIRONMENT_ID) {
+  // dynamicClient is null when NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID wasn't baked
+  // into the build (every Dynamic call would otherwise crash cryptically). Fail
+  // with a clear, actionable message instead of white-screening the app.
+  if (!dynamicClient) {
     return (
       <div
         style={{
@@ -48,14 +48,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <DynamicContextProvider
-        settings={{
-          environmentId: ENVIRONMENT_ID,
-          walletConnectors: [EthereumWalletConnectors],
-        }}
-      >
+      <DynamicProvider client={dynamicClient}>
         <LoginProvider>{children}</LoginProvider>
-      </DynamicContextProvider>
+      </DynamicProvider>
     </QueryClientProvider>
   );
 }
