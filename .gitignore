@@ -15,10 +15,11 @@ public.txt
 *.pem
 *.key
 
-# stray local screenshots / camera exports — keep them out of `git add .`
+# stray local screenshots / camera exports / exported decks — keep them out of `git add .`
 /.neon
 /*.jpeg
 /*.png
+/*.html
 /apps/*.png
 **/Screenshot*.png
 
