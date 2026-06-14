@@ -33,8 +33,9 @@ const fail = (e: unknown) => ({
   isError: true,
 });
 
-/** Build a per-request McpServer whose tools run AS the bearer's user. */
-const buildServer = (makeContext: MakeContext, headers: Headers): McpServer => {
+/** Build a per-request McpServer whose tools run AS the bearer's user. Exported
+ *  for in-process testing (connect a Client via InMemoryTransport). */
+export const buildServer = (makeContext: MakeContext, headers: Headers): McpServer => {
   const server = new McpServer({ name: "superjam", version: "0.1.0" });
   const ctx = (): ApiContext => makeContext(headers);
 
