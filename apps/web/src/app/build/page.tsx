@@ -188,7 +188,7 @@ function MakeFlow() {
 
   // Other PENDING drafts (for the "pick up where you left off" banner on home).
   const [otherDrafts, setOtherDrafts] = useState<
-    { id: string; step: string; prompt: string; name: string | null; iconEmoji: string | null }[]
+    { id: string; step: string; prompt: string; name: string | null; iconEmoji: string | null; updatedAt: string }[]
   >([]);
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -206,6 +206,7 @@ function MakeFlow() {
               prompt: r.prompt,
               name: r.name,
               iconEmoji: r.iconEmoji,
+              updatedAt: String(r.updatedAt),
             }))
         );
       })
@@ -532,7 +533,7 @@ function HomeBeat({
   uploading: boolean;
   onAttach: (files: FileList) => void;
   onRemoveAttachment: (key: string) => void;
-  drafts: { id: string; step: string; prompt: string; name: string | null; iconEmoji: string | null }[];
+  drafts: { id: string; step: string; prompt: string; name: string | null; iconEmoji: string | null; updatedAt: string }[];
   onResumeDraft: (id: string, step: string) => void;
   onDiscardDraft: (id: string) => void;
 }) {
@@ -622,8 +623,17 @@ function HomeBeat({
 
       {err && <div className="text-pink text-small font-bold">{err}</div>}
       {isLoggedIn ? (
-        <StickerButton color="pink" size="lg" block onClick={onGo} disabled={busy || !idea.trim()}>
-          {busy ? "thinking…" : "Let's go! →"}
+        // Ready-state: vibrant pink + ⚡ the moment there's an idea; a calm cream
+        // ghost (outline only on the cream page) while the box is empty, so "ready"
+        // and "not yet" read as clearly different — not just a dimmed pink.
+        <StickerButton
+          color={idea.trim() ? "pink" : "cream"}
+          size="lg"
+          block
+          onClick={onGo}
+          disabled={busy || !idea.trim()}
+        >
+          {busy ? "thinking…" : idea.trim() ? "⚡ Let's go! →" : "Let's go! →"}
         </StickerButton>
       ) : (
         // refine is a protected call — a signed-out maker would just 401. Send
@@ -648,19 +658,28 @@ function HomeBeat({
       </div>
 
       {drafts.length > 0 && (
-        <div className="mt-2 flex flex-col gap-2.5">
+        <div className="mt-5 flex flex-col gap-2.5">
           <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             More drafts
           </div>
           <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
             {drafts.map((d) => (
               <StickerCard key={d.id} color="cream" className="p-3 flex items-center gap-3">
-                <EmojiToken emoji={d.iconEmoji ?? "✏️"} color="yellow" size={36} rounded="toy" />
+                <EmojiToken
+                  emoji={d.iconEmoji ?? "⚡"}
+                  color="yellow"
+                  size={36}
+                  rounded="toy"
+                  tilt={-4}
+                />
                 <div className="flex flex-col min-w-0">
                   <div className="font-extrabold text-small truncate">
                     {d.name ?? d.prompt ?? "Untitled idea"}
                   </div>
-                  <div className="text-tiny font-semibold text-muted">draft · paused</div>
+                  <div className="text-tiny font-semibold text-muted truncate">
+                    {d.step === "home" ? "idea" : `paused at ${stepLabel(d.step)}`} ·{" "}
+                    {relTime(d.updatedAt)}
+                  </div>
                 </div>
                 <div className="ml-auto flex items-center gap-1.5 shrink-0">
                   <button
@@ -1031,6 +1050,17 @@ function fmtDur(ms: number): string {
   return `${m}m${String(Math.floor(s % 60)).padStart(2, "0")}s`;
 }
 
+/** Friendly name for the make-flow beat a draft paused on (for draft cards). */
+const STEP_LABEL: Record<string, string> = {
+  followups: "Questions",
+  plan: "the Plan",
+  builder: "Builder",
+  worldgate: "Verify",
+  workshop: "Building",
+  reveal: "Reveal",
+};
+const stepLabel = (s: string) => STEP_LABEL[s] ?? "draft";
+
 /** "just now" / "5m ago" / "3h ago" / "2d ago". */
 function relTime(d: string | number | Date): string {
   const s = (Date.now() - new Date(d).getTime()) / 1000;
@@ -1251,7 +1281,7 @@ function BuildHistory() {
 
   if (!rows || rows.length === 0) return null;
   return (
-    <div className="mt-2 flex flex-col gap-2.5">
+    <div className="mt-5 flex flex-col gap-2.5">
       <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
         Your builds
       </div>
