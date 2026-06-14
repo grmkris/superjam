@@ -80,14 +80,39 @@ const TEMPLATE_GAMES: {
     entryUrl: "https://gem-clicker.vercel.app",
     makerHandle: "neonwolf",
   },
+  // ── hand-crafted showcase jams (apps/showcase, one Vercel deploy, route per jam) ──
+  {
+    manifest: { name: "Roast My Bags", slug: "roast-my-bags", description: "Paste your token bags and let a merciless AI roast your portfolio — then the crowd votes the funniest.", iconEmoji: "🔥", category: "creative", capabilities: ["ai"] },
+    entryUrl: "https://superjam-showcase.vercel.app/roast",
+    makerHandle: "pixelpanda",
+  },
+  {
+    manifest: { name: "Proof-of-Human Poll", slug: "proof-of-human-poll", description: "One human, one vote — a live poll only World-verified humans can answer. No bots, no brigading.", iconEmoji: "🗳️", category: "social", capabilities: [] },
+    entryUrl: "https://superjam-showcase.vercel.app/poll",
+    makerHandle: "zkzoe",
+  },
+  {
+    manifest: { name: "Stablecoin Academy", slug: "stablecoin-academy", description: "Understand USDC, Circle Gateway and CCTP in 60 seconds — with a real AI professor you can quiz.", iconEmoji: "🎓", category: "tool", capabilities: ["ai", "payments"] },
+    entryUrl: "https://superjam-showcase.vercel.app/academy",
+    makerHandle: "basedbecca",
+  },
+  {
+    manifest: { name: "Onchain Wrapped", slug: "onchain-wrapped", description: "Your year onchain, recapped Spotify-Wrapped-style by AI — stats, charts and a persona to brag about.", iconEmoji: "🎁", category: "creative", capabilities: ["ai"] },
+    entryUrl: "https://superjam-showcase.vercel.app/wrapped",
+    makerHandle: "moonmav",
+  },
 ];
 
 // ── plays weighting per slug (target TOTAL plays; controls feed ranking) ───────
 const SLUG_WEIGHT: Record<string, number> = {
   "gem-clicker": 1420,
   "world-cup-trivia": 980,
+  "roast-my-bags": 870,
   "final-pot-demo": 720,
+  "onchain-wrapped": 560,
+  "proof-of-human-poll": 480,
   "mascot-draw-off": 410,
+  "stablecoin-academy": 360,
   guestbook: 300,
   "tip-jar": 210,
   "spending-explainer": 90,
