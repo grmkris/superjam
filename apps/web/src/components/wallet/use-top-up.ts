@@ -1,11 +1,11 @@
 "use client";
 
 // The ONE top-up (§23) — used by the /me WalletCard and the confirm-sheet
-// insufficient-balance state. Drops test USDC from the server wallet → the user's
-// public wallet (faucetPublic), then shields it into the private balance
-// (depositPrivate) — coins land straight in the in-app vault. Fixed $5, one tap.
-// Server-wallet-sourced (no shielded faucet pool). Swap faucetPublic for a real
-// onramp later; callers don't change.
+// insufficient-balance state. Funds the user's SHIELDED balance directly from the
+// platform pool (addFunds → unlink.faucet) — coins land straight in the in-app
+// private vault, no public-wallet leg and no walletAddress needed. Requires the
+// private rail to be provisioned first (EnablePrivacy's one-time signature). Fixed
+// $5, one tap. Swap the pool faucet for a real onramp later; callers don't change.
 import { useCallback, useState } from "react";
 import { usePlatformClient } from "../use-platform-client";
 
@@ -16,17 +16,18 @@ export function useTopUp() {
   const [busy, setBusy] = useState<null | "drop" | "shield">(null);
   const [error, setError] = useState<string | null>(null);
 
-  /** Airdrop + shield. Resolves true on success, false on failure (sets `error`). */
+  /** Airdrop into the shielded balance. Resolves true on success, false on failure. */
   const topUp = useCallback(async (): Promise<boolean> => {
     setBusy("drop");
     setError(null);
     try {
-      await client.payments.faucetPublic({ amount: AIRDROP_USDC });
-      setBusy("shield");
-      await client.payments.depositPrivate({ amount: AIRDROP_USDC });
+      await client.payments.addFunds({
+        sourceChain: "arcTestnet",
+        amount: AIRDROP_USDC,
+      });
       return true;
     } catch {
-      setError("Airdrop failed — try again.");
+      setError("Airdrop failed — enable private payments first.");
       return false;
     } finally {
       setBusy(null);

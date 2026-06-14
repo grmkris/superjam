@@ -484,6 +484,9 @@ export * from "./viem-server-wallet.ts";
 export * from "./privacy.ts";
 export * from "./circle-gateway.ts";
 export * from "./unlink-transport.ts";
+// Web-safe Unlink constants (CANON_UNLINK_MESSAGE etc.) — the browser bootstrap
+// step imports these; the createUserUnlink module itself stays un-barreled (below).
+export * from "./unlink-constants.ts";
 // NOTE: unlink-user.ts (createUserUnlink) is NOT barrel-exported — it imports
 // "@unlink-xyz/sdk/admin", a server-only module Turbopack can't bundle into the
 // web client (the barrel is reachable from pay-executor → client-root). It has

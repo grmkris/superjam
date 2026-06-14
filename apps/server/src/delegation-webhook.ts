@@ -23,11 +23,15 @@ export const loadDelegationCreds = async (
     where: eq(userDelegation.userId, userId as UserId),
   });
   if (!row) return null;
+  // Bootstrap rows (walletId "browser-sig") stash the replayed browser signature in
+  // keyShare; delegation rows hold the MPC share (no browserSignature).
+  const ks = row.keyShare as { browserSignature?: `0x${string}` } | null;
   return {
     walletId: row.walletId,
     address: row.address as `0x${string}`,
     walletApiKey: row.walletApiKey,
     keyShare: row.keyShare as DelegationCreds["keyShare"],
+    browserSignature: ks?.browserSignature,
   };
 };
 

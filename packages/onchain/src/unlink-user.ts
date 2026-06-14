@@ -22,16 +22,16 @@ import {
 import { CHAINS, PRIVATE_CHAIN, USDC } from "./chains.ts";
 import { OnchainError } from "./errors.ts";
 import { type Usdc } from "./money.ts";
+// Canonical derivation message + scoping — defined in a web-safe module (no
+// server-only SDK import) so the browser bootstrap step can sign the SAME bytes.
+import {
+  CANON_UNLINK_MESSAGE,
+  UNLINK_APP_ID,
+  UNLINK_ENVIRONMENT,
+} from "./unlink-constants.ts";
 
-/** The fixed message the user's wallet signs to derive its Unlink account. MUST
- *  be byte-identical wherever it's signed (server here; browser later). */
-export const CANON_UNLINK_MESSAGE =
-  "SuperJam private balance — derive my Unlink account (v1)";
-/** App-scoping for account derivation (any consistent string; ties the derived
- *  account to SuperJam). */
-export const UNLINK_APP_ID = "superjam";
-/** Unlink hosted environment for the private rail (matches PRIVATE_CHAIN = Arc). */
-export const UNLINK_ENVIRONMENT = "arc-testnet";
+// Re-export for existing direct importers (scripts/tests/server).
+export { CANON_UNLINK_MESSAGE, UNLINK_APP_ID, UNLINK_ENVIRONMENT };
 
 export interface UserUnlinkConfig {
   /** Unlink admin API key (server-side; control-plane: register + auth tokens). */

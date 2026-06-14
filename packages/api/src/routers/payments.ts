@@ -30,7 +30,7 @@ import { protectedProcedure } from "../orpc.ts";
 import { createChatService } from "../services/chat-service.ts";
 import { createCounterService } from "../services/counter-service.ts";
 
-const { publishPayment, potStake, user } = schema;
+const { publishPayment, potStake, user, userDelegation } = schema;
 
 const Hex0x = z.string().regex(/^0x[0-9a-fA-F]+$/, "Invalid hex");
 const Uint = z.string().regex(/^\d+$/, "Expected a base-unit integer");
@@ -265,6 +265,49 @@ export const paymentsRouter = {
       .where(eq(user.id, context.user.id));
     return { unlinkAddress };
   }),
+
+  /** Bootstrap the private rail from a BROWSER signature (no Dynamic delegation):
+   *  the embedded wallet signed CANON_UNLINK_MESSAGE once; we persist that signature
+   *  so the server can replay it to derive + operate the user's REAL shielded account
+   *  (see delegated-signer `getUserSigner` browser-sig branch). Idempotent: also
+   *  records `walletAddress` and provisions the shielded account (`enable`). */
+  bootstrapPrivacy: protectedProcedure
+    .input(
+      z.object({
+        signature: z.string().min(1),
+        address: z.string().min(1),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const address = getAddress(input.address);
+      const values = {
+        userId: context.user.id,
+        // Bootstrap rows have no Dynamic userId; the user's own id keeps the
+        // NOT-NULL/UNIQUE column satisfied (typeids never collide with Dynamic UUIDs).
+        dynamicUserId: context.user.dynamicUserId ?? context.user.id,
+        walletId: "browser-sig",
+        address,
+        walletApiKey: "",
+        keyShare: { browserSignature: input.signature },
+      };
+      await context.db
+        .insert(userDelegation)
+        .values(values)
+        .onConflictDoUpdate({ target: userDelegation.userId, set: values });
+      await context.db
+        .update(user)
+        .set({ walletAddress: address })
+        .where(eq(user.id, context.user.id));
+      // Provision the shielded account now (derives via the replayed signature).
+      const { unlinkAddress } = await tryOnchain(() =>
+        context.unlink.enable(context.user.id)
+      );
+      await context.db
+        .update(user)
+        .set({ unlinkAddress })
+        .where(eq(user.id, context.user.id));
+      return { unlinkAddress };
+    }),
 
   /** No-toggle auto-provision — the web calls this once on login. Derives +
    *  registers the shielded account, persists the address, and (first time only)

@@ -38,6 +38,11 @@ export interface DelegationCreds {
   walletApiKey: string;
   /** Decrypted MPC key share. */
   keyShare: ServerKeyShare;
+  /** Bootstrap path (no Dynamic delegation): the user's embedded wallet signed
+   *  CANON_UNLINK_MESSAGE in the browser once. We replay this signature so the
+   *  Unlink derivation reproduces THEIR shielded account, server-side, without a
+   *  per-tx popup. When set, it takes precedence over the MPC delegated path. */
+  browserSignature?: Hex;
 }
 
 /** Decrypt a `wallet.delegation.created` webhook's encrypted material with our
@@ -88,6 +93,24 @@ export const createDelegatedSigner = (deps: {
     const c = await deps.loadCreds(userId);
     if (!c) {
       throw new Error(`No Dynamic delegation on file for user ${userId}`);
+    }
+    // Browser-signature bootstrap — the user signed CANON_UNLINK_MESSAGE in the
+    // browser; replay it so `createUserUnlink` derives the SAME shielded account.
+    // The Unlink rail only ever asks this signer for that one message (deposit's
+    // tx-signing is unused here — the rail funds via the pool faucet), so a replay
+    // signMessage is sufficient; tx/typed-data paths are intentionally unsupported.
+    if (c.browserSignature) {
+      const sig = c.browserSignature;
+      return toAccount({
+        address: c.address,
+        signMessage: async () => sig,
+        signTransaction: async () => {
+          throw new Error("browser-sig signer cannot sign transactions");
+        },
+        signTypedData: async () => {
+          throw new Error("browser-sig signer cannot sign typed data");
+        },
+      });
     }
     const base = {
       walletId: c.walletId,
