@@ -13,7 +13,7 @@
   ],
   "data": {
     "collections": [
-      { "name": "entries", "doc": { "url": "string", "score": "number", "reason": "string" }, "writtenWhen": "the user submits a drawing and it is judged" }
+      { "name": "entries", "fields": [{ "name": "url", "type": "string" }, { "name": "score", "type": "number" }, { "name": "reason", "type": "string" }], "writtenWhen": "the user submits a drawing and it is judged" }
     ],
     "counters": [
       { "name": "scores", "keyedBy": "username", "meaning": "sum of a player's drawing scores" }
