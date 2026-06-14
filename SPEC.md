@@ -558,7 +558,7 @@ app_message:    id msg, appId→app, fromUserId→user, toUserId→user,
 Constants (`packages/shared/constants.ts`): KV ≤1000 keys/user/app, value ≤64KiB
 (serialized), records ≤10_000/app, doc ≤64KiB, names `[A-Za-z0-9_-]{1,64}`,
 key `[A-Za-z0-9_-]{1,128}`, FREE_BUILDS=1, PUBLISH_FEE_USDC="1", TX_CAP_USDC="25",
-LIST_MAX=100, AI_CALLS_PER_USER_APP_DAY=25, AI_MAX_OUTPUT_TOKENS=1000,
+LIST_MAX=500, AI_CALLS_PER_USER_APP_DAY=25, AI_MAX_OUTPUT_TOKENS=1000,
 AI_APP_MODEL="claude-haiku-4-5" (in-app + refine; build agent uses fable),
 REFINE_CALLS_PER_USER_DAY=20,
 CATEGORIES=["game","social","tool","creative","other"], REVIEW_TEXT_MAX=280,

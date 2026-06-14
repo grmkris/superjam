@@ -72,7 +72,7 @@ export const REFINE_CALLS_PER_USER_DAY = 20;
 export const X402_CALLS_PER_USER_APP_DAY = 10;
 
 // --- discovery ---
-export const LIST_MAX = 100;
+export const LIST_MAX = 500;
 export const SIMILAR_MAX = 3;
 export const CATEGORIES = [
   "game",
