@@ -10,6 +10,7 @@ import type { EvmWalletAccount } from "@dynamic-labs-sdk/evm";
 import { createWalletClientForWalletAccount } from "@dynamic-labs-sdk/evm/viem";
 import { useWalletAccounts } from "@dynamic-labs-sdk/react-hooks";
 import { CANON_UNLINK_MESSAGE } from "@superjam/onchain";
+import { DEMO_MODE } from "@superjam/shared";
 import { useCallback, useEffect, useState } from "react";
 import { usePlatformClient } from "../use-platform-client";
 import { EmojiToken, StickerButton, StickerCard } from "../ui/sticker";
@@ -61,8 +62,9 @@ export function EnablePrivacy() {
     }
   }, [client, evmAccount]);
 
-  // Hide while loading or once enabled.
-  if (enabled !== false || !evmAccount) return null;
+  // Hide while loading or once enabled. DEMO: always hidden — the vault is mocked
+  // (nothing to provision) and tapping Enable would hit the broken delegation flow.
+  if (DEMO_MODE || enabled !== false || !evmAccount) return null;
 
   return (
     <StickerCard color="cream" className="p-4 flex items-center gap-3">
