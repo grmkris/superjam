@@ -30,8 +30,10 @@ function build() {
   });
   // Register the embedded-wallet (WaaS) EVM extension BEFORE initializing, then
   // kick off init (autoInitialize:false above so this ordering is deterministic).
-  addWaasEvmExtension();
-  void initializeClient();
+  // Pass the explicit client to BOTH so the WaaS provider registers on the exact
+  // instance every call uses (delegateWaasKeyShares looks the provider up on it).
+  addWaasEvmExtension(client);
+  void initializeClient(client);
   return client;
 }
 

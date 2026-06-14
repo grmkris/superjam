@@ -31,11 +31,26 @@ export function EnablePrivacy() {
       setDelegated(null);
       return;
     }
+    // DIAGNOSTIC: log the exact provider key the delegation call will look up, so
+    // we can compare it to what addWaasEvmExtension registers ("No wallet provider
+    // found with key: …:embeddedWallet").
+    const acc = evmAccount as unknown as Record<string, unknown>;
+    // eslint-disable-next-line no-console
+    console.log("[EnablePrivacy] waas account", {
+      key: acc.key,
+      chain: evmAccount.chain,
+      walletProvider: acc.walletProvider,
+      walletName: acc.walletName,
+      id: acc.id,
+      raw: evmAccount,
+    });
     try {
       setDelegated(
         hasDelegatedAccess({ walletAccount: evmAccount }, dynamicClient ?? undefined)
       );
-    } catch {
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[EnablePrivacy] hasDelegatedAccess threw", e);
       setDelegated(null);
     }
   }, [evmAccount]);
