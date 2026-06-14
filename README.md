@@ -16,6 +16,56 @@ The full build bible is
 + [`docs/design/`](./docs/design/) (the round-8 Toybox mockups are authoritative
 for look/UX).
 
+## Sponsor integrations
+
+Where each partner technology is used. URLs below point at the line of code.
+
+**World ID** ($15k) — proof-of-humanity gate: verifying you're a unique human is
+required to publish a jam, review, register a builder, or top up, and it marks
+builder agents as human-backed. Managed RP self-signs `rp_context`; full backend
+proof verification against `/api/v4/verify/{rp_id}` binds the RP-scoped nullifier
+to the account.
+
+- backend verify + Sybil-bind — https://github.com/grmkris/superjam/blob/dev/packages/api/src/routers/world.ts#L66-L99
+- managed-RP verifier — https://github.com/grmkris/superjam/blob/dev/packages/api/src/auth/world.ts#L157
+- gate procedure — https://github.com/grmkris/superjam/blob/dev/packages/api/src/orpc.ts#L76
+- IDKit v4 widget — https://github.com/grmkris/superjam/blob/dev/apps/web/src/components/world-gate-widget.tsx#L60
+
+**Arc / Circle** ($15k) — the single money chain. Build fee, tips, and game
+payouts settle in USDC on Arc using its USDC-native gas (no paymaster); users
+sign gasless EIP-3009 transfers the server relays; CCTP bridges USDC from Sepolia
+into native Arc USDC.
+
+- Arc chain def — https://github.com/grmkris/superjam/blob/dev/packages/onchain/src/chains.ts#L17
+- EIP-3009 relay — https://github.com/grmkris/superjam/blob/dev/packages/api/src/routers/payments.ts#L135
+- EIP-3009 typed-data — https://github.com/grmkris/superjam/blob/dev/packages/onchain/src/transfer-auth.ts
+- CCTP bridge — https://github.com/grmkris/superjam/blob/dev/packages/onchain/src/cctp.ts
+
+**Dynamic** ($10k) — how a wallet "appears with you." Email login → embedded EVM
+wallet (no seed phrase); a TSS-MPC server wallet lets builder agents sign
+autonomously; Dynamic JWTs authenticate the API; delegation lets a user's coding
+agent build + pay as the user over MCP.
+
+- embedded client — https://github.com/grmkris/superjam/blob/dev/apps/web/src/lib/dynamic-client.ts#L14
+- pay signing — https://github.com/grmkris/superjam/blob/dev/apps/web/src/components/confirm/pay-executor.ts#L18
+- MPC server wallet — https://github.com/grmkris/superjam/blob/dev/packages/onchain/src/viem-server-wallet.ts#L65
+- JWT auth — https://github.com/grmkris/superjam/blob/dev/packages/api/src/index.ts#L8
+- delegation PAT — https://github.com/grmkris/superjam/blob/dev/packages/api/src/routers/auth.ts#L34
+
+**Unlink** — the shielded private-payment rail. One `getUserSigner` seam wraps
+each user's signer into a server-executed shielded account (no per-tx popup).
+
+- unlink service — https://github.com/grmkris/superjam/blob/dev/packages/api/src/services/unlink-service.ts#L22
+
+**Shared / nanopayments** (Arc × Unlink × Dynamic) — an agent pays for work,
+privately, in USDC: **Dynamic** signs → **Unlink** shields → settles on **Arc**
+(CCTP funds the shielded pool from Sepolia). The x402 pay-to-publish build fee
+rides this exact stack, and is free when the payer is World-verified and the
+builder is AgentBook-registered.
+
+- agent hire — https://github.com/grmkris/superjam/blob/dev/packages/onchain/src/agentkit-client.ts#L45
+- CCTP funding — https://github.com/grmkris/superjam/blob/dev/packages/onchain/src/cctp.ts
+
 ## Monorepo layout (§4)
 
 ```

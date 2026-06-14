@@ -24,3 +24,9 @@ public.txt
 
 # local demo/test inputs (camera exports, CSV/PNG fed to the builder) — not source
 /sample-data/
+
+# generated brand assets — rendered by `.brand/build-brand.mjs` (the source of
+# truth) from `.brand/fonts/`. Keep the generator + fonts, never the output.
+# Regenerate with: node .brand/build-brand.mjs
+.brand/*.png
+.brand/*.svg
