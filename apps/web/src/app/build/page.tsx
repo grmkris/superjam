@@ -5,7 +5,7 @@
 // workshop → reveal. Machinery hidden throughout: no build logs, file names,
 // terminals, or "AI/agent" talk anywhere a user can see.
 import type { AppSpec, BuildDraftId, BuildId, BuilderAgentId, RefineResult, Similar } from "@superjam/shared";
-import { ATTACH_MAX_MB, BUILD_ATTACH_MAX } from "@superjam/shared";
+import { ATTACH_MAX_MB, BUILD_ATTACH_MAX, DEMO_MODE } from "@superjam/shared";
 import { useLogin } from "../../components/login";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -376,7 +376,9 @@ function MakeFlow() {
     }
     // Pass the pick directly (state isn't flushed yet on the non-gated path); the
     // world-gate path re-renders first, so its onVerified reads `chosen` from state.
-    if (!verified) go("worldgate");
+    // DEMO: skip the World-ID gate (its RP context may be unconfigured) — go straight
+    // to the build so a fresh, unverified demo account can complete the flow.
+    if (!DEMO_MODE && !verified) go("worldgate");
     else startBuild(pick);
   };
 
@@ -404,26 +406,6 @@ function MakeFlow() {
     <div className="screen">
       <Header username={username} />
 
-      {step === "home" && otherDrafts.length > 0 && (
-        <button
-          onClick={() =>
-            router.push(`/build?d=${otherDrafts[0]!.id}&step=${otherDrafts[0]!.step}`)
-          }
-          className="focus-ring w-full text-left"
-        >
-          <StickerCard color="yellow" className="p-3 flex items-center gap-2.5 sticker-press">
-            <span className="text-xl shrink-0">✏️</span>
-            <div className="flex flex-col min-w-0">
-              <div className="font-extrabold text-small">Pick up where you left off</div>
-              <div className="text-tiny font-semibold text-ink/70 truncate">
-                {otherDrafts[0]!.name ?? otherDrafts[0]!.prompt ?? "your last idea"}
-              </div>
-            </div>
-            <span className="ml-auto font-extrabold shrink-0">→</span>
-          </StickerCard>
-        </button>
-      )}
-
       {step === "home" && (
         <HomeBeat
           idea={idea}
@@ -438,7 +420,7 @@ function MakeFlow() {
           uploading={uploading}
           onAttach={onAttach}
           onRemoveAttachment={removeAttachment}
-          drafts={otherDrafts.slice(1)}
+          drafts={otherDrafts}
           onResumeDraft={(id, s) => router.push(`/build?d=${id}&step=${s}`)}
           onDiscardDraft={discardDraft}
         />
@@ -556,7 +538,7 @@ function HomeBeat({
 }) {
   const atCap = attachments.length >= BUILD_ATTACH_MAX;
   return (
-    <div className="flex flex-1 flex-col justify-center gap-4">
+    <div className="flex flex-1 flex-col gap-4">
       {remix && (
         <div className="bg-yellow border-2 border-ink rounded-toy px-3 py-2 text-small font-bold">
           🔁 Based on <span className="underline">{remix}</span> — say your changes

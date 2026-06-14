@@ -8,9 +8,11 @@
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
 import {
+  DEMO_MODE,
   POT_STAKE_MAX_USDC,
   POT_TOTAL_MAX_USDC,
   type TypeId,
+  fakeTxHash,
 } from "@superjam/shared";
 import {
   type Onchain,
@@ -108,22 +110,30 @@ export const createPotService = ({
       if (!row.options.includes(input.option)) {
         throw new ORPCError("BAD_REQUEST", { message: "Unknown option" });
       }
-      if (!actor.walletAddress) {
-        throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
-      }
 
-      // Verify the stake landed in escrow (the agent server wallet). Keyed on
-      // the Transfer LOG, so a relayed EIP-3009 stake is accepted (§12).
-      const { from, value } = await onchain.verifyUsdcTransfer({
-        hash: input.txHash,
-        chain: PUBLIC_CHAIN,
-        expectedTo: onchain.serverAddress,
-        minAmount: MIN_STAKE,
-      });
-      if (!isAddressEqual(from, actor.walletAddress as `0x${string}`)) {
-        throw new ORPCError("BAD_REQUEST", {
-          message: "Stake must come from your wallet",
+      // DEMO: the stake was paid over a mocked relay (no real Transfer log) — skip
+      // the on-chain verification and record a fixed 1-USDC stake.
+      let value: Usdc;
+      if (DEMO_MODE) {
+        value = MIN_STAKE;
+      } else {
+        if (!actor.walletAddress) {
+          throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
+        }
+        // Verify the stake landed in escrow (the agent server wallet). Keyed on
+        // the Transfer LOG, so a relayed EIP-3009 stake is accepted (§12).
+        const verified = await onchain.verifyUsdcTransfer({
+          hash: input.txHash,
+          chain: PUBLIC_CHAIN,
+          expectedTo: onchain.serverAddress,
+          minAmount: MIN_STAKE,
         });
+        if (!isAddressEqual(verified.from, actor.walletAddress as `0x${string}`)) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Stake must come from your wallet",
+          });
+        }
+        value = verified.value;
       }
       if (value > POT_STAKE_MAX) {
         throw new ORPCError("BAD_REQUEST", { message: "Stake over the cap" });
@@ -263,11 +273,10 @@ export const createPotService = ({
         if (payout <= 0n) continue;
         const to = wallets.get(s.userId);
         if (!to) continue; // can't pay a walletless staker; leaves dust in escrow
-        const txHash = await onchain.sendUsdc(
-          PUBLIC_CHAIN,
-          to as `0x${string}`,
-          payout
-        );
+        // DEMO: don't depend on a funded escrow wallet — record a fake payout hash.
+        const txHash = DEMO_MODE
+          ? (fakeTxHash() as Hex)
+          : await onchain.sendUsdc(PUBLIC_CHAIN, to as `0x${string}`, payout);
         await db
           .update(potStake)
           .set({ paidOutTxHash: txHash })

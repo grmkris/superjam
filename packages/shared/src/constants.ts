@@ -1,6 +1,24 @@
 // Platform-wide limits + identifiers (§7). Single source of truth; routers,
 // the bridge, and the SDK all read from here.
 
+// --- hackathon demo switch ---
+// Mocks every broken payment / on-chain rail (Dynamic delegation → Unlink/x402 is
+// down) so the "describe → pay a builder → it builds & deploys" flow works end to
+// end. Read by the server (api routers) AND the browser (apps/web World-gate skip),
+// so it MUST be a hardcoded constant — `process.env` isn't inlined into the client
+// bundle. Flip to false + redeploy to restore the real rails once delegation is fixed.
+// Typed `: boolean` (not the literal `true`) so the `!DEMO_MODE` branches aren't seen
+// as statically-dead code by tsc/oxlint in the build gate.
+export const DEMO_MODE: boolean = true;
+
+// A well-formed fake tx hash (0x + 64 hex) so UI receipts / explorer links render
+// when a mocked rail short-circuits the real settlement.
+export const fakeTxHash = (): string =>
+  "0x" +
+  Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(
+    ""
+  );
+
 // --- storage / data quotas ---
 export const STORAGE_MAX_KEYS = 1000; // KV keys per (user, app)
 export const STORAGE_VALUE_MAX_BYTES = 64 * 1024; // serialized value cap

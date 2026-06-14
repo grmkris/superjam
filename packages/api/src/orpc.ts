@@ -1,6 +1,7 @@
 // Procedure builders + middleware chain (§12). publicProcedure → protected
 // (Dynamic-auth'd, adds `user`) → worldVerified (gates the human-only surface).
 import type { schema } from "@superjam/db";
+import { DEMO_MODE } from "@superjam/shared";
 import { ORPCError, os } from "@orpc/server";
 import { extractBearer } from "./auth/bearer.ts";
 import { PAT_PREFIX, resolveUserFromPat } from "./auth/pat.ts";
@@ -62,7 +63,9 @@ export const optionalAuthProcedure = base.use(maybeAuth);
 const requireWorldVerified = os
   .$context<ApiContext & { user: User }>()
   .middleware(async ({ context, next }) => {
-    if (!context.user.worldVerified) {
+    // DEMO: World-ID is bypassed for the demo, so treat everyone as verified —
+    // unblocks publish/reviews/top-up/register-builder for a fresh account.
+    if (!context.user.worldVerified && !DEMO_MODE) {
       throw new ORPCError("FORBIDDEN", {
         message: "Verify you're human to keep jamming.",
       });

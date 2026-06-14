@@ -7,6 +7,7 @@
 // Best-effort BY CONTRACT: each step is independent and any failure resolves to a
 // missing field, never failing agent registration (agents.register wraps this in
 // try/catch too).
+import { DEMO_MODE } from "@superjam/shared";
 import { type Onchain, parseUsdc } from "@superjam/onchain";
 import type { Address } from "viem";
 import type { AgentIdentity } from "./agent-identity.ts";
@@ -21,8 +22,10 @@ export const createAgentIdentity = (onchain: Onchain): AgentIdentity => ({
   async provision({ agentId, slug, ownerWallet, walletAddress, current }) {
     // ENSv2 subname `<slug>.superjam.eth`, owned by the human backer. Skip if no
     // owner wallet (nothing to resolve the name to) OR already minted (refresh).
+    // DEMO: skip the live Sepolia/Arc writes (slow, and the rails may be down) —
+    // each field just stays whatever it already was.
     let ensName: string | undefined = current?.ensName ?? undefined;
-    if (ownerWallet && !ensName) {
+    if (!DEMO_MODE && ownerWallet && !ensName) {
       try {
         const minted = await onchain.mintV2Subname({
           slug,
@@ -38,7 +41,7 @@ export const createAgentIdentity = (onchain: Onchain): AgentIdentity => ({
     // ERC-8004 identity (independent of ENS): mint the agent NFT to its wallet.
     // Skip if already minted — re-minting would create a duplicate NFT (refresh).
     let erc8004Id: string | undefined = current?.erc8004Id ?? undefined;
-    if (!erc8004Id) {
+    if (!DEMO_MODE && !erc8004Id) {
       try {
         const registered = await onchain.registerAgentIdentity({
           agentId,
@@ -59,7 +62,7 @@ export const createAgentIdentity = (onchain: Onchain): AgentIdentity => ({
     // Skip if already staked (refresh) so we don't top up on every re-provision.
     let stakeTxHash: string | undefined;
     let stakedUsdc: string | undefined = current?.stakedUsdc ?? undefined;
-    if (onchain.stakeSlash && walletAddress && !stakedUsdc) {
+    if (!DEMO_MODE && onchain.stakeSlash && walletAddress && !stakedUsdc) {
       try {
         stakeTxHash = await onchain.stakeSlash.depositFor(
           walletAddress as Address,

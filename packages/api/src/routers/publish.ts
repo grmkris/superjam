@@ -3,7 +3,7 @@
 // gasless EIP-3009 fee, outer from=relayer, still proves the OWNER paid, §12),
 // guard replays via the unique txHash, and list the app. Requires worldVerified.
 import { schema } from "@superjam/db";
-import { AppId, PUBLISH_FEE_USDC } from "@superjam/shared";
+import { AppId, DEMO_MODE, PUBLISH_FEE_USDC } from "@superjam/shared";
 import { PUBLIC_CHAIN, USDC, parseUsdc } from "@superjam/onchain";
 import { ORPCError } from "@orpc/server";
 import { eq } from "drizzle-orm";
@@ -25,26 +25,30 @@ export const publishRouter = {
       if (row.ownerUserId !== context.user.id) {
         throw new ORPCError("FORBIDDEN", { message: "Not your app" });
       }
-      if (!context.treasuryAddress) {
-        throw new ORPCError("INTERNAL", { message: "Treasury not configured" });
-      }
-      if (!context.user.walletAddress) {
-        throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
-      }
+      // DEMO: the fee was paid over a mocked relay (no real Transfer log) — skip the
+      // on-chain verification and list the app directly.
+      if (!DEMO_MODE) {
+        if (!context.treasuryAddress) {
+          throw new ORPCError("INTERNAL", { message: "Treasury not configured" });
+        }
+        if (!context.user.walletAddress) {
+          throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
+        }
 
-      const { from } = await tryOnchain(() =>
-        context.onchain.verifyUsdcTransfer({
-          hash: input.txHash as Hex,
-          chain: PUBLIC_CHAIN,
-          expectedTo: context.treasuryAddress!,
-          minAmount: parseUsdc(PUBLISH_FEE_USDC),
-        })
-      );
-      // §12: the fee must come from the OWNER's wallet (Transfer-log from).
-      if (!isAddressEqual(from, context.user.walletAddress as `0x${string}`)) {
-        throw new ORPCError("BAD_REQUEST", {
-          message: "Fee must be paid from your wallet",
-        });
+        const { from } = await tryOnchain(() =>
+          context.onchain.verifyUsdcTransfer({
+            hash: input.txHash as Hex,
+            chain: PUBLIC_CHAIN,
+            expectedTo: context.treasuryAddress!,
+            minAmount: parseUsdc(PUBLISH_FEE_USDC),
+          })
+        );
+        // §12: the fee must come from the OWNER's wallet (Transfer-log from).
+        if (!isAddressEqual(from, context.user.walletAddress as `0x${string}`)) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Fee must be paid from your wallet",
+          });
+        }
       }
 
       try {

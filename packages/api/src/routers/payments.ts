@@ -6,11 +6,13 @@
 import { schema } from "@superjam/db";
 import {
   AppId,
+  DEMO_MODE,
   TX_CAP_USDC,
   type UserId,
   X402_MAX_USDC,
   X402_QUOTA_COUNTER,
   X402_CALLS_PER_USER_APP_DAY,
+  fakeTxHash,
 } from "@superjam/shared";
 import {
   OnchainError,
@@ -158,6 +160,9 @@ export const paymentsRouter = {
         throw new ORPCError("BAD_REQUEST", { message: "Authorization expired" });
       }
 
+      // DEMO: don't depend on a funded server wallet; publish/pot verify is mocked too.
+      if (DEMO_MODE) return { txHash: fakeTxHash() };
+
       const txHash = await tryOnchain(() =>
         context.onchain.relayTransfer({
           chain: PUBLIC_CHAIN,
@@ -179,6 +184,7 @@ export const paymentsRouter = {
    *  insufficient-balance state + the top-up prompt (§15.1). Returns null when
    *  onchain is unconfigured or unreadable (the UI shows "—", never an error). */
   balance: protectedProcedure.handler(async ({ context }) => {
+    if (DEMO_MODE) return { publicUsdc: "42.50" };
     if (!context.user.walletAddress) return { publicUsdc: null };
     try {
       const bal = await context.onchain.usdcBalance(
@@ -206,6 +212,7 @@ export const paymentsRouter = {
       if (amount > TX_CAP) {
         throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
       }
+      if (DEMO_MODE) return { txHash: fakeTxHash() };
       const txHash = await tryOnchain(() =>
         context.onchain.sendUsdc(
           PUBLIC_CHAIN,
@@ -336,6 +343,7 @@ export const paymentsRouter = {
   /** The caller's SHIELDED balance — the in-app wallet (private by default).
    *  Returns null when privacy isn't enabled/configured (UI shows "—"). */
   privateBalance: protectedProcedure.handler(async ({ context }) => {
+    if (DEMO_MODE) return { shieldedUsdc: "18.75" };
     try {
       const bal = await context.unlink.balance(context.user.id);
       return { shieldedUsdc: formatUsdc(bal) };
@@ -354,6 +362,7 @@ export const paymentsRouter = {
       if (amount > TX_CAP) {
         throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
       }
+      if (DEMO_MODE) return { txHash: fakeTxHash() };
       const txHash = await tryOnchain(() =>
         context.unlink.deposit(context.user.id, amount)
       );
@@ -387,6 +396,9 @@ export const paymentsRouter = {
         absentMsg: string
       ): Promise<string> => {
         if (u.unlinkAddress) return u.unlinkAddress;
+        // DEMO: the shielded rail is down — hand back a placeholder so recipient
+        // resolution (and the chat money-line) still works without provisioning.
+        if (DEMO_MODE) return "unlink1demo000000000000000000000000000000000";
         try {
           const enabled = await context.unlink.enable(u.id);
           await context.db
@@ -440,9 +452,11 @@ export const paymentsRouter = {
         throw new ORPCError("BAD_REQUEST", { message: "Unrecognized recipient" });
       }
 
-      const txHash = await tryOnchain(() =>
-        context.unlink.transfer(context.user.id, toUnlink, amount)
-      );
+      const txHash = DEMO_MODE
+        ? fakeTxHash()
+        : await tryOnchain(() =>
+            context.unlink.transfer(context.user.id, toUnlink, amount)
+          );
 
       // Server-authoritative chat money-line for a friend send (best-effort: the
       // money has already moved; a non-friend @send simply records no line).
@@ -480,6 +494,16 @@ export const paymentsRouter = {
       const amount = parseUsdc(input.amount);
       if (amount > TX_CAP) {
         throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
+      }
+      // DEMO: the shielded/CCTP rail is down — report a successful top-up with a
+      // healthy balance so the wallet "Add funds" affordance works in the demo.
+      if (DEMO_MODE) {
+        return {
+          sourceChain: input.sourceChain,
+          shieldedUsdc: "18.75",
+          burnTxHash: input.sourceChain === "sepolia" ? fakeTxHash() : null,
+          mintTxHash: input.sourceChain === "sepolia" ? fakeTxHash() : null,
+        };
       }
       try {
         // Ensure the caller has a shielded account (idempotent); persist the address.

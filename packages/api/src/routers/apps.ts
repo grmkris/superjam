@@ -13,6 +13,7 @@ import {
   type AppManifest,
   AppManifestSchema,
   type BuildId,
+  DEMO_MODE,
   LIST_MAX,
   PLAYS_COUNTER,
   RESERVED_LABELS,
@@ -128,7 +129,7 @@ export const finalizeExternalApp = async (
   // chain-sourced catalog). NEVER fails finalize: a key-less / ENS-down env (or
   // an owner without a wallet) just lists the app un-named. Mirrors the
   // best-effort contract of createAgentIdentity.
-  if (onchain) {
+  if (onchain && !DEMO_MODE) {
     try {
       const owner = await db.query.user.findFirst({
         where: eq(user.id, row.ownerUserId),

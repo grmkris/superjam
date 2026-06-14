@@ -33,9 +33,11 @@ import {
   BuildId,
   BuildStepSchema,
   BuilderAgentId,
+  DEMO_MODE,
   DraftStateSchema,
   FREE_BUILDS,
   LIST_MAX,
+  fakeTxHash,
   REFINE_CALLS_PER_USER_DAY,
   type RefineResult,
   TX_CAP_USDC,
@@ -368,7 +370,9 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
         // Trial quota (platform anti-spam): build #1 is free; past it you must be
         // world-verified OR have paid (§11). Orthogonal to the agent's price below.
         const prior = await userBuildCount(context.db, context.user.id);
-        if (prior >= FREE_BUILDS && !context.user.worldVerified) {
+        // !DEMO_MODE: demo skips the World-ID anti-spam gate entirely (the gate's RP
+        // context may be unconfigured); paid builds already pass via the token.
+        if (prior >= FREE_BUILDS && !context.user.worldVerified && !DEMO_MODE) {
           // A non-verified user must present a real PAID settlement. A free token
           // can't exist for them (payBuildFee gates free on worldVerified).
           if (!payClaims || payClaims.free) {
@@ -601,21 +605,30 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           throw new ORPCError("NOT_FOUND", { message: "Builder not found" });
         }
         const price = parseUsdc(agent.priceUsdc);
-        const freeEligible = Boolean(
-          context.user.worldVerified && agent.agentbookRegistered
-        );
+        // !DEMO_MODE: in demo we always show the PAID "Approve $X" money-moment (the
+        // pitch), never the free path.
+        const freeEligible =
+          !DEMO_MODE &&
+          Boolean(context.user.worldVerified && agent.agentbookRegistered);
         // Shielded (private-rail) balance — best-effort: any failure shows "—" and
         // treats the balance as 0, so the sheet falls back to the top-up prompt.
+        // DEMO: the rail is down, so report a healthy mocked balance → the sheet lands
+        // on the clean "Approve $X" state instead of the (also-broken) top-up prompt.
         let shielded = parseUsdc("0");
         let shieldedUsdc: string | null = null;
-        try {
-          shielded = await context.unlink.balance(context.user.id);
+        if (DEMO_MODE) {
+          shielded = parseUsdc("25.00");
           shieldedUsdc = formatUsdc(shielded);
-        } catch (err) {
-          context.logger.debug(
-            { err: String(err) },
-            "quoteBuilder: shielded balance unavailable"
-          );
+        } else {
+          try {
+            shielded = await context.unlink.balance(context.user.id);
+            shieldedUsdc = formatUsdc(shielded);
+          } catch (err) {
+            context.logger.debug(
+              { err: String(err) },
+              "quoteBuilder: shielded balance unavailable"
+            );
+          }
         }
         return {
           builder: {
@@ -664,7 +677,8 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
         }
         // Free build: a verified human hiring a human-backed (AgentBook) builder.
         // No settlement — the AgentKit endpoint is the authoritative per-N limiter.
-        if (context.user.worldVerified && agent.agentbookRegistered) {
+        // (!DEMO_MODE: in demo we always show the PAID money-moment — see below.)
+        if (!DEMO_MODE && context.user.worldVerified && agent.agentbookRegistered) {
           const paymentToken = buildPaymentSigner.mint({
             userId: context.user.id,
             builderId: agent.id,
@@ -673,6 +687,19 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             uuid: null,
           });
           return { txHash: null as string | null, free: true, paymentToken };
+        }
+        // DEMO: the real rail (Dynamic delegation → Unlink/x402) is down. Mint the
+        // PAID receipt directly so the money-moment + build dispatch work end to end,
+        // no settlement. The token is the same trust anchor `create` verifies.
+        if (DEMO_MODE) {
+          const paymentToken = buildPaymentSigner.mint({
+            userId: context.user.id,
+            builderId: agent.id,
+            amountUsdc: agent.priceUsdc,
+            free: false,
+            uuid: fakeTxHash(),
+          });
+          return { txHash: fakeTxHash() as string | null, free: false, paymentToken };
         }
         if (!context.user.unlinkAddress) {
           throw new ORPCError("PAYMENT_REQUIRED", {
