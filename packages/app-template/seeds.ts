@@ -91,13 +91,13 @@ export const SEED_JAMS: SeedJam[] = [
     },
   },
   {
-    entry: "examples/trip-guide.tsx",
+    entry: "examples/japan-itinerary.tsx",
     skills: ["map", "art"],
     manifest: {
-      name: "Trip Guide",
-      slug: "trip-guide",
-      description: "Describe a trip; get a day-by-day plan on a map with markers, postcards, and a route.",
-      iconEmoji: "🧭",
+      name: "10 Days in Japan",
+      slug: "japan-itinerary",
+      description: "A curated 10-day Japan itinerary — Tokyo to Miyajima — on a live map, with food, transit, tips, and an ask-the-guide AI.",
+      iconEmoji: "🗾",
       category: "other",
       capabilities: ["ai"],
     },

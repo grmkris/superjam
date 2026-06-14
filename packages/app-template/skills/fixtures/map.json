@@ -1,37 +1,34 @@
 {
-  "name": "Trip Guide",
-  "slug": "trip-guide",
-  "description": "Describe a trip and get a day-by-day itinerary plotted on a map with markers and a route.",
-  "iconEmoji": "🧭",
+  "name": "10 Days in Japan",
+  "slug": "japan-itinerary",
+  "description": "A curated 10-day Japan itinerary — Tokyo to Miyajima — with the route on a live map, a photo and food/transit/tips per stop, and an ask-the-guide AI.",
+  "iconEmoji": "🗾",
   "category": "other",
   "capabilities": ["ai"],
   "features": [
-    "Player types a trip in plain words; sdk.ai.chat returns a day-by-day itinerary as JSON with coordinates",
-    "Stops render on the seeded map as day-coloured numbered markers joined by a route line",
-    "A postcard image per stop (by vibe category) with an emoji fallback",
-    "Save the last trip to sdk.storage and restore it on open; share it via sdk.share.link",
-    "A community destinations leaderboard via sdk.data.counter"
+    "A complete curated 10-day itinerary authored at build time: 7 real stops in order (Tokyo, Hakone, Kyoto, Nara, Osaka, Hiroshima, Miyajima) with coordinates, descriptions, highlights, food, transit, and tips",
+    "A hero image and a trip-at-a-glance summary",
+    "The route on the seeded MapLibre map: day-coloured numbered markers + a route line across Japan",
+    "A baked photo per stop (real scenes) with an emoji/gradient fallback",
+    "An ask-the-guide box: sdk.ai.chat grounded in the itinerary answers trip questions",
+    "Bookmark favourite stops to per-user storage; polish with plain CSS only"
   ],
   "data": {
     "collections": [],
-    "counters": [
-      { "name": "destinations", "keyedBy": "country", "meaning": "how many trips the community has planned to each country" }
-    ],
-    "storage": [
-      { "key": "trip", "meaning": "the player's most recently planned itinerary" }
-    ]
+    "counters": [],
+    "storage": [{ "key": "favorites", "meaning": "stops the user bookmarked" }]
   },
-  "ai": { "uses": ["plan a day-by-day trip itinerary as JSON with stop coordinates"] },
+  "ai": { "uses": ["answer questions about this specific baked Japan itinerary"] },
   "ui": {
-    "layout": "single card: a prompt box, the map, a list of stop cards, then a leaderboard",
-    "sections": ["trip prompt", "map", "stop cards", "destinations leaderboard"]
+    "layout": "hero + trip-at-a-glance, route map, one rich card per stop, an ask-the-guide box",
+    "sections": ["hero", "route map", "stop cards", "ask the guide"]
   },
   "skills": ["map", "art"],
   "acceptance": [
-    "Entering a prompt and tapping Plan produces an itinerary plotted on the map",
-    "Each stop shows a numbered, day-coloured marker and a route line connects them in order",
-    "Coordinates from the AI are validated; a fallback itinerary renders if the AI output is unusable",
-    "The trip is saved and restored on reopen, and Share copies a working link",
-    "Planning a trip increments the destinations leaderboard"
+    "On open with no input the full 10-day itinerary, map, and all 7 stop cards are already present",
+    "The map shows all 7 stops as numbered markers joined by a route line across Japan, auto-fit",
+    "Each stop card has a photo (with emoji fallback), description, highlights, food picks, transit, and a tip",
+    "Ask-the-guide calls sdk.ai.chat with the itinerary as context, shows a loading state, and degrades gracefully",
+    "Bookmarks persist to storage; polish uses plain CSS only with no added dependency"
   ]
 }

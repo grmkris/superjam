@@ -34,5 +34,5 @@ instead of `MiniMap`; the contract (`{ name, lat, lng, day }[]`) is the same, so
 code written against `MiniMap` here maps straight over. See the builder's
 `recipes/map.md` + `recipes/travel.md`.
 
-The full worked app is `examples/trip-guide.tsx` (AI plans a trip → map +
-postcards + save/share + a destinations leaderboard).
+The full worked app is `examples/japan-itinerary.tsx` (a curated 10-day Japan
+guide → route on the map + per-stop cards + an ask-the-guide AI).

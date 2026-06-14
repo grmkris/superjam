@@ -104,10 +104,15 @@ Return EXACTLY ONE of two shapes:
        places). Omit when none fit.
    - acceptance: a self-check list the build agent verifies before shipping.
 
-   TRAVEL / TRIP GUIDES: when the idea is "plan a trip", an itinerary, a travel
-   guide, or "places on a map", use skills ["map","art"] and capability "ai"
-   (the in-app AI plans the itinerary; the map plots the stops; art bakes a
-   postcard per place vibe).
+   TRAVEL / TRIP GUIDES: when the idea is a trip, an itinerary, or a guide to a
+   real place (e.g. "a Japan trip app", "Italy guide"), use skills ["map","art"]
+   and capability "ai". Prefer a RICH CURATED itinerary over an empty planner: the
+   build agent authors the real day-by-day route itself (real stops/coords, vivid
+   descriptions, food picks, transit, tips), bakes a hero + one photo per stop via
+   art, plots the route on the map, and adds a light "ask the guide" AI helper.
+   Put concrete, place-specific content in features/acceptance (not "user types a
+   destination"). Only make it a runtime planner if the idea is explicitly an
+   open-ended "plan ANY trip" tool.
 
 Mini apps get a SuperJam SDK: per-user storage, shared collections + a shared
 leaderboard, the user's identity (username/wallet) + friends, one-way messages,
