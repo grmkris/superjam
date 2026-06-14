@@ -1,9 +1,10 @@
 // Friends + chat social primitives (§3e). The user↔user direct-message stream
-// carries three kinds; a `card` is an app/host-supplied render-spec (PLAIN TEXT
-// only — the host renders it, never as HTML) with a deeplink CTA.
+// carries four kinds; a `card` is an app/host-supplied render-spec (PLAIN TEXT
+// only — the host renders it, never as HTML) with a deeplink CTA. A `request` is
+// a money ask (amountUsdc + optional note) the recipient can pay from the thread.
 import { z } from "zod";
 
-export const DM_KINDS = ["text", "card", "tip"] as const;
+export const DM_KINDS = ["text", "card", "tip", "request"] as const;
 export type DmKind = (typeof DM_KINDS)[number];
 
 // A render-spec card an app (via sdk.social.send) or the host (share/challenge)

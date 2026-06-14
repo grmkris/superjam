@@ -7,6 +7,7 @@
 import type { AppId } from "@superjam/shared";
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { NameTag } from "../../../components/name-tag";
 import { FriendPicker } from "../../../components/chat/friend-picker";
 import { VerifiedBadge } from "../../../components/verified-badge";
@@ -181,7 +182,14 @@ export default function JamPage({
         <div className="flex flex-col gap-0.5 min-w-0">
           <div className="font-extrabold text-h3 truncate">{jam.name}</div>
           <div className="flex items-center gap-1.5 text-small font-semibold text-muted">
-            by @{jam.maker.username}{" "}
+            by{" "}
+            {jam.maker.username === "maker" ? (
+              <span>@{jam.maker.username}</span>
+            ) : (
+              <Link href={`/u/${jam.maker.username}`} className="focus-ring font-bold hover:text-ink">
+                @{jam.maker.username}
+              </Link>
+            )}{" "}
             {jam.maker.verified && <VerifiedBadge variant="pill" />}
           </div>
         </div>
@@ -315,8 +323,13 @@ function ReviewCard({ r, tilt }: { r: Review; tilt: number }) {
   return (
     <StickerCard color="white" className="p-3.5 flex flex-col gap-1.5" tilt={tilt}>
       <div className="flex items-center gap-2">
-        <EmojiToken emoji="🙂" color="green" size={30} />
-        <span className="font-extrabold text-small">@{r.username}</span>
+        <Link
+          href={`/u/${r.username}`}
+          className="focus-ring flex items-center gap-2 sticker-press"
+        >
+          <EmojiToken emoji="🙂" color="green" size={30} />
+          <span className="font-extrabold text-small">@{r.username}</span>
+        </Link>
         {r.worldVerified && <VerifiedBadge variant="pill" />}
         <span className="ml-auto text-tiny font-semibold text-muted">
           {ago(r.createdAt)}

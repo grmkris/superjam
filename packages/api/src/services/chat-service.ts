@@ -10,6 +10,7 @@ import {
   LIST_MAX,
   MSG_PER_PAIR_PER_MIN,
   MSG_PER_SENDER_PER_MIN,
+  TX_CAP_USDC,
   type UserId,
 } from "@superjam/shared";
 import {
@@ -237,6 +238,28 @@ export const createChatService = ({
         toUserId: other,
         kind: "text",
         text,
+      });
+    },
+
+    /** Ask a friend for money — a `request` line the recipient can pay straight
+     *  from the thread (the Pay button reuses the payFriend confirm flow). No
+     *  money moves here; it's a request, friendship-gated like every DM. */
+    async requestMoney(from: Sender, to: string, amountUsdc: string, note?: string) {
+      const other = await friends.resolveUserId(to);
+      await assertFriend(from.id, other);
+      checkRate(from.id, other);
+      const n = Number(amountUsdc);
+      if (!Number.isFinite(n) || n <= 0 || n > Number(TX_CAP_USDC)) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: `Enter 0–${TX_CAP_USDC} USDC`,
+        });
+      }
+      return insert({
+        fromUserId: from.id,
+        toUserId: other,
+        kind: "request",
+        amountUsdc,
+        text: note ?? null,
       });
     },
 

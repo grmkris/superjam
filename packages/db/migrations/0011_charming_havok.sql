@@ -1,0 +1,1 @@
+ALTER TYPE "public"."dm_kind" ADD VALUE 'request';

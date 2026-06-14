@@ -57,6 +57,26 @@ export const chatRouter = {
       )
     ),
 
+  requestMoney: protectedProcedure
+    .input(
+      z.object({
+        to: z.string().min(1),
+        amountUsdc: z.string().min(1),
+        note: z.string().max(80).optional(),
+      })
+    )
+    .handler(({ context, input }) =>
+      createChatService({
+        db: context.db,
+        rateLimiter: context.rateLimiter,
+      }).requestMoney(
+        { id: context.user.id, username: context.user.username },
+        input.to,
+        input.amountUsdc,
+        input.note
+      )
+    ),
+
   recordTip: protectedProcedure
     .input(z.object({ to: z.string().min(1), txHash: z.string().min(1) }))
     .handler(({ context, input }) =>

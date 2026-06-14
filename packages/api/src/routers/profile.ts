@@ -11,7 +11,12 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { tryOnchain } from "../lib/onchain-errors.ts";
-import { protectedProcedure, worldVerifiedProcedure } from "../orpc.ts";
+import {
+  optionalAuthProcedure,
+  protectedProcedure,
+  worldVerifiedProcedure,
+} from "../orpc.ts";
+import { createFriendService } from "../services/friend-service.ts";
 
 const { user: userTable } = schema;
 type User = typeof schema.user.$inferSelect;
@@ -39,6 +44,38 @@ export const toMe = (user: User) => ({
 
 export const profileRouter = {
   me: protectedProcedure.handler(({ context }) => toMe(context.user)),
+
+  // Public profile by handle (viewer-aware) — backs the /u/<username> page where
+  // you can friend/unfriend, send money, and (when friends) ask for money. Only
+  // public-safe fields; `isFriend`/`isMe` are resolved against the logged-in
+  // viewer when present (anonymous viewers get isFriend=false).
+  get: optionalAuthProcedure
+    .input(z.object({ username: z.string().min(1) }))
+    .handler(async ({ context, input }) => {
+      const handle = input.username.trim().toLowerCase().replace(/^@/, "");
+      const u = await context.db.query.user.findFirst({
+        where: eq(userTable.username, handle),
+      });
+      if (!u) {
+        throw new ORPCError("NOT_FOUND", { message: `Unknown user @${handle}` });
+      }
+      const me = context.user;
+      const isMe = me?.id === u.id;
+      const isFriend =
+        me && !isMe
+          ? await createFriendService({ db: context.db }).areFriends(me.id, u.id)
+          : false;
+      return {
+        id: u.id,
+        username: u.username,
+        ensName: u.ensName,
+        worldVerified: u.worldVerified,
+        walletAddress: u.walletAddress,
+        createdAt: u.createdAt,
+        isMe: Boolean(isMe),
+        isFriend,
+      };
+    }),
 
   // Live availability for the welcome/claim screen — format + uniqueness
   // (excludes the caller's own current handle so re-confirming is "free").

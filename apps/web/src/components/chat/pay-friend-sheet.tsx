@@ -1,7 +1,9 @@
 "use client";
 
 // PayFriendSheet (DESIGN_BRIEF §3e-iv) — pick an amount + note before the confirm
-// sheet. ≤25 USDC (TX_CAP_USDC; the confirm sheet enforces it too).
+// sheet. ≤25 USDC (TX_CAP_USDC; the confirm sheet enforces it too). Doubles as the
+// "ask for money" sheet (action="request") — same validated amount widget, just a
+// different verb/emoji/colour; requesting moves no money, it sends a request line.
 import { TX_CAP_USDC } from "@superjam/shared";
 import { useState } from "react";
 import { Input } from "../ui/field";
@@ -14,15 +16,20 @@ export function PayFriendSheet({
   username,
   onSend,
   onClose,
+  action = "pay",
 }: {
   username: string;
   onSend: (amountUsdc: number, note: string) => void;
   onClose: () => void;
+  /** "pay" sends money; "request" asks the friend for it. */
+  action?: "pay" | "request";
 }) {
   const [amount, setAmount] = useState("1");
   const [note, setNote] = useState("");
   const n = Number(amount);
   const valid = Number.isFinite(n) && n > 0 && n <= CAP;
+  const request = action === "request";
+  const title = `${request ? "Ask" : "Pay"} @${username}`;
 
   return (
     <ToyboxSheet
@@ -30,11 +37,11 @@ export function PayFriendSheet({
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
-      title={`Pay @${username}`}
+      title={title}
     >
       <div className="flex items-center gap-2.5">
-        <EmojiToken emoji="💸" color="green" size={40} />
-        <div className="text-h3 font-extrabold">Pay @{username}</div>
+        <EmojiToken emoji={request ? "🙏" : "💸"} color={request ? "yellow" : "green"} size={40} />
+        <div className="text-h3 font-extrabold">{title}</div>
       </div>
 
       <div className="flex flex-col items-center gap-1">
@@ -57,17 +64,17 @@ export function PayFriendSheet({
         value={note}
         onChange={(e) => setNote(e.target.value)}
         maxLength={80}
-        placeholder="add a note…"
+        placeholder={request ? "what's it for?…" : "add a note…"}
       />
 
       <StickerButton
-        color="green"
+        color={request ? "yellow" : "green"}
         size="lg"
         block
         disabled={!valid}
         onClick={() => onSend(n, note.trim())}
       >
-        Send {valid ? n.toFixed(2) : "—"} USDC →
+        {request ? "Ask for" : "Send"} {valid ? n.toFixed(2) : "—"} USDC →
       </StickerButton>
     </ToyboxSheet>
   );

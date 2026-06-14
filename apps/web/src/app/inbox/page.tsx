@@ -257,7 +257,7 @@ function Friends() {
 interface Msg {
   id: string;
   fromMe: boolean;
-  kind: "text" | "card" | "tip";
+  kind: "text" | "card" | "tip" | "request";
   text: string | null;
   card: { title: string; body?: string; icon?: string; cta?: string } | null;
   link: string | null;
@@ -274,6 +274,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
   const [draft, setDraft] = useState("");
   const [picking, setPicking] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -338,6 +339,14 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
     load();
   };
 
+  const requestMoney = async (amountUsdc: number, note: string) => {
+    setRequesting(false);
+    await client.chat
+      .requestMoney({ to: friend.username, amountUsdc: String(amountUsdc), note: note || undefined })
+      .catch(() => {});
+    load();
+  };
+
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center gap-2">
@@ -353,6 +362,23 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
             {m.kind === "tip" ? (
               <div className="flex items-center gap-2 bg-green border-2 border-ink rounded-2xl px-3.5 py-2 text-small font-extrabold shadow-sticker-sm">
                 💸 {m.fromMe ? "sent" : "got"} {m.amountUsdc} USDC
+              </div>
+            ) : m.kind === "request" ? (
+              <div className="flex flex-col gap-1.5 bg-yellow border-2 border-ink rounded-2xl px-3.5 py-2.5 shadow-sticker-sm">
+                <div className="text-small font-extrabold">
+                  🙏 {m.fromMe ? "you asked for" : `@${friend.username} asked for`} {m.amountUsdc} USDC
+                </div>
+                {m.text && <div className="text-small font-semibold leading-snug">{m.text}</div>}
+                {!m.fromMe && (
+                  <StickerButton
+                    color="green"
+                    size="sm"
+                    className="self-start rounded-full"
+                    onClick={() => pay(Number(m.amountUsdc), m.text ?? "")}
+                  >
+                    Pay {m.amountUsdc} USDC →
+                  </StickerButton>
+                )}
               </div>
             ) : m.kind === "card" && m.card ? (
               <MessageCard
@@ -385,8 +411,15 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
           💸
         </button>
         <button
-          onClick={() => setPicking(true)}
+          onClick={() => setRequesting(true)}
           className="focus-ring size-11 bg-yellow border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          aria-label="Ask for money"
+        >
+          🙏
+        </button>
+        <button
+          onClick={() => setPicking(true)}
+          className="focus-ring size-11 bg-blue border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Share a jam"
         >
           🎮
@@ -407,6 +440,14 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
           username={friend.username}
           onSend={pay}
           onClose={() => setPaying(false)}
+        />
+      )}
+      {requesting && (
+        <PayFriendSheet
+          username={friend.username}
+          action="request"
+          onSend={requestMoney}
+          onClose={() => setRequesting(false)}
         />
       )}
     </div>
