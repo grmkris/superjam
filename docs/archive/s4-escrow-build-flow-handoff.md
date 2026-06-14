@@ -1,3 +1,6 @@
+> _Archived 2026-06-14 — handoff complete; the StakeSlash escrow is live on Arc.
+> For current state see `SPEC.md` §0.3 + `docs/bounties/`._
+
 # S4 — Wiring the StakeSlash escrow into the live build flow (handoff)
 
 **Status:** the escrow is DEPLOYED + lifecycle-proven LIVE on Arc (see

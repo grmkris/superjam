@@ -38,6 +38,12 @@ changes: hosting (apps self-host), the app model (`entryUrl`), identity issuance
 - **Identity (new §1)**: platform mints short-lived ES256 app-tokens; external
   backends verify against `/.well-known/jwks.json` (aud=appId). `sdk.auth.getToken()`.
 
+> _The three sections below (Phasing, Lane Ownership, Build Discipline) are
+> **historical — the parallel-build coordination era (2026-06-13)**. The work they
+> coordinated is done (P1–P3 shipped; P4 Track-A decommission landed 2026-06-14).
+> Kept for provenance. The live architecture is the two sections above + `SPEC.md`
+> §0.3._
+
 ## Phasing (P1 additive — nothing gets ripped out until P4)
 
 - **P1 (in flight, %67)**: identity issuer + JWKS + `auth.getToken`; `app.entryUrl/

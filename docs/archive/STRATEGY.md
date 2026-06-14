@@ -1,3 +1,6 @@
+> _Archived 2026-06-14 — historical pre-event planning (schedule now past). For
+> current state see `SPEC.md` §0.3 + `docs/PIVOT.md`._
+
 # Mini-app host platform — ETHGlobal NYC build
 
 _Date: 2026-06-10. Updated for ETHGlobal NYC (Jun 12–14, Metropolitan
