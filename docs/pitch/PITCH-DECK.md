@@ -6,9 +6,9 @@
 > purpose — the live demo is the pitch**; slides are scaffolding, not a wall of text.
 > Big type, one idea per slide. Target ~5 minutes total (≈3 min of it is the live demo).
 
-**Event:** ETHGlobal New York 2026. **Prize targets (weight the narrative across all,
-ENS is the single largest):** ENS $20K · World $15K · Arc/Circle $15K · Dynamic $10K ·
-Unlink $5K.
+**Event:** ETHGlobal New York 2026. This is a **presentation of the project** —
+frame everything around what SuperJam does and why it's real. The live demo is the
+pitch; slides are scaffolding.
 
 ---
 
@@ -28,7 +28,7 @@ Unlink $5K.
 ## Slide 3 — What it is
 - **Headline:** A marketplace of AI-built "jams."
 - **The loop, one line each (with emoji):**
-  - 🗣️ Describe it → 🤖 an agent builds + ships a real app
+  - 🗣️ Describe it → 🤖 an agent builds + ships a real app — a toy, a tool, or an on-chain game
   - 🏷️ It gets a name on ENS · 💸 it's paid in USDC · 🌍 only humans play
 - Visual: 2–3 real jam cards as stickers (e.g. *Tip Jar*, *Spending Explainer*,
   *Trivia*), each wearing a `name.superjam.eth` name tag.
@@ -44,16 +44,18 @@ Unlink $5K.
 - One caption line: *"Not five integrations — one loop where each is on the critical
   path."*
 
-## Slide 6 — Why each sponsor, in one line (optional combine with slide 5)
-Five short rows, each with the sponsor logo + the *why*:
-- **🔑 Dynamic** — no seed phrase; *and the builder is an autonomous agent with its
-  own server wallet that signs + mints.*
-- **🏷️ ENS** — a human-readable name for every jam *and every agent*: provenance for
-  AI-built apps.
-- **🌍 World ID** — an open AI-app marketplace needs a bot wall: reviews + publishing
-  are one-human-one-account.
-- **🟢 Arc / Circle** — micro-tips only work gasless: USDC via EIP-3009, no ETH.
-- **🕶️ Unlink** — …and private: nanopayments off the public ledger.
+## Slide 6 — How the pieces fit, one line each (optional combine with slide 5)
+Six short capability rows (lead with what it does; the tech is named small):
+- **🔑 Wallet** — email in, a wallet exists. No seed phrase, no gas. *(Dynamic)*
+- **🏷️ Names** — every jam gets a human-readable on-chain name; provenance is
+  readable from the name itself. *(ENS)*
+- **🌍 Humans only** — building and reviewing need proof of personhood, so the
+  marketplace can't be bot-flooded. *(World ID)*
+- **🟢 Money** — tips and payments are gasless USDC, **private by default**. *(Arc · Circle · Unlink)*
+- **🎮 On-chain games** — a jam can be a real on-chain game; the agent deploys a
+  contract per jam, writes relayed so players never hold ETH. *(Arc)*
+- **🤖 Accountable agents** — the builder isn't anonymous: it carries an on-chain
+  identity + reputation, human-backed. *(ERC-8004 · AgentKit)*
 
 ## Slide 7 — Vision / close
 - **Headline (huge):** Built by an AI agent. Named on ENS. Paid in USDC. Ranked by
@@ -67,9 +69,11 @@ Five short rows, each with the sponsor logo + the *why*:
 - **A1 — Architecture deep-dive:** the sandboxed-iframe + SDK identity seam (ES256
   JWT verified against JWKS), so a jam is a real external app that never touches the
   user's wallet.
-- **A2 — Proof it's real:** live txs (gasless USDC relay on Arc, MPC-signed by the
-  Dynamic server wallet), a real agent-built+deployed jam (*Spending Explainer*), an
-  ENS name resolving in standard tooling.
+- **A2 — Proof it's real (small "receipt" stickers, not a wall):** a gasless USDC
+  relay on Arc (MPC-signed server wallet); a real agent-built+deployed jam
+  (*Spending Explainer*); an ENS name resolving in standard tooling; an **on-chain
+  game-contract tx on Arc**; a **live private payment** (x402, off the public
+  ledger); the **agent's on-chain identity** (ERC-8004 + AgentKit, human-backed).
 
 ## Notes for the designer
 - Keep word counts brutal — headline + ≤1 supporting line per slide.

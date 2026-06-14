@@ -10,9 +10,10 @@ hears the story.)
 ## The 10-second universal opener
 
 > "I'm building **SuperJam — Telegram Mini Apps for the open web, built by
-> AI**. You describe a **jam** — a mini app or game — and it's built and
-> deployed in under a minute, running sandboxed with wallet, identity,
-> payments, and social baked in through an SDK. You discover jams in a
+> AI**. You describe a **jam** — a mini app or a **real on-chain game** (the
+> agent deploys a game contract per jam; the SDK reads/writes it, gas relayed) —
+> and it's built and deployed in under a minute, running sandboxed with wallet,
+> identity, payments, and social baked in through an SDK. You discover jams in a
 > TikTok-style feed and **play them right there**. Want to see one get made
 > right now?"
 
@@ -62,8 +63,8 @@ their own World App — exactly what judges do Sunday.
 honored.* · What breaks without it? → *"spam apps, bot leaderboards, sybil
 remix farms, inbox spam, astroturfed reviews. A constraint, not a checkbox."*
 · AgentKit usage? → *agent registered via CLI, bound to my World App; identity
-panel shows human-backed next to its ENS records; x402 on the agent endpoint
-if time.*
+panel shows human-backed next to its ENS records; **AgentKit free-trial is wired
+onto the agent's x402 endpoint (live).***
 
 **Read for:** AgentKit ($7.5K) vs World ID. If they lean in at "human-backed
 builder agent", AgentKit it is; World ID is the zero-cost fallback.
@@ -103,8 +104,8 @@ Circle flow: Add funds does a fast CCTP burn/mint (Sepolia → Arc) straight int
 the confidential balance** — Circle's bridge AND its gasless USDC in one
 product. And jams can make private *nanopayments*
 too: `sdk.payments.payX402` pays a paywalled resource via Circle Gateway from a
-shielded Arc balance — all four (Dynamic+Unlink+Circle+Arc) in one call (gated;
-tips alone already cover 3)." Asks: recipient note-discovery latency
+shielded Arc balance — all four (Dynamic+Unlink+Circle+Arc) in one call (**proven
+live — Circle settlement header confirmed**)." Asks: recipient note-discovery latency
 (how fast does a judge SEE the tip?) · deterministic `personal_sign` for key
 derivation (also ask Dynamic) · does Arc-as-chain satisfy the "all three
 technologies" rule or is the Circle Gateway/x402 leg required? SDK is

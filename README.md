@@ -8,8 +8,10 @@
 > (`username.superjam.eth`) and their jams publish under it
 > (`appslug.username.superjam.eth`).
 
-Built for **ETHGlobal NYC 2026**. Testnet-only event posture (Base Sepolia core
-+ Sepolia ENS L1 + Arc testnet privacy rail). The full build bible is
+Built for **ETHGlobal NYC 2026**. Testnet-only posture, two chains: **Arc
+testnet** (money — USDC tips/payments, on-chain game contracts) + **Ethereum
+Sepolia L1** (identity — ENSv2 names + ERC-8004 agent identity, CCTP source).
+The full build bible is
 [`SPEC.md`](./SPEC.md); design is [`docs/DESIGN_BRIEF.md`](./docs/DESIGN_BRIEF.md)
 + [`docs/design/`](./docs/design/) (the round-8 Toybox mockups are authoritative
 for look/UX).
@@ -19,7 +21,7 @@ for look/UX).
 ```
 apps/
   web/          Next.js 16 host shell + host bridge lib
-  server/       Bun + Hono + oRPC backend + bundle serving
+  server/       Bun + Hono + oRPC backend (identity tokens, payments, bridge)
   gateway/      Caddy
 packages/
   sdk/          @superjam/sdk — child-side bridge client + SDK.md
@@ -27,8 +29,8 @@ packages/
   db/           Drizzle schema + migrations (Postgres 17)
   shared/       SERVICE_URLS, env schema, typeid, capabilities, constants,
                 bridge envelope zod schemas
-  onchain/      viem chains, USDC helpers, Durin mint/read, agent wallet adapter
-  builder/      codegen + bundle + upload + register pipeline
+  onchain/      viem chains, USDC helpers, ENSv2 mint/read, ERC-8004 + agent wallet
+  builder/      generate → deploy (Vercel + Neon) → register pipeline
   app-template/ the mini-app template + skills/ + examples/
   logger/       thin pino wrapper
 ```

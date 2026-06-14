@@ -24,9 +24,12 @@ Draw it as a left-to-right **loop** in three labelled bands. Each band is a "rin
 
 **Ring 2 — Creation (what)**
 - You type a prompt → 🤖 **AI Builder Agent** (has its *own* Dynamic server wallet,
-  and an **ERC-8004 on-chain identity** — agent NFT + reputation — human-backed via World ID).
+  and an **ERC-8004 on-chain identity** — agent NFT + reputation — **human-backed via
+  World ID / AgentKit**, not anonymous). Builders are a **marketplace** — no house
+  builder; anyone can register one.
 - Agent **generates a Next.js app + Neon DB** → **deploys to Vercel** → registers its
-  `entryUrl`.
+  `entryUrl`. For an on-chain game, it also **deploys a bespoke game contract on Arc**
+  and wires the SDK to read/write it.
 - Agent **mints `slug.you.superjam.eth`** natively in **ENSv2 on Sepolia L1** — a real
   subname **nested under the user** (ENSIP-10 wildcard), **resolvable in standard ENS
   tooling** (`app.ens.domains`, viem/ethers), not a closed registry.
@@ -38,6 +41,10 @@ Draw it as a left-to-right **loop** in three labelled bands. Each band is a "rin
 - Inside a jam you **tip USDC** → host **confirm sheet** (the only thing that touches
   your wallet) → **EIP-3009 gasless** transfer → **server wallet relays on Arc**
   (gas paid in USDC, no ETH) → **private via Unlink**.
+- **On-chain game writes** go through `sdk.onchain` → **operator-relayed, gasless** on
+  the jam's Arc contract; the player never holds ETH.
+- **Private nanopayments (proven live):** `sdk.payments.payX402` pays a paywalled
+  resource from a shielded Arc balance via Circle Gateway — off the public ledger.
 - **Add funds:** a **fast CCTP** burn/mint (Circle, Sepolia → Arc) lands USDC in a
   **confidential Unlink balance**; tips then spend from it, off the public ledger.
 
@@ -51,8 +58,9 @@ flowchart LR
   end
   subgraph MAKE["② CREATION — what"]
     U -->|"describe a jam"| HOST[SuperJam host]
-    HOST --> AGENT[🤖 AI Builder Agent<br/>own Dynamic server wallet · ERC-8004 identity]
+    HOST --> AGENT[🤖 AI Builder Agent<br/>own server wallet · ERC-8004 identity · human-backed]
     AGENT -->|generate + ship| VERCEL[▲ Vercel + Neon app]
+    AGENT -->|deploy game contract| GAME[🎮 Arc game contract]
     AGENT -->|mint slug.you.superjam.eth · ENSv2| ENS
     VERCEL --> JAM[▦ The Jam<br/>sandboxed iframe + SDK bridge]
     JAM -->|getToken → ES256 JWT<br/>jam backend verifies vs JWKS| HOST
@@ -61,23 +69,27 @@ flowchart LR
     FUND[➕ Add funds] -->|fast CCTP · Sepolia→Arc| BAL[🕶️ confidential Unlink balance]
     JAM -->|tip USDC| CONFIRM[💸 host confirm sheet]
     CONFIRM -->|EIP-3009 · gasless on Arc| ARC[🟢 Arc / Circle relay]
+    JAM -->|onchain writes · relayed gasless| GAME
+    JAM -->|payX402 nanopayment · proven live| BAL
     ARC -->|private| BAL
   end
   WORLD -->|gate publish + reviews| HOST
 ```
 
 ## Caption (put under the diagram)
-*"One loop. Dynamic = invisible wallets + an autonomous agent wallet. ENS = a name
-for every agent-built app, resolvable in any standard ENS tool. World ID = a bot wall
-for an open marketplace. Arc/Circle = gasless USDC so micro-tips actually work; fast
-CCTP to add funds. Unlink = and private."*
+*"One loop. Invisible wallets + an autonomous, human-backed agent. A name for every
+agent-built app, resolvable in any standard ENS tool. A bot wall for an open
+marketplace. Gasless USDC so micro-tips actually work; jams can be real on-chain
+games with relayed writes — and payments are private by default."*
 
 ## Tech stack (small footer, optional)
 Next.js 16 · Hono + oRPC · Drizzle + Postgres/Neon · Dynamic (auth + embedded +
-server wallet) · World ID 4.0 · **ENSv2 names on Sepolia L1** (standard-tooling
-resolvable) · **ERC-8004** agent identity + reputation · USDC EIP-3009 on Arc · Circle
-**CCTP + Gateway** · Unlink confidential balance. Jams are external apps (Vercel + own
-DB) framed cross-origin and unified only by the SDK + identity + payments + naming.
+server wallet) · World ID 4.0 + **AgentKit** (human-backed agent) · **ENSv2 names on
+Sepolia L1** (standard-tooling resolvable) · **ERC-8004** agent identity + reputation ·
+USDC EIP-3009 on Arc · **bespoke Arc game contracts** (operator-relayed gasless
+writes) · Circle **CCTP + Gateway** (**x402 nanopayments, proven live**) · Unlink
+confidential balance. Jams are external apps (Vercel + own DB) framed cross-origin and
+unified only by the SDK + identity + payments + naming.
 
 ## Visual direction — "Toybox"
 The brand is **playful and warm — a name tag on a toy, not cold crypto/bank UI.**
