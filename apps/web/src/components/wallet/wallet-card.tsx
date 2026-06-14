@@ -9,8 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EmojiToken, StickerButton, StickerCard } from "../ui/sticker";
 import { Skeleton } from "../ui/skeleton";
 import { usePlatformClient } from "../use-platform-client";
-
-const AIRDROP_USDC = "5";
+import { AIRDROP_USDC, useTopUp } from "./use-top-up";
 
 type Bal = string | null | "loading";
 
@@ -57,9 +56,8 @@ function AnimatedUsdc({ value }: { value: string | null }) {
 
 export function WalletCard({ walletAddress }: { walletAddress: string | null }) {
   const client = usePlatformClient();
+  const { topUp, busy, error } = useTopUp();
   const [priv, setPriv] = useState<Bal>("loading");
-  const [busy, setBusy] = useState<null | "drop" | "shield">(null);
-  const [error, setError] = useState<string | null>(null);
   const [flyKey, setFlyKey] = useState(0);
   const [flying, setFlying] = useState(false);
   const sweptRef = useRef(false);
@@ -101,18 +99,9 @@ export function WalletCard({ walletAddress }: { walletAddress: string | null }) 
   }, [client, refetch, burst]);
 
   const airdrop = async () => {
-    setBusy("drop");
-    setError(null);
-    try {
-      await client.payments.faucetPublic({ amount: AIRDROP_USDC });
-      setBusy("shield");
-      await client.payments.depositPrivate({ amount: AIRDROP_USDC });
+    if (await topUp()) {
       burst();
       refetch();
-    } catch {
-      setError("Airdrop failed — try again.");
-    } finally {
-      setBusy(null);
     }
   };
 

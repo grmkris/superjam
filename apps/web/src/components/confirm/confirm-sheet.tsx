@@ -6,7 +6,7 @@
 // your wallet", not by a change of visual language. Four states.
 import type { BuilderAgentId } from "@superjam/shared";
 import { useCallback, useEffect, useState } from "react";
-import { AddFundsSheet } from "../add-funds-sheet";
+import { useTopUp } from "../wallet/use-top-up";
 import { HumanBackedBadge } from "../builder-bits";
 import { NameTag } from "../name-tag";
 import { basescan } from "../ui/brand";
@@ -163,8 +163,8 @@ function PrivateSendReview({
   onReject: () => void;
 }) {
   const client = usePlatformClient();
+  const { topUp, busy } = useTopUp();
   const [shielded, setShielded] = useState<string | null | "loading">("loading");
-  const [topup, setTopup] = useState(false);
 
   const load = useCallback(() => {
     setShielded("loading");
@@ -214,25 +214,25 @@ function PrivateSendReview({
           </div>
           <div className="mt-1">{recipient}</div>
           <div className="text-small font-semibold text-pink text-center mt-1">
-            not enough in your private balance ({shielded ?? "0"} USDC) — top up to send.
+            not enough in your private balance ({shielded ?? "0"} USDC) — airdrop to send.
           </div>
         </div>
         <div className="flex gap-3">
           <StickerButton color="white" size="lg" block onClick={onReject}>
             Reject
           </StickerButton>
-          <StickerButton color="green" size="lg" block onClick={() => setTopup(true)}>
-            Top up
+          <StickerButton
+            color="green"
+            size="lg"
+            block
+            disabled={busy !== null}
+            onClick={async () => {
+              if (await topUp()) load();
+            }}
+          >
+            {busy ? "Airdropping…" : "Airdrop $5 →"}
           </StickerButton>
         </div>
-        <AddFundsSheet
-          open={topup}
-          onClose={() => setTopup(false)}
-          onFunded={() => {
-            setTopup(false);
-            load();
-          }}
-        />
       </>
     );
   }
@@ -301,9 +301,9 @@ function BuildFeeReview({
   onReject: () => void;
 }) {
   const client = usePlatformClient();
+  const { topUp, busy } = useTopUp();
   const [quote, setQuote] = useState<BuildFeeQuote | null>(null);
   const [failed, setFailed] = useState(false);
-  const [topup, setTopup] = useState(false);
 
   const loadQuote = useCallback(() => {
     if (!intent.builderId) {
@@ -382,27 +382,29 @@ function BuildFeeReview({
           </div>
           <NameTag name={quote.builder.displayName} />
           <div className="text-small font-semibold text-pink text-center mt-1">
-            not enough in your balance ({quote.balance.shieldedUsdc ?? "0"} USDC) — top
-            up to build.
+            not enough in your balance ({quote.balance.shieldedUsdc ?? "0"} USDC) —
+            airdrop to build.
           </div>
         </div>
         <div className="flex gap-3">
           <StickerButton color="white" size="lg" block onClick={onReject}>
             Reject
           </StickerButton>
-          <StickerButton color="green" size="lg" block onClick={() => setTopup(true)}>
-            Top up
+          <StickerButton
+            color="green"
+            size="lg"
+            block
+            disabled={busy !== null}
+            onClick={async () => {
+              if (await topUp()) {
+                setQuote(null);
+                loadQuote();
+              }
+            }}
+          >
+            {busy ? "Airdropping…" : "Airdrop $5 →"}
           </StickerButton>
         </div>
-        <AddFundsSheet
-          open={topup}
-          onClose={() => setTopup(false)}
-          onFunded={() => {
-            setTopup(false);
-            setQuote(null);
-            loadQuote();
-          }}
-        />
       </>
     );
   }
