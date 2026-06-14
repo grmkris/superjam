@@ -39,6 +39,20 @@ interface Attachment {
   mime: string;
 }
 
+/** Non-image MIME types the upload pipeline accepts (mirrors the 📎 input's `accept`
+ *  + the server's ALLOWED_UPLOAD_MIME). Images are matched by the `image/` prefix. */
+const PASTE_DOC_MIMES = new Set([
+  "text/csv",
+  "text/plain",
+  "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+]);
+
+/** Whether a pasted/dropped file is something we can attach. */
+const isAttachable = (f: File): boolean =>
+  f.type.startsWith("image/") || PASTE_DOC_MIMES.has(f.type);
+
 /** Read a File as a base64 data URL (the upload endpoint strips the prefix). */
 const fileToDataUrl = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -241,7 +255,7 @@ function MakeFlow() {
   // Upload reference files (images + CSV/Excel/PDF) for the build prompt: images
   // feed Gemini vision in refine, all are handed to the builder agent as URLs.
   const onAttach = useCallback(
-    async (files: FileList) => {
+    async (files: FileList | File[]) => {
       const room = BUILD_ATTACH_MAX - attachments.length;
       const picked = Array.from(files).slice(0, Math.max(0, room));
       if (picked.length === 0) return;
@@ -274,6 +288,34 @@ function MakeFlow() {
   const removeAttachment = useCallback(
     (key: string) => setAttachments((a) => a.filter((x) => x.key !== key)),
     []
+  );
+
+  // Paste an image (or allowed doc) straight into the idea box → attach it via the
+  // SAME upload pipeline as the 📎 button, instead of the browser dropping the file's
+  // NAME into the textarea as text. We read both clipboardData.files AND .items (the
+  // two ways browsers expose pasted files — a clipboard image vs a copied file), keep
+  // only attachable types, and only preventDefault when we actually found bytes — so a
+  // plain-text paste still types normally. NOTE: copying a FILE in Finder often hands
+  // the page only the filename (no bytes); copying the IMAGE itself (a screenshot, or
+  // "Copy Image") carries bytes and attaches.
+  const onPasteFiles = useCallback(
+    (e: React.ClipboardEvent) => {
+      if (!isLoggedIn) return; // uploads.create is protected + the attach UI is login-gated
+      const dt = e.clipboardData;
+      if (!dt) return;
+      const fromItems = Array.from(dt.items)
+        .filter((it) => it.kind === "file")
+        .map((it) => it.getAsFile())
+        .filter((f): f is File => !!f);
+      const seen = new Set<string>();
+      const files = [...Array.from(dt.files), ...fromItems].filter(
+        (f) => isAttachable(f) && !seen.has(f.name + f.size) && seen.add(f.name + f.size)
+      );
+      if (files.length === 0) return; // nothing attachable → let the default paste happen
+      e.preventDefault();
+      onAttach(files);
+    },
+    [isLoggedIn, onAttach]
   );
 
   const attachmentKeys = attachments.map((a) => a.key);
@@ -442,6 +484,7 @@ function MakeFlow() {
           attachments={attachments}
           uploading={uploading}
           onAttach={onAttach}
+          onPasteFiles={onPasteFiles}
           onRemoveAttachment={removeAttachment}
           drafts={otherDrafts}
           onResumeDraft={(id, s) => router.push(`/build?d=${id}&step=${s}`)}
@@ -538,6 +581,7 @@ function HomeBeat({
   attachments,
   uploading,
   onAttach,
+  onPasteFiles,
   onRemoveAttachment,
   drafts,
   onResumeDraft,
@@ -553,7 +597,8 @@ function HomeBeat({
   onGo: () => void;
   attachments: Attachment[];
   uploading: boolean;
-  onAttach: (files: FileList) => void;
+  onAttach: (files: FileList | File[]) => void;
+  onPasteFiles: (e: React.ClipboardEvent) => void;
   onRemoveAttachment: (key: string) => void;
   drafts: { id: string; step: string; prompt: string; name: string | null; iconEmoji: string | null; updatedAt: string }[];
   onResumeDraft: (id: string, step: string) => void;
@@ -584,6 +629,7 @@ function HomeBeat({
         <Textarea
           value={idea}
           onChange={(e) => setIdea(e.target.value)}
+          onPaste={onPasteFiles}
           rows={3}
           placeholder="what should it do?"
           className="leading-relaxed shadow-sticker pr-14"
@@ -618,7 +664,7 @@ function HomeBeat({
               />
             </label>
             <span className="text-tiny font-semibold text-muted">
-              images, CSV, PDF — up to {BUILD_ATTACH_MAX}, {ATTACH_MAX_MB}MB each
+              images, CSV, PDF — or paste · up to {BUILD_ATTACH_MAX}, {ATTACH_MAX_MB}MB each
             </span>
           </div>
           {attachments.length > 0 && (
