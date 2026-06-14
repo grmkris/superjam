@@ -2,8 +2,8 @@
   "name": "web",
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 4700",
-    "build": "next build",
+    "dev": "next dev -p 4700 --webpack",
+    "build": "NODE_OPTIONS=--max-old-space-size=6144 next build --webpack",
     "start": "next start -p 4700",
     "typecheck": "tsgo --noEmit"
   },
