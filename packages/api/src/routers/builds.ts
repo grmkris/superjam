@@ -37,7 +37,7 @@ import {
   TX_CAP_USDC,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type Address, type Hex } from "viem";
 import type { Logger } from "@superjam/logger";
@@ -714,6 +714,19 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             },
             setWhere: eq(buildDraft.userId, context.user.id),
           });
+        // Lazy GC (no cron): drop the caller's abandoned, un-dispatched drafts
+        // older than 30 days so the table doesn't grow unbounded. Best-effort.
+        const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        await context.db
+          .delete(buildDraft)
+          .where(
+            and(
+              eq(buildDraft.userId, context.user.id),
+              isNull(buildDraft.buildId),
+              lt(buildDraft.updatedAt, cutoff)
+            )
+          )
+          .catch(() => {});
         return { ok: true as const };
       }),
 

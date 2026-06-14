@@ -181,8 +181,33 @@ function MakeFlow() {
       state: { questions, picks, comments, exchange, similar, chosen, attachments, revealSlug },
       buildId,
     });
+    // `persist` is included so the login transition (it captures isLoggedIn) re-fires
+    // the save → a draft started signed-out is ADOPTED to the account after sign-in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, step, idea, spec, questions, picks, comments, exchange, similar, chosen, attachments, buildId, revealSlug]);
+  }, [persist, hydrated, step, idea, spec, questions, picks, comments, exchange, similar, chosen, attachments, buildId, revealSlug]);
+
+  // Other PENDING drafts (for the "pick up where you left off" banner on home).
+  const [otherDrafts, setOtherDrafts] = useState<
+    { id: string; step: string; prompt: string; name: string | null }[]
+  >([]);
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let cancelled = false;
+    client.builds
+      .listDrafts()
+      .then((rows) => {
+        if (cancelled) return;
+        setOtherDrafts(
+          rows
+            .filter((r) => r.id !== draftId)
+            .map((r) => ({ id: r.id, step: r.step, prompt: r.prompt, name: r.name }))
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, client, draftId]);
 
   // Upload reference files (images + CSV/Excel/PDF) for the build prompt: images
   // feed Gemini vision in refine, all are handed to the builder agent as URLs.
@@ -361,6 +386,26 @@ function MakeFlow() {
   return (
     <div className="screen">
       <Header username={username} />
+
+      {step === "home" && otherDrafts.length > 0 && (
+        <button
+          onClick={() =>
+            router.push(`/build?d=${otherDrafts[0]!.id}&step=${otherDrafts[0]!.step}`)
+          }
+          className="focus-ring w-full text-left"
+        >
+          <StickerCard color="yellow" className="p-3 flex items-center gap-2.5 sticker-press">
+            <span className="text-xl shrink-0">✏️</span>
+            <div className="flex flex-col min-w-0">
+              <div className="font-extrabold text-small">Pick up where you left off</div>
+              <div className="text-tiny font-semibold text-ink/70 truncate">
+                {otherDrafts[0]!.name ?? otherDrafts[0]!.prompt ?? "your last idea"}
+              </div>
+            </div>
+            <span className="ml-auto font-extrabold shrink-0">→</span>
+          </StickerCard>
+        </button>
+      )}
 
       {step === "home" && (
         <HomeBeat
