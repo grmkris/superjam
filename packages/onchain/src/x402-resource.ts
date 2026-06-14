@@ -21,10 +21,18 @@ import {
   type FacilitatorClient,
   type HTTPAdapter,
   type HTTPRequestContext,
+  type ProtectedRequestHook,
   type RoutesConfig,
   x402HTTPResourceServer,
   x402ResourceServer,
 } from "@x402/core/server";
+import {
+  InMemoryAgentKitStorage,
+  agentkitResourceServerExtension,
+  createAgentkitHooks,
+  declareAgentkitExtension,
+} from "@worldcoin/agentkit";
+import { createAgentBookVerifier } from "@worldcoin/agentkit-core";
 import { arcTestnet } from "./chains.ts";
 
 /** Circle Gateway facilitator — TESTNET (Arc lives here). The SDK default is the
@@ -47,6 +55,10 @@ export interface X402HireResourceConfig {
    *  resource is the builder ROOT, since `payBuildFee` pays the bare endpointUrl
    *  while build dispatch hits `${endpointUrl}/builds`. */
   routePattern?: string;
+  /** Worldcoin AgentKit free-trial (World prize): a verified human-backed caller
+   *  (registered in AgentBook on World Chain) gets this many FREE builds before
+   *  the normal x402 payment resumes. Absent ⇒ pure pay-per-build (no AgentKit). */
+  freeTrialUses?: number;
 }
 
 /** The minimal request the handler reads — satisfied by a thin Hono shim. */
@@ -102,6 +114,24 @@ export const createX402HireResource = (
   const resourceServer = new x402ResourceServer(
     facilitator as unknown as FacilitatorClient
   ).register(ARC_X402_NETWORK, new GatewayEvmScheme() as never);
+
+  // Worldcoin AgentKit (World prize): when a free-trial is configured, register the
+  // extension so a verified human-backed caller (AgentBook, World Chain) can get N
+  // free builds; un-verified/anonymous callers fall through to the Circle payment.
+  const agentkit = cfg.freeTrialUses
+    ? {
+        mode: { type: "free-trial" as const, uses: cfg.freeTrialUses },
+        hooks: createAgentkitHooks({
+          agentBook: createAgentBookVerifier(), // World Chain defaults
+          storage: new InMemoryAgentKitStorage(),
+          mode: { type: "free-trial", uses: cfg.freeTrialUses },
+        }),
+      }
+    : undefined;
+  if (agentkit) {
+    resourceServer.registerExtension(agentkitResourceServerExtension);
+  }
+
   const routes: RoutesConfig = {
     [cfg.routePattern ?? "POST /"]: {
       accepts: {
@@ -110,9 +140,24 @@ export const createX402HireResource = (
         payTo: cfg.payTo,
         price: `$${cfg.priceUsdc}`,
       },
+      ...(agentkit
+        ? {
+            extensions: declareAgentkitExtension({
+              statement: "Verify your agent is backed by a real human",
+              mode: agentkit.mode,
+            }),
+          }
+        : {}),
     },
   };
   const httpServer = new x402HTTPResourceServer(resourceServer, routes);
+  if (agentkit) {
+    // Runs before payment: grants free access to a verified human-backed agent with
+    // remaining uses, else returns void → the normal Circle x402 payment proceeds.
+    httpServer.onProtectedRequest(
+      agentkit.hooks.requestHook as unknown as ProtectedRequestHook
+    );
+  }
 
   // Initialize once (fetches facilitator support + validates routes). Don't cache
   // a rejection — let the next request retry if the facilitator was unreachable.

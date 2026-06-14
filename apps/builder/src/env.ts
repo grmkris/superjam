@@ -40,6 +40,9 @@ const builderEnvSchema = z.object({
   AGENT_WALLET_ADDRESS: z.string().min(1).optional(), // x402 payTo
   AGENT_PRICE_USDC: z.string().min(1).optional(), // dollar amount, e.g. "0.50"
   CIRCLE_GATEWAY_API_KEY: z.string().min(1).optional(), // optional Bearer for the facilitator
+  // Worldcoin AgentKit (World prize) — N free builds for verified human-backed
+  // callers (AgentBook) before x402 payment resumes. Absent ⇒ pure pay-per-build.
+  AGENT_FREE_TRIAL_USES: z.coerce.number().int().positive().optional(),
 });
 
 export type BuilderEnv = z.infer<typeof builderEnvSchema>;

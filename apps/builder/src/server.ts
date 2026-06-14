@@ -68,6 +68,8 @@ const hire =
         payTo: env.AGENT_WALLET_ADDRESS,
         priceUsdc: env.AGENT_PRICE_USDC,
         circleApiKey: env.CIRCLE_GATEWAY_API_KEY,
+        // AgentKit free-trial (World prize) — set AGENT_FREE_TRIAL_USES to enable.
+        freeTrialUses: env.AGENT_FREE_TRIAL_USES,
       })
     : undefined;
 

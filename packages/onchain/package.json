@@ -19,6 +19,8 @@
     "@superjam/contracts": "workspace:*",
     "@superjam/shared": "workspace:*",
     "@unlink-xyz/sdk": "0.3.0-canary.598",
+    "@worldcoin/agentkit": "^0.2.0",
+    "@worldcoin/agentkit-core": "^0.2.0",
     "@x402/core": "2.15.0",
     "@x402/evm": "2.15.0",
     "@x402/fetch": "2.15.0",
