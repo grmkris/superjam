@@ -2,7 +2,7 @@
   <rect width="512" height="512" fill="#fff4e3"/>
   <rect x="96" y="110" width="320" height="320" rx="92" fill="#221a33"/>
   <rect x="96" y="92" width="320" height="320" rx="92" fill="#ffc940" stroke="#221a33" stroke-width="16"/>
-  <path d="M300,150 L196,300 L262,300 L214,420 L322,268 L256,268 Z" fill="#221a33" stroke="#221a33" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M288.0,143.2L204.8,264.8L256.0,264.8L224.0,360.8L307.2,239.2L256.0,239.2Z" fill="#221a33" stroke="#221a33" stroke-width="10" stroke-linejoin="round"/>
   <path d="M118.00,104.00L121.39,116.61L134.00,120.00L121.39,123.39L118.00,136.00L114.61,123.39L102.00,120.00L114.61,116.61Z" fill="#221a33"/>
   <path d="M404.00,397.00L406.76,407.24L417.00,410.00L406.76,412.76L404.00,423.00L401.24,412.76L391.00,410.00L401.24,407.24Z" fill="#ff4d6d"/>
 </svg>

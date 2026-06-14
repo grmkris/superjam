@@ -31,6 +31,15 @@ function star(cx, cy, outer, inner, points, rotDeg = -90) {
   return `M${pts.join("L")}Z`;
 }
 
+// Canonical lightning bolt in a normalised 0..1 box, comfortably inset so it
+// never clips the tile edge. Scaled into any tile via boltInBox().
+const BOLT_N = [
+  [0.6, 0.16], [0.34, 0.54], [0.5, 0.54],
+  [0.4, 0.84], [0.66, 0.46], [0.5, 0.46],
+];
+const boltInBox = (x, y, s) =>
+  "M" + BOLT_N.map(([nx, ny]) => `${(x + nx * s).toFixed(1)},${(y + ny * s).toFixed(1)}`).join("L") + "Z";
+
 const play = (cx, cy, s) =>
   `M${cx - 0.3 * s},${cy - 0.4 * s} L${cx + 0.46 * s},${cy} L${cx - 0.3 * s},${cy + 0.4 * s} Z`;
 
@@ -68,12 +77,11 @@ const sparkle = (cx, cy, r, color) =>
 function logoSVG() {
   // tile centred, room left below for the hard ink shadow
   const x = 96, y = 92, s = 320, rx = 92, drop = 18, outline = 16;
-  const bolt = "M300,150 L196,300 L262,300 L214,420 L322,268 L256,268 Z";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <rect width="512" height="512" fill="${C.cream}"/>
   <rect x="${x}" y="${y + drop}" width="${s}" height="${s}" rx="${rx}" fill="${C.ink}"/>
   <rect x="${x}" y="${y}" width="${s}" height="${s}" rx="${rx}" fill="${C.yellow}" stroke="${C.ink}" stroke-width="${outline}"/>
-  <path d="${bolt}" fill="${C.ink}" stroke="${C.ink}" stroke-width="10" stroke-linejoin="round"/>
+  <path d="${boltInBox(x, y, s)}" fill="${C.ink}" stroke="${C.ink}" stroke-width="10" stroke-linejoin="round"/>
   ${sparkle(118, 120, 16, C.ink)}
   ${sparkle(404, 410, 13, C.pink)}
 </svg>`;
@@ -81,8 +89,8 @@ function logoSVG() {
 
 // ── COVER 640×360 (16:9) — wordmark + tagline + scattered candy tiles ───────
 function coverSVG() {
-  const bolt = "M118,108 L86,165 L106,165 L90,205 L124,150 L104,150 Z"; // small ⚡ in tile
   const tileX = 84, tileY = 112, tileS = 92, tileRx = 26;
+  const bolt = boltInBox(tileX, tileY, tileS); // small ⚡ in tile
   return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
   <rect width="640" height="360" fill="${C.cream}"/>
 
@@ -113,6 +121,38 @@ function coverSVG() {
 </svg>`;
 }
 
+// ── OG / TWITTER CARD 1200×630 — social share image (same composition, big) ─
+function ogSVG() {
+  const tS = 150, tX = 196, tY = 225, tRx = 42;
+  const wordX = tX + tS + 34, base = 350;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="${C.cream}"/>
+
+  ${tile({ x: 70, y: 70, size: 100, fill: C.green, tilt: -10, motif: "play", motifColor: C.card, outline: 7, drop: 8 })}
+  ${tile({ x: 1030, y: 64, size: 96, fill: C.lavender, tilt: 9, motif: "heart", motifColor: C.pink, outline: 7, drop: 8 })}
+  ${tile({ x: 78, y: 440, size: 100, fill: C.blue, tilt: 8, motif: "star", motifColor: C.card, outline: 7, drop: 8 })}
+  ${tile({ x: 1028, y: 448, size: 104, fill: C.yellow, tilt: -8, motif: "coin", motifColor: C.ink, outline: 7, drop: 8 })}
+  ${tile({ x: 900, y: 506, size: 76, fill: C.pink, tilt: 11, motif: "spark", motifColor: C.card, outline: 6, drop: 7 })}
+  ${sparkle(255, 120, 18, C.ink)}
+  ${sparkle(958, 150, 16, C.blue)}
+  ${sparkle(175, 525, 15, C.green)}
+  ${sparkle(815, 92, 13, C.pink)}
+
+  <!-- lightning token tile -->
+  <rect x="${tX}" y="${tY + 9}" width="${tS}" height="${tS}" rx="${tRx}" fill="${C.ink}"/>
+  <rect x="${tX}" y="${tY}" width="${tS}" height="${tS}" rx="${tRx}" fill="${C.yellow}" stroke="${C.ink}" stroke-width="11"/>
+  <path d="${boltInBox(tX, tY, tS)}" fill="${C.ink}" stroke="${C.ink}" stroke-width="9" stroke-linejoin="round"/>
+
+  <!-- wordmark -->
+  <text x="${wordX}" y="${base + 10}" font-family="Baloo 2" font-weight="800" font-size="150" fill="${C.ink}">superjam</text>
+  <text x="${wordX}" y="${base}" font-family="Baloo 2" font-weight="800" font-size="150"
+        fill="${C.pink}" stroke="${C.ink}" stroke-width="9" paint-order="stroke" stroke-linejoin="round">superjam</text>
+
+  <!-- tagline -->
+  <text x="600" y="470" text-anchor="middle" font-family="Baloo 2" font-weight="700" font-size="46" fill="${C.ink}">make a jam. share the jam.</text>
+</svg>`;
+}
+
 // ── render ──────────────────────────────────────────────────────────────────
 function render(svg, outPng, width) {
   const r = new Resvg(svg, {
@@ -125,8 +165,22 @@ function render(svg, outPng, width) {
 
 const logo = logoSVG();
 const cover = coverSVG();
+const og = ogSVG();
+
+// editable source + standalone assets
 writeFileSync(".brand/logo.svg", logo);
 writeFileSync(".brand/cover.svg", cover);
+writeFileSync(".brand/og.svg", og);
 render(logo, ".brand/logo-512.png", 512);
 render(cover, ".brand/cover-640x360.png", 640);
-console.log("wrote .brand/{logo.svg,logo-512.png,cover.svg,cover-640x360.png}");
+render(og, ".brand/og-1200x630.png", 1200);
+
+// Next.js App Router file-based metadata (apps/web/src/app/*) — auto-wired into
+// <link rel="icon">, apple-touch-icon, and og:image / twitter:image tags.
+const APP = "apps/web/src/app";
+render(logo, `${APP}/icon.png`, 512);
+render(logo, `${APP}/apple-icon.png`, 180);
+render(og, `${APP}/opengraph-image.png`, 1200);
+render(og, `${APP}/twitter-image.png`, 1200);
+
+console.log("wrote .brand/* and apps/web/src/app/{icon,apple-icon,opengraph-image,twitter-image}.png");

@@ -1,10 +1,28 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ClientRoot } from "../components/client-root";
 import "./globals.css";
 
-export const metadata = {
-  title: "SuperJam — make a jam, share the jam",
-  description: "Make and play little apps. With money. On the open web.",
+const TITLE = "SuperJam — make a jam, share the jam";
+const DESCRIPTION = "Make and play little apps. With money. On the open web.";
+
+// icon / apple-icon / opengraph-image / twitter-image are auto-wired from the
+// matching files in this directory; metadataBase makes their URLs absolute.
+export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://superjam.fun"),
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: "SuperJam",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 export const viewport = {

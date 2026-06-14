@@ -39,7 +39,7 @@
   <!-- lightning token tile -->
   <rect x="84" y="119" width="92" height="92" rx="26" fill="#221a33"/>
   <rect x="84" y="112" width="92" height="92" rx="26" fill="#ffc940" stroke="#221a33" stroke-width="7"/>
-  <path d="M118,108 L86,165 L106,165 L90,205 L124,150 L104,150 Z" fill="#221a33" stroke="#221a33" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M139.2,126.7L115.3,161.7L130.0,161.7L120.8,189.3L144.7,154.3L130.0,154.3Z" fill="#221a33" stroke="#221a33" stroke-width="6" stroke-linejoin="round"/>
 
   <!-- wordmark: pink fill, ink outline, hard ink drop -->
   <text x="200" y="186" font-family="Baloo 2" font-weight="800" font-size="92"
