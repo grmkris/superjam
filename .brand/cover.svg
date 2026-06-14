@@ -1,40 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
   <rect width="640" height="360" fill="#fff4e3"/>
 
-  <!-- decorative candy tiles in the gutters -->
+  <!-- decorative candy tiles, one per corner; sparkles fill the mid-gutters -->
   
-  <g transform="rotate(-10 70 74)">
-    <rect x="40" y="49" width="60" height="60" rx="16.8" fill="#221a33"/>
-    <rect x="40" y="44" width="60" height="60" rx="16.8" fill="#2fd180" stroke="#221a33" stroke-width="5"/>
-    <path d="M52,50 L97.6,74 L52,98 Z" fill="#ffffff"/>
+  <g transform="rotate(-10 72 76)">
+    <rect x="42" y="51" width="60" height="60" rx="16.8" fill="#221a33"/>
+    <rect x="42" y="46" width="60" height="60" rx="16.8" fill="#2fd180" stroke="#221a33" stroke-width="5"/>
+    <path d="M54,52 L99.6,76 L54,100 Z" fill="#ffffff"/>
   </g>
   
-  <g transform="rotate(9 570 68)">
-    <rect x="542" y="45" width="56" height="56" rx="15.680000000000001" fill="#221a33"/>
-    <rect x="542" y="40" width="56" height="56" rx="15.680000000000001" fill="#c9b6ff" stroke="#221a33" stroke-width="5"/>
-    <path d="M570,91.184 C519.6,56.408 554.88,28.587199999999996 570,58.7264 C585.12,28.587199999999996 620.4,56.408 570,91.184 Z" fill="#ff4d6d"/>
+  <g transform="rotate(9 567 71)">
+    <rect x="538" y="47" width="58" height="58" rx="16.240000000000002" fill="#221a33"/>
+    <rect x="538" y="42" width="58" height="58" rx="16.240000000000002" fill="#c9b6ff" stroke="#221a33" stroke-width="5"/>
+    <path d="M567,95.012 C514.8,58.994 551.34,30.179599999999994 567,61.395199999999996 C582.66,30.179599999999994 619.2,58.994 567,95.012 Z" fill="#ff4d6d"/>
   </g>
   
-  <g transform="rotate(8 65 279)">
-    <rect x="36" y="255" width="58" height="58" rx="16.240000000000002" fill="#221a33"/>
-    <rect x="36" y="250" width="58" height="58" rx="16.240000000000002" fill="#4d7cff" stroke="#221a33" stroke-width="5"/>
-    <path d="M65.00,259.28L70.11,271.96L83.75,272.91L73.27,281.69L76.59,294.95L65.00,287.70L53.41,294.95L56.73,281.69L46.25,272.91L59.89,271.96Z" fill="#ffffff"/>
+  <g transform="rotate(8 70 280)">
+    <rect x="40" y="255" width="60" height="60" rx="16.8" fill="#221a33"/>
+    <rect x="40" y="250" width="60" height="60" rx="16.8" fill="#4d7cff" stroke="#221a33" stroke-width="5"/>
+    <path d="M70.00,259.60L75.29,272.72L89.40,273.70L78.56,282.78L81.99,296.50L70.00,289.00L58.01,296.50L61.44,282.78L50.60,273.70L64.71,272.72Z" fill="#ffffff"/>
   </g>
   
-  <g transform="rotate(-8 578 282)">
-    <rect x="548" y="257" width="60" height="60" rx="16.8" fill="#221a33"/>
-    <rect x="548" y="252" width="60" height="60" rx="16.8" fill="#ffc940" stroke="#221a33" stroke-width="5"/>
-    <circle cx="578" cy="282" r="18" fill="none" stroke="#221a33" stroke-width="6"/><circle cx="578" cy="282" r="6" fill="#221a33"/>
+  <g transform="rotate(-8 571 281)">
+    <rect x="540" y="255" width="62" height="62" rx="17.360000000000003" fill="#221a33"/>
+    <rect x="540" y="250" width="62" height="62" rx="17.360000000000003" fill="#ffc940" stroke="#221a33" stroke-width="5"/>
+    <circle cx="571" cy="281" r="18.599999999999998" fill="none" stroke="#221a33" stroke-width="6.2"/><circle cx="571" cy="281" r="6.2" fill="#221a33"/>
   </g>
-  
-  <g transform="rotate(11 492 322)">
-    <rect x="470" y="305" width="44" height="44" rx="12.32" fill="#221a33"/>
-    <rect x="470" y="300" width="44" height="44" rx="12.32" fill="#ff4d6d" stroke="#221a33" stroke-width="5"/>
-    <path d="M492.00,307.04L495.11,318.89L506.96,322.00L495.11,325.11L492.00,336.96L488.89,325.11L477.04,322.00L488.89,318.89Z" fill="#ffffff"/>
-  </g>
-  <path d="M150.00,58.00L152.55,67.45L162.00,70.00L152.55,72.55L150.00,82.00L147.45,72.55L138.00,70.00L147.45,67.45Z" fill="#221a33"/>
-  <path d="M498.00,289.00L500.33,297.67L509.00,300.00L500.33,302.33L498.00,311.00L495.67,302.33L487.00,300.00L495.67,297.67Z" fill="#2fd180"/>
-  <path d="M610.00,140.00L612.12,147.88L620.00,150.00L612.12,152.12L610.00,160.00L607.88,152.12L600.00,150.00L607.88,147.88Z" fill="#4d7cff"/>
+  <path d="M300.00,43.00L302.76,53.24L313.00,56.00L302.76,58.76L300.00,69.00L297.24,58.76L287.00,56.00L297.24,53.24Z" fill="#221a33"/>
+  <path d="M612.00,156.00L614.55,165.45L624.00,168.00L614.55,170.55L612.00,180.00L609.45,170.55L600.00,168.00L609.45,165.45Z" fill="#4d7cff"/>
+  <path d="M158.00,230.00L160.12,237.88L168.00,240.00L160.12,242.12L158.00,250.00L155.88,242.12L148.00,240.00L155.88,237.88Z" fill="#ff4d6d"/>
+  <path d="M498.00,229.00L500.33,237.67L509.00,240.00L500.33,242.33L498.00,251.00L495.67,242.33L487.00,240.00L495.67,237.67Z" fill="#2fd180"/>
 
   <!-- lightning token tile -->
   <rect x="84" y="119" width="92" height="92" rx="26" fill="#221a33"/>

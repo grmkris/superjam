@@ -92,15 +92,15 @@ function coverSVG() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
   <rect width="640" height="360" fill="${C.cream}"/>
 
-  <!-- decorative candy tiles in the gutters -->
-  ${tile({ x: 40, y: 44, size: 60, fill: C.green, tilt: -10, motif: "play", motifColor: C.card })}
-  ${tile({ x: 542, y: 40, size: 56, fill: C.lavender, tilt: 9, motif: "heart", motifColor: C.pink })}
-  ${tile({ x: 36, y: 250, size: 58, fill: C.blue, tilt: 8, motif: "star", motifColor: C.card })}
-  ${tile({ x: 548, y: 252, size: 60, fill: C.yellow, tilt: -8, motif: "coin", motifColor: C.ink })}
-  ${tile({ x: 470, y: 300, size: 44, fill: C.pink, tilt: 11, motif: "spark", motifColor: C.card })}
-  ${sparkle(150, 70, 12, C.ink)}
-  ${sparkle(498, 300, 11, C.green)}
-  ${sparkle(610, 150, 10, C.blue)}
+  <!-- decorative candy tiles, one per corner; sparkles fill the mid-gutters -->
+  ${tile({ x: 42, y: 46, size: 60, fill: C.green, tilt: -10, motif: "play", motifColor: C.card })}
+  ${tile({ x: 538, y: 42, size: 58, fill: C.lavender, tilt: 9, motif: "heart", motifColor: C.pink })}
+  ${tile({ x: 40, y: 250, size: 60, fill: C.blue, tilt: 8, motif: "star", motifColor: C.card })}
+  ${tile({ x: 540, y: 250, size: 62, fill: C.yellow, tilt: -8, motif: "coin", motifColor: C.ink })}
+  ${sparkle(300, 56, 13, C.ink)}
+  ${sparkle(612, 168, 12, C.blue)}
+  ${sparkle(158, 240, 10, C.pink)}
+  ${sparkle(498, 240, 11, C.green)}
 
   <!-- lightning token tile -->
   <rect x="${tileX}" y="${tileY + 7}" width="${tileS}" height="${tileS}" rx="${tileRx}" fill="${C.ink}"/>
@@ -130,11 +130,10 @@ function ogSVG() {
   ${tile({ x: 1030, y: 64, size: 96, fill: C.lavender, tilt: 9, motif: "heart", motifColor: C.pink, outline: 7, drop: 8 })}
   ${tile({ x: 78, y: 440, size: 100, fill: C.blue, tilt: 8, motif: "star", motifColor: C.card, outline: 7, drop: 8 })}
   ${tile({ x: 1028, y: 448, size: 104, fill: C.yellow, tilt: -8, motif: "coin", motifColor: C.ink, outline: 7, drop: 8 })}
-  ${tile({ x: 900, y: 506, size: 76, fill: C.pink, tilt: 11, motif: "spark", motifColor: C.card, outline: 6, drop: 7 })}
-  ${sparkle(255, 120, 18, C.ink)}
-  ${sparkle(958, 150, 16, C.blue)}
-  ${sparkle(175, 525, 15, C.green)}
-  ${sparkle(815, 92, 13, C.pink)}
+  ${sparkle(562, 98, 23, C.ink)}
+  ${sparkle(1148, 294, 21, C.blue)}
+  ${sparkle(296, 420, 18, C.pink)}
+  ${sparkle(934, 420, 19, C.green)}
 
   <!-- lightning token tile -->
   <rect x="${tX}" y="${tY + 9}" width="${tS}" height="${tS}" rx="${tRx}" fill="${C.ink}"/>
