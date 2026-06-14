@@ -73,17 +73,15 @@ function tile({ x, y, size, fill, tilt = 0, motif, motifColor = C.ink, outline =
 const sparkle = (cx, cy, r, color) =>
   `<path d="${star(cx, cy, r, r * 0.3, 4, -90)}" fill="${color}"/>`;
 
-// ── LOGO 512×512 — the yellow ⚡ token as a peelable sticker ─────────────────
+// ── LOGO 512×512 — full-bleed yellow app-icon ───────────────────────────────
+// The yellow rounded tile fills the frame (thin transparent gutter so the
+// rounded corners read on any background), a chunky ink keyline just inside the
+// edge keeps the Toybox ink-outline identity, and one bold ink bolt centred.
 function logoSVG() {
-  // tile centred, room left below for the hard ink shadow
-  const x = 96, y = 92, s = 320, rx = 92, drop = 18, outline = 16;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="${C.cream}"/>
-  <rect x="${x}" y="${y + drop}" width="${s}" height="${s}" rx="${rx}" fill="${C.ink}"/>
-  <rect x="${x}" y="${y}" width="${s}" height="${s}" rx="${rx}" fill="${C.yellow}" stroke="${C.ink}" stroke-width="${outline}"/>
-  <path d="${boltInBox(x, y, s)}" fill="${C.ink}" stroke="${C.ink}" stroke-width="10" stroke-linejoin="round"/>
-  ${sparkle(118, 120, 16, C.ink)}
-  ${sparkle(404, 410, 13, C.pink)}
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="${C.yellow}"/>
+  <rect x="22" y="22" width="468" height="468" rx="102" fill="none" stroke="${C.ink}" stroke-width="14"/>
+  <path d="${boltInBox(76, 76, 360)}" fill="${C.ink}" stroke="${C.ink}" stroke-width="12" stroke-linejoin="round"/>
 </svg>`;
 }
 

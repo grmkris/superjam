@@ -1,8 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#fff4e3"/>
-  <rect x="96" y="110" width="320" height="320" rx="92" fill="#221a33"/>
-  <rect x="96" y="92" width="320" height="320" rx="92" fill="#ffc940" stroke="#221a33" stroke-width="16"/>
-  <path d="M288.0,143.2L204.8,264.8L256.0,264.8L224.0,360.8L307.2,239.2L256.0,239.2Z" fill="#221a33" stroke="#221a33" stroke-width="10" stroke-linejoin="round"/>
-  <path d="M118.00,104.00L121.39,116.61L134.00,120.00L121.39,123.39L118.00,136.00L114.61,123.39L102.00,120.00L114.61,116.61Z" fill="#221a33"/>
-  <path d="M404.00,397.00L406.76,407.24L417.00,410.00L406.76,412.76L404.00,423.00L401.24,412.76L391.00,410.00L401.24,407.24Z" fill="#ff4d6d"/>
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="#ffc940"/>
+  <rect x="22" y="22" width="468" height="468" rx="102" fill="none" stroke="#221a33" stroke-width="14"/>
+  <path d="M292.0,133.6L198.4,270.4L256.0,270.4L220.0,378.4L313.6,241.6L256.0,241.6Z" fill="#221a33" stroke="#221a33" stroke-width="12" stroke-linejoin="round"/>
 </svg>
