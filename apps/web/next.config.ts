@@ -14,6 +14,11 @@ import type { NextConfig } from "next";
 // next/dynamic({ssr:false}) in world-gate.tsx.
 const nextConfig: NextConfig = {
   transpilePackages: ["@superjam/sdk", "@superjam/shared", "@superjam/api"],
+  // Cap build workers. Railway's Metal builder reports ~14 CPUs, so Next spawns 14
+  // page-data/static-gen workers; each loads the heavy Dynamic SDK bundle and they
+  // thrash the build container's RAM → "Collecting page data" hangs. 4 (≈ local)
+  // keeps memory in check. (Next floors this at 4.)
+  experimental: { cpus: 4 },
   webpack: (config) => {
     config.externals.push("pino-pretty", "lokijs", "encoding");
     return config;
