@@ -17,6 +17,7 @@
   --color-yellow: #ffc940;
   --color-green: #2fd180;
   --color-blue: #4d7cff;
+  --color-lavender: #c9b6ff; /* slide-1 backdrop tile (🎨) */
 
   /* darker variants — text-on-color + accents */
   --color-amber-ink: #e8a300;
@@ -183,6 +184,27 @@
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* Gentle vertical bob for the slide-1 landing backdrop tiles (sjfloat = up,
+   sjfloat2 = down). Translate-only so each tile's static rotate(tilt) composes. */
+@keyframes sjfloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+@keyframes sjfloat2 {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(12px);
   }
 }
 

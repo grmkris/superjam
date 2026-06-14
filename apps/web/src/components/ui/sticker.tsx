@@ -9,6 +9,7 @@ export type StickerColor =
   | "yellow"
   | "green"
   | "blue"
+  | "lavender"
   | "white"
   | "cream"
   | "ink";
@@ -18,6 +19,7 @@ export const FILL: Record<StickerColor, string> = {
   yellow: "bg-yellow text-ink",
   green: "bg-green text-ink",
   blue: "bg-blue text-white",
+  lavender: "bg-lavender text-ink",
   white: "bg-card text-ink",
   cream: "bg-cream text-ink",
   ink: "bg-ink text-cream",

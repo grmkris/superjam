@@ -12,6 +12,7 @@ import { ROOT, userEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
+import { JamBackdrop } from "../../components/ui/jam-backdrop";
 import { signInWithGoogle, useLogin } from "../../components/login";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { usePlatformClient } from "../../components/use-platform-client";
@@ -125,13 +126,10 @@ export default function WelcomePage() {
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col bg-cream text-ink overflow-hidden">
-      {/* floating toy stickers */}
-      <span className="pointer-events-none absolute top-28 left-8 text-xl rotate-[-12deg]">🧸</span>
-      <span className="pointer-events-none absolute top-40 right-9 text-lg rotate-[10deg]">🎯</span>
-      <span className="pointer-events-none absolute top-64 left-12 text-sm rotate-[8deg]">✨</span>
-      <span className="pointer-events-none absolute bottom-40 right-10 text-lg rotate-[-8deg]">🏷️</span>
+      {/* slide-1 floating jam tiles + sparkles, behind the sign-in card */}
+      <JamBackdrop />
 
-      <div className="relative mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center gap-6 px-5 py-16">
+      <div className="relative z-10 mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center gap-6 px-5 py-16">
         {step === "email" ? (
           <EmailBeat
             email={email}
