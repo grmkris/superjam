@@ -14,6 +14,7 @@ import {
 import type { EvmWalletAccount } from "@dynamic-labs-sdk/evm";
 import { useWalletAccounts } from "@dynamic-labs-sdk/react-hooks";
 import { useEffect, useState } from "react";
+import { dynamicClient } from "../../lib/dynamic-client";
 import { EmojiToken, StickerButton, StickerCard } from "../ui/sticker";
 
 export function EnablePrivacy() {
@@ -31,7 +32,9 @@ export function EnablePrivacy() {
       return;
     }
     try {
-      setDelegated(hasDelegatedAccess({ walletAccount: evmAccount }));
+      setDelegated(
+        hasDelegatedAccess({ walletAccount: evmAccount }, dynamicClient ?? undefined)
+      );
     } catch {
       setDelegated(null);
     }
@@ -44,10 +47,20 @@ export function EnablePrivacy() {
     setBusy(true);
     setError(null);
     try {
-      await delegateWaasKeyShares({ walletAccount: evmAccount });
-      setDelegated(hasDelegatedAccess({ walletAccount: evmAccount }));
-    } catch {
-      setError("Couldn't enable — try again.");
+      await delegateWaasKeyShares(
+        { walletAccount: evmAccount },
+        dynamicClient ?? undefined
+      );
+      setDelegated(
+        hasDelegatedAccess({ walletAccount: evmAccount }, dynamicClient ?? undefined)
+      );
+    } catch (e) {
+      // Surface the REAL error so we can diagnose (the console has the full object).
+      // eslint-disable-next-line no-console
+      console.error("delegateWaasKeyShares failed", e);
+      const msg =
+        e instanceof Error ? e.message || e.name : String(e);
+      setError(msg || "Couldn't enable — try again.");
     } finally {
       setBusy(false);
     }
