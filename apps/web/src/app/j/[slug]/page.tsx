@@ -235,9 +235,9 @@ export default function JamPage({
           no reviews yet — be the first ✓
         </div>
       ) : (
-        <div className="flex flex-col gap-2.5 stagger">
+        <div className="flex flex-col gap-4 stagger">
           {reviews.map((r, i) => (
-            <ReviewCard key={i} r={r} tilt={i % 2 === 0 ? -0.4 : 0.4} />
+            <ReviewCard key={i} r={r} />
           ))}
         </div>
       )}
@@ -319,15 +319,30 @@ export default function JamPage({
   );
 }
 
-function ReviewCard({ r, tilt }: { r: Review; tilt: number }) {
+// Deterministic per-commenter avatar — different handles get different faces so a
+// thread reads like a crowd, not one repeated 🙂. Stable for a given username.
+const AVATARS = [
+  "🦊", "🐱", "🐸", "🐼", "🐨", "🐰", "🐯", "🐵",
+  "🦉", "🐙", "🦄", "🐝", "🐧", "🐢", "🦋", "🐳",
+];
+function avatarEmoji(username: string): string {
+  let h = 0;
+  for (let i = 0; i < username.length; i++) h = (h * 31 + username.charCodeAt(i)) | 0;
+  return AVATARS[Math.abs(h) % AVATARS.length] ?? "🙂";
+}
+
+// One comment in the thread — identity row, a speech-bubble for the text (the
+// rounded-tl-md corner is the little tail pointing back at the avatar), then the
+// rating chip underneath. Rating-only comments skip the bubble.
+function ReviewCard({ r }: { r: Review }) {
   return (
-    <StickerCard color="white" className="p-3.5 flex flex-col gap-1.5" tilt={tilt}>
+    <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
         <Link
           href={`/u/${r.username}`}
           className="focus-ring flex items-center gap-2 sticker-press"
         >
-          <EmojiToken emoji="🙂" color="green" size={30} />
+          <EmojiToken emoji={avatarEmoji(r.username)} color="green" size={30} />
           <span className="font-extrabold text-small">@{r.username}</span>
         </Link>
         {r.worldVerified && <VerifiedBadge variant="pill" />}
@@ -335,13 +350,15 @@ function ReviewCard({ r, tilt }: { r: Review; tilt: number }) {
           {ago(r.createdAt)}
         </span>
       </div>
-      <div className="text-amber-ink text-small font-extrabold tracking-wide">
+      {r.text && (
+        <div className="ml-[38px] bg-card border-2 border-ink rounded-2xl rounded-tl-md shadow-sticker-sm px-3.5 py-2 text-small font-semibold leading-snug">
+          {r.text}
+        </div>
+      )}
+      <div className="ml-[38px] text-amber-ink text-small font-extrabold tracking-wide">
         {"★".repeat(r.rating)}
         <span className="text-muted/40">{"★".repeat(5 - r.rating)}</span>
       </div>
-      {r.text && (
-        <div className="text-small font-semibold leading-snug">{r.text}</div>
-      )}
-    </StickerCard>
+    </div>
   );
 }

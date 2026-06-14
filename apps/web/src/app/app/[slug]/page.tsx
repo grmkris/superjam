@@ -1,10 +1,12 @@
 // The mini-app viewer (pivot §3). Resolves the slug to the external app via the
-// public apps.get, then hands it to <AppHost> (%67's client seam) which wires
-// the signed-in identity (useHostAuth) + getAddress into the cross-origin
-// AppFrame. The per-app frame-src CSP is set by middleware (%67). Full-bleed:
-// AppChrome renders no tab bar on /app/* routes.
+// public apps.get, then hands it to <AppViewer> — the super-app host view that
+// runs the app WINDOWED inside the phone column (header → /j detail, ⛶ fullscreen,
+// ✕ close, bottom tabs) with a fullscreen escape hatch. The client view wires the
+// signed-in identity into the cross-origin AppFrame via <AppHost>. The per-app
+// frame-src CSP is set by middleware (%67). AppChrome leaves /app/* full-bleed, so
+// AppViewer owns the entire layout.
 import { notFound } from "next/navigation";
-import { AppHost } from "../../../components/app-host";
+import { AppViewer } from "../../../components/app-viewer";
 import type { ViewerApp } from "../../../components/app-frame";
 import { createPlatformClient, serverRpcUrl } from "../../../lib/orpc";
 
@@ -23,9 +25,5 @@ export default async function AppViewerPage({
     notFound();
   }
 
-  return (
-    <main className="app-bleed">
-      <AppHost app={app} />
-    </main>
-  );
+  return <AppViewer app={app} />;
 }
