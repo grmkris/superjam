@@ -84,7 +84,11 @@ export const createRemoteDeployer = (
     }
 
     const interval = cfg.pollMs ?? 1500;
-    const deadline = Date.now() + (cfg.timeoutMs ?? 240_000);
+    // 10 min: a real build is an agent run + npm install + next build + vercel deploy
+    // (+ Neon for data apps); rich apps (3D / map / art) routinely need >4 min, and
+    // concurrent builds on a shared box run slower under CPU contention. The builder
+    // has no internal cap, so this platform deadline is the only ceiling.
+    const deadline = Date.now() + (cfg.timeoutMs ?? 600_000);
     for (;;) {
       await sleep(interval);
       const res = await doFetch(`${base}/builds/${buildId}`, { headers });
