@@ -17,13 +17,15 @@ import {
   LIST_MAX,
   PLAYS_COUNTER,
   RESERVED_LABELS,
+  STALE_BUILD_MS,
   type UserId,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
 import type { Address } from "viem";
-import { and, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
+import { reapStaleBuilds } from "../lib/reap-builds.ts";
 import {
   optionalAuthProcedure,
   protectedProcedure,
@@ -543,6 +545,13 @@ export const appsRouter = {
     )
     .handler(async ({ context, input }) => {
       const db = context.db;
+      // Lazy heal (no cron): a build orphaned by a server redeploy never reaches a
+      // terminal state, so its jam shows "making…" forever. Flip the caller's stale
+      // ones to failed → "didn't finish". Best-effort, never blocks the listing.
+      await reapStaleBuilds(db, {
+        userId: context.user.id,
+        olderThanMs: STALE_BUILD_MS,
+      }).catch(() => {});
       const rows = await db
         .select({
           id: app.id,
@@ -558,10 +567,27 @@ export const appsRouter = {
         })
         .from(app)
         .leftJoin(build, eq(app.currentBuildId, build.id))
-        .where(eq(app.ownerUserId, context.user.id))
+        // Exclude discarded jams (apps.discard sets 'delisted') so the ✕ removes
+        // them from the profile for good.
+        .where(and(eq(app.ownerUserId, context.user.id), ne(app.status, "delisted")))
         .orderBy(desc(app.createdAt))
         .limit(input?.limit ?? 50);
       return { jams: rows.map((r) => ({ ...r, buildStatus: r.buildStatus ?? null })) };
+    }),
+
+  /** Discard a jam from the owner's profile — soft delete (sets 'delisted', which
+   *  hides it from feeds + `mine` and blocks bridge use via requireApp). Keeps the
+   *  row + ENS. Owner-only; idempotent. Mirrors builds.deleteDraft. */
+  discard: protectedProcedure
+    .input(z.object({ appId: AppId }))
+    .handler(async ({ context, input }) => {
+      await context.db
+        .update(app)
+        .set({ status: "delisted" })
+        .where(
+          and(eq(app.id, input.appId), eq(app.ownerUserId, context.user.id))
+        );
+      return { ok: true as const };
     }),
 
   // Register a developer-hosted app by URL. Human-gated (worldVerified) — one

@@ -4,7 +4,7 @@
 // ✓-human), the Dynamic wallet block (address + USDC balance as the hero
 // number), your registered builders, and the World verify block. USDC only — no
 // gas / network / token lists.
-import type { BuildDraftId } from "@superjam/shared";
+import type { AppId, BuildDraftId } from "@superjam/shared";
 import { useLogout } from "@dynamic-labs-sdk/react-hooks";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -69,6 +69,11 @@ export default function ProfilePage() {
   const discardDraft = (id: string) => {
     setDrafts((d) => d.filter((x) => x.id !== id));
     client.builds.deleteDraft({ draftId: id as BuildDraftId }).catch(() => {});
+  };
+
+  const discardJam = (id: string) => {
+    setJams((j) => j.filter((x) => x.id !== id));
+    client.apps.discard({ appId: id as AppId }).catch(() => {});
   };
 
   const loadMe = () =>
@@ -237,12 +242,21 @@ export default function ProfilePage() {
                       {live ? "live ✓" : failed ? "didn't finish" : "making… ⛏"}
                     </div>
                   </div>
-                  {live && (
+                  {live ? (
                     <button
                       onClick={() => router.push(`/app/${j.slug}`)}
                       className="ml-auto shrink-0 focus-ring whitespace-nowrap border-2 border-ink rounded-full bg-green text-ink px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
                     >
                       ▸ Play
+                    </button>
+                  ) : (
+                    // Non-live (making… / didn't finish) — let the owner clear it.
+                    <button
+                      onClick={() => discardJam(j.id)}
+                      aria-label={`Remove ${j.name}`}
+                      className="ml-auto shrink-0 focus-ring text-muted font-extrabold px-1.5 text-body"
+                    >
+                      ✕
                     </button>
                   )}
                 </StickerCard>

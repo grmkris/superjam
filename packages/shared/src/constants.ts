@@ -48,6 +48,11 @@ export const RESERVED_LABELS = [
 // --- builds / trial ---
 export const FREE_BUILDS = 1;
 export const BUILD_ATTACH_MAX = 4; // user file attachments per make
+// A non-terminal build whose row hasn't been touched in this long is treated as
+// orphaned (the in-memory poller died on a server redeploy) and reaped → failed.
+// Generous: a live build bumps updatedAt every poll, but a long silent step can go
+// minutes without a write — 20min avoids false-failing a live build.
+export const STALE_BUILD_MS = 20 * 60 * 1000;
 export const ATTACH_MAX_MB = 10; // per attachment (images are downscaled server-side before storage)
 
 // --- payments (USDC, decimal strings) ---
