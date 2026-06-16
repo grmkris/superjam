@@ -7,14 +7,11 @@ import { useEffect, useState } from "react";
 import { ToyboxSheet } from "../ui/sheet";
 import { Skeleton } from "../ui/skeleton";
 import { EmojiToken, StickerButton, StickerCard } from "../ui/sticker";
-import { VerifiedBadge } from "../verified-badge";
 import { usePlatformClient } from "../use-platform-client";
 
 interface Friend {
   id: string;
   username: string;
-  ensName: string | null;
-  worldVerified: boolean;
 }
 
 export function FriendPicker({
@@ -75,7 +72,6 @@ export function FriendPicker({
           <StickerCard key={f.id} className="p-3 flex items-center gap-3">
             <EmojiToken emoji="🙂" color="green" size={36} />
             <span className="font-extrabold">@{f.username}</span>
-            {f.worldVerified && <VerifiedBadge />}
             <button
               onClick={() => send(f.username)}
               disabled={sentTo === f.username}

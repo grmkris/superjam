@@ -133,8 +133,8 @@ describe("payments.balance", () => {
 });
 
 describe("profile.topup", () => {
-  test("world-verified user tops up; second tap same day → QUOTA_EXCEEDED", async () => {
-    const { token } = await seedUser({ worldVerified: true });
+  test("a logged-in user tops up; second tap same day → QUOTA_EXCEEDED", async () => {
+    const { token } = await seedUser();
     const res = await call(appRouter.profile.topup, undefined, {
       context: ctxFor(token),
     });
@@ -145,13 +145,6 @@ describe("profile.topup", () => {
     await expect(
       call(appRouter.profile.topup, undefined, { context: ctxFor(token) })
     ).rejects.toMatchObject({ code: "QUOTA_EXCEEDED" });
-  });
-
-  test("unverified user → FORBIDDEN (human gate)", async () => {
-    const { token } = await seedUser({ worldVerified: false });
-    await expect(
-      call(appRouter.profile.topup, undefined, { context: ctxFor(token) })
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

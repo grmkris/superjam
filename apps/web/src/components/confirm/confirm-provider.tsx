@@ -109,9 +109,9 @@ export function ConfirmProvider({
     const intent = active?.intent;
     if (!intent) return;
     try {
-      const { txHash, paymentToken } = await executor(intent);
+      const { txHash } = await executor(intent);
       setActive((a) => (a ? { ...a, phase: "success", txHash } : a));
-      setTimeout(() => settle({ approved: true, txHash, paymentToken }), 1300);
+      setTimeout(() => settle({ approved: true, txHash }), 1300);
     } catch (e) {
       setActive((a) => (a ? { ...a, phase: "error", error: errText(e) } : a));
     }

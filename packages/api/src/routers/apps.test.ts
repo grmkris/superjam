@@ -111,7 +111,7 @@ describe("apps.registerExternal", () => {
     ).rejects.toBeInstanceOf(ORPCError);
   });
 
-  test("rejects a non-world-verified user (human gate)", async () => {
+  test("any logged-in user can register an external app (no World gate)", async () => {
     const { db, auth, ctxFor } = await harness();
     const schema = (await import("@superjam/db")).schema;
     await db.insert(schema.user).values({
@@ -121,13 +121,12 @@ describe("apps.registerExternal", () => {
       worldVerified: false,
     });
     const token = await auth.sign({ dynamicUserId: "dyn_p", email: "p@test.io" });
-    await expect(
-      call(
-        appRouter.apps.registerExternal,
-        { manifest, entryUrl: "https://mine.vercel.app" },
-        { context: ctxFor(token) }
-      )
-    ).rejects.toBeInstanceOf(ORPCError);
+    const res = await call(
+      appRouter.apps.registerExternal,
+      { manifest, entryUrl: "https://mine.vercel.app" },
+      { context: ctxFor(token) }
+    );
+    expect(res.slug).toBeTruthy();
   });
 });
 
@@ -309,60 +308,8 @@ const ownerWithWallet = async (db: Awaited<ReturnType<typeof harness>>["db"]) =>
   return u!.id;
 };
 
-const stubOnchain = (mintV2Subname: Onchain["mintV2Subname"]): Onchain =>
-  ({ mintV2Subname }) as unknown as Onchain;
-
-describe("finalizeExternalApp — best-effort ENS mint (§16)", () => {
-  test("mints <slug>.superjam.eth (ENSv2) + records ensName/ensTxHash on the app", async () => {
-    const { db } = await harness();
-    const owner = await ownerWithWallet(db);
-    const seen: unknown[] = [];
-    const onchain = stubOnchain((params) => {
-      seen.push(params);
-      return Promise.resolve({
-        ensName: `${params.slug}.superjam.eth`,
-        node: ("0x" + "c".repeat(64)) as Hex,
-        txHash: ("0x" + "d".repeat(64)) as Hex,
-      });
-    });
-
-    const allocated = await allocateExternalApp(db, { manifest, ownerUserId: owner });
-    const row = await finalizeExternalApp(
-      db,
-      { appId: allocated.id, entryUrl: "https://tip-jar.vercel.app/" },
-      onchain,
-      logger
-    );
-    expect(row.status).toBe("listed");
-    expect(row.ensName).toBe("tip-jar.superjam.eth");
-    expect(row.ensTxHash).toBe("0x" + "d".repeat(64));
-    expect(seen).toEqual([
-      {
-        slug: "tip-jar",
-        owner: "0x" + "a".repeat(40),
-        // nested ENSv2 name: <slug>.<owner-username>.superjam.eth
-        under: "kris",
-        records: { url: "https://tip-jar.vercel.app/" },
-      },
-    ]);
-  });
-
-  test("a mint failure never fails finalize — app still listed, un-named", async () => {
-    const { db } = await harness();
-    const owner = await ownerWithWallet(db);
-    const onchain = stubOnchain(() => Promise.reject(new Error("ENS down")));
-    const allocated = await allocateExternalApp(db, { manifest, ownerUserId: owner });
-    const row = await finalizeExternalApp(
-      db,
-      { appId: allocated.id, entryUrl: "https://tip-jar.vercel.app/" },
-      onchain,
-      logger
-    );
-    expect(row.status).toBe("listed");
-    expect(row.ensName).toBeNull();
-  });
-
-  test("no onchain ⇒ lists without minting (key-less env)", async () => {
+describe("finalizeExternalApp", () => {
+  test("lists the app (ENS naming dropped — ensName stays null)", async () => {
     const { db } = await harness();
     const owner = await ownerWithWallet(db);
     const allocated = await allocateExternalApp(db, { manifest, ownerUserId: owner });

@@ -10,7 +10,6 @@ import { useConfirm } from "../../components/confirm/confirm-provider";
 import { JamPicker } from "../../components/chat/jam-picker";
 import { MessageCard } from "../../components/chat/message-card";
 import { PayFriendSheet } from "../../components/chat/pay-friend-sheet";
-import { userEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { Badge, Dot } from "../../components/ui/badge";
@@ -19,7 +18,6 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { Input } from "../../components/ui/field";
 import { MicButton } from "../../components/ui/mic-button";
 import { ToyboxTabs } from "../../components/ui/tabs";
-import { VerifiedBadge } from "../../components/verified-badge";
 import { HandleLink } from "../../components/handle-link";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
@@ -123,7 +121,7 @@ function Notifications() {
           {!n.read && <Dot className="border border-ink shrink-0" />}
           <div className="flex flex-col min-w-0 gap-0.5">
             <div className="flex items-center gap-1.5 text-small">
-              <HandleLink username={n.from.username} verified className="font-extrabold" />
+              <HandleLink username={n.from.username} className="font-extrabold" />
               <span className="text-muted font-semibold">· via {n.appName}</span>
             </div>
             <div className="text-small font-semibold leading-snug">{n.text}</div>
@@ -150,8 +148,6 @@ function Notifications() {
 interface Friend {
   id: string;
   username: string;
-  ensName: string | null;
-  worldVerified: boolean;
 }
 
 function Friends() {
@@ -237,15 +233,10 @@ function Friends() {
               <EmojiToken emoji="🙂" color="green" size={40} />
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold">@{f.username}</span>
-                {f.worldVerified && <VerifiedBadge />}
               </div>
               {unread[f.username] ? (
                 <Badge className="ml-auto">{unread[f.username]}</Badge>
-              ) : (
-                <span className="ml-auto font-mono text-tiny text-muted truncate max-w-[40%]">
-                  {f.ensName ?? userEns(f.username)}
-                </span>
-              )}
+              ) : null}
             </StickerCard>
           </button>
         ))
@@ -322,12 +313,13 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
     const res = await confirm({
       kind: "payFriend",
       to: `@${friend.username}`,
-      toName: friend.ensName ?? userEns(friend.username),
+      toName: `@${friend.username}`,
       amountUsdc,
       memo: note || undefined,
     }).catch(() => ({ approved: false, txHash: undefined as string | undefined }));
     if (res.approved && res.txHash) {
-      // the money line is recorded server-side inside payments.privateSend
+      // the money line is recorded server-side via payments.recordTip after the
+      // public-rail send
       load();
     }
   };
@@ -353,7 +345,6 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
         <EmojiToken emoji="🙂" color="green" size={32} />
         <HandleLink
           username={friend.username}
-          verified={friend.worldVerified}
           className="font-extrabold"
         />
       </div>

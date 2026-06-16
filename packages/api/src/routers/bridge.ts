@@ -25,7 +25,6 @@ import { createCounterService } from "../services/counter-service.ts";
 import { createDataService } from "../services/data-service.ts";
 import { createMessageService } from "../services/message-service.ts";
 import { createStorageService } from "../services/storage-service.ts";
-import { paymentsBridge } from "./payments.ts";
 import { potBridge } from "./pot.ts";
 
 const jsonRecord = z.record(z.string(), z.unknown());
@@ -442,7 +441,6 @@ export const bridgeRouter = {
   social,
   files,
   pot: potBridge,
-  payments: paymentsBridge,
   ai: createAiBridge(),
   onchain,
 };

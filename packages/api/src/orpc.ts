@@ -1,7 +1,6 @@
 // Procedure builders + middleware chain (§12). publicProcedure → protected
-// (Dynamic-auth'd, adds `user`) → worldVerified (gates the human-only surface).
+// (Dynamic-auth'd, adds `user`).
 import type { schema } from "@superjam/db";
-import { DEMO_MODE } from "@superjam/shared";
 import { ORPCError, os } from "@orpc/server";
 import { extractBearer } from "./auth/bearer.ts";
 import { PAT_PREFIX, resolveUserFromPat } from "./auth/pat.ts";
@@ -58,21 +57,7 @@ const maybeAuth = base.middleware(async ({ context, next }) => {
 
 export const optionalAuthProcedure = base.use(maybeAuth);
 
-// The human-only gate (publish, reviews, register-builder, top-up, …, §14).
-// Authored against a user-aware context so `.use()` composes after requireAuth.
-const requireWorldVerified = os
-  .$context<ApiContext & { user: User }>()
-  .middleware(async ({ context, next }) => {
-    // DEMO: World-ID is bypassed for the demo, so treat everyone as verified —
-    // unblocks publish/reviews/top-up/register-builder for a fresh account.
-    if (!context.user.worldVerified && !DEMO_MODE) {
-      throw new ORPCError("FORBIDDEN", {
-        message: "Verify you're human to keep jamming.",
-      });
-    }
-    return next();
-  });
-
-export const worldVerifiedProcedure = protectedProcedure.use(
-  requireWorldVerified
-);
+// World ID is dropped for now: the human-only gate is just "logged in". Routers
+// keep calling `worldVerifiedProcedure` (publish, reviews, register-builder, …) —
+// it's an alias of `protectedProcedure` so re-adding the gate later is one edit.
+export const worldVerifiedProcedure = protectedProcedure;

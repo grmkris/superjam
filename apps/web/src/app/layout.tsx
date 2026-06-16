@@ -28,7 +28,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // zoom stays enabled — desktop + accessibility need pinch/zoom (was maximumScale: 1)
+  userScalable: true,
   themeColor: "#E9E9EE",
 };
 

@@ -137,10 +137,8 @@ export const profileRouter = {
       return toMe(updated ?? context.user);
     }),
 
-  // Demo top-up (§15.1 rung 4): the server wallet sends TOPUP_USDC Base Sepolia
-  // USDC AND seeds the Arc private balance (Unlink faucet) — both rails, one
-  // tap, World-gated, 1/day. The private leg is best-effort: if Unlink is down
-  // the public rail still funds (the demo never dies, §15).
+  // Testnet top-up (§15.1): the server wallet sends TOPUP_USDC public-rail USDC to
+  // the caller's wallet, 1/day. Public rail only.
   topup: worldVerifiedProcedure.handler(async ({ context }) => {
     const u = context.user;
     if (
@@ -164,23 +162,6 @@ export const profileRouter = {
       )
     );
 
-    // Best-effort private seed — never blocks the public top-up.
-    let privateSeeded = false;
-    if (u.unlinkAddress) {
-      try {
-        await context.onchain.unlink.faucetPrivateTokens({
-          toUnlinkAddress: u.unlinkAddress,
-          amount,
-        });
-        privateSeeded = true;
-      } catch (err) {
-        context.logger.debug(
-          { err: String(err) },
-          "private top-up seed unavailable"
-        );
-      }
-    }
-
     await context.db
       .update(userTable)
       .set({ lastTopupAt: new Date() })
@@ -190,8 +171,6 @@ export const profileRouter = {
       amountUsdc: TOPUP_USDC,
       publicTxHash,
       publicChain: PUBLIC_CHAIN,
-      privateSeeded,
-      privateChain: PRIVATE_CHAIN,
     };
   }),
 };

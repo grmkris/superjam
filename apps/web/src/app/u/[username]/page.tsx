@@ -10,9 +10,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useConfirm } from "../../../components/confirm/confirm-provider";
 import { PayFriendSheet } from "../../../components/chat/pay-friend-sheet";
-import { NameTag } from "../../../components/name-tag";
-import { VerifiedBadge } from "../../../components/verified-badge";
-import { ensApp, userEns } from "../../../components/ui/brand";
 import { cx } from "../../../components/ui/cx";
 import {
   EmojiToken,
@@ -29,8 +26,6 @@ import { useHostAuth } from "../../../lib/use-host-auth";
 interface Profile {
   id: string;
   username: string;
-  ensName: string | null;
-  worldVerified: boolean;
   walletAddress: string | null;
   createdAt: string | number | Date;
   isMe: boolean;
@@ -144,12 +139,12 @@ export default function UserProfilePage({
   const pay = async (amountUsdc: number, note: string) => {
     setSheet(null);
     if (profile === null || profile === "missing") return;
-    // The chat money-line is recorded server-side inside payments.privateSend
-    // (friends only — the shielded transfer has already happened either way).
+    // The chat money-line is recorded server-side via payments.recordTip after
+    // the public-rail send (the confirm flow handles the actual transfer).
     await confirm({
       kind: "payFriend",
       to: `@${profile.username}`,
-      toName: profile.ensName ?? userEns(profile.username),
+      toName: `@${profile.username}`,
       amountUsdc,
       memo: note || undefined,
     }).catch(() => ({ approved: false }));
@@ -225,13 +220,7 @@ export default function UserProfilePage({
           />
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-extrabold text-h2">@{profile.username}</span>
-            {profile.worldVerified && <VerifiedBadge variant="pill" />}
           </div>
-          <NameTag
-            name={profile.ensName ?? userEns(profile.username)}
-            state={profile.ensName ? "minted" : "pending"}
-            href={profile.ensName ? ensApp(profile.ensName) : undefined}
-          />
           <div className="text-small font-semibold text-muted">
             joined {joinedLabel(profile.createdAt)} · 👥 {profile.friendsCount}{" "}
             {profile.friendsCount === 1 ? "friend" : "friends"}
@@ -245,9 +234,6 @@ export default function UserProfilePage({
           🎮 {jams?.length ?? 0} {(jams?.length ?? 0) === 1 ? "jam" : "jams"}
         </Pill>
         <Pill>👥 {profile.friendsCount}</Pill>
-        <Pill color={profile.worldVerified ? "green" : "white"}>
-          {profile.worldVerified ? "🌍 human" : "🔒 unverified"}
-        </Pill>
         {profile.walletAddress && (
           <button
             onClick={() =>

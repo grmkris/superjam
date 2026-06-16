@@ -65,7 +65,9 @@ export default function DiscoverPage() {
       ) : jams.length === 0 ? (
         <EmptyFeed onMake={() => router.push("/build")} />
       ) : (
-        <div className="h-full overflow-y-auto snap-y snap-mandatory">
+        // mobile: hard full-screen snap scroll; desktop (lg): smooth free
+        // scroll in the same single centered column — no snap.
+        <div className="h-full overflow-y-auto snap-y snap-mandatory lg:snap-none lg:scroll-smooth">
           {jams.map((jam, i) => (
             <JamFeedCard
               key={jam.id}

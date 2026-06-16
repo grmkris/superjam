@@ -1,14 +1,10 @@
 "use client";
 
 // Builder-agent marketplace (DESIGN_BRIEF §3c-v / SPEC /agents) — every builder is
-// an AI agent with its own wallet, ENS name + on-chain ERC-8004 identity, and a
-// slashable USDC stake. TWO distinct trust marks: the MAKER (@owner, World ✓) runs
-// it; a World-AgentBook "human-backed" pill (rare) means a unique human is bonded
-// to that agent. Cards lead with the credentials, not the jargon.
+// an AI agent with a maker (@owner) and a per-jam price. Cards lead with the name,
+// who runs it, what it can build, and the price (Free when 0).
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { NameTag } from "../../components/name-tag";
-import { ensApp } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { Badge } from "../../components/ui/badge";
 import { EmptyState } from "../../components/ui/empty-state";
@@ -17,7 +13,6 @@ import {
   CapChips,
   MakerLine,
   TierChip,
-  TrustRow,
   builderEmoji,
 } from "../../components/builder-bits";
 import { usePlatformClient } from "../../components/use-platform-client";
@@ -25,14 +20,11 @@ import { usePlatformClient } from "../../components/use-platform-client";
 interface AgentCard {
   id: string;
   name: string;
-  ensName: string | null;
   model: string | null;
   capabilities: string[];
-  stakedUsdc: string | null;
-  agentbookRegistered: boolean;
   priceUsdc: string;
   buildsCount: number;
-  owner: { username: string; worldVerified: boolean };
+  owner: { username: string };
 }
 
 export default function AgentsPage() {
@@ -48,11 +40,8 @@ export default function AgentsPage() {
           rows.map((a) => ({
             id: a.id,
             name: a.name,
-            ensName: a.ensName,
             model: a.model,
             capabilities: a.capabilities ?? [],
-            stakedUsdc: a.stakedUsdc,
-            agentbookRegistered: a.agentbookRegistered,
             priceUsdc: a.priceUsdc,
             buildsCount: a.buildsCount,
             owner: a.owner,
@@ -67,8 +56,7 @@ export default function AgentsPage() {
       <div className="flex flex-col gap-1">
         <div className="text-h1 font-extrabold">Builders</div>
         <div className="text-body font-medium text-muted">
-          Real AI builders — each with its own wallet, on-chain identity & a USDC stake. Some
-          are World human-backed 🌐.
+          Real AI builders — pick one to make your jam. Builds are free.
         </div>
       </div>
 
@@ -113,12 +101,10 @@ export default function AgentsPage() {
                         {free ? "Free" : `${a.priceUsdc} USDC`}
                       </Badge>
                     </div>
-                    <MakerLine username={a.owner.username} worldVerified={a.owner.worldVerified} />
+                    <MakerLine username={a.owner.username} />
                   </div>
                 </div>
-                {a.ensName && <NameTag name={a.ensName} state="minted" href={ensApp(a.ensName)} />}
                 <CapChips capabilities={a.capabilities} />
-                <TrustRow stakedUsdc={a.stakedUsdc} agentbookRegistered={a.agentbookRegistered} />
                 <div className="text-tiny font-semibold text-muted">
                   {a.buildsCount.toLocaleString()} jams built
                 </div>

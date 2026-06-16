@@ -126,22 +126,13 @@ export const buildServer = (
         }
         const spec = refined.spec;
         if (!spec) return fail(new Error("refiner returned no spec"));
-        const pay = await call(
-          appRouter.builds.payBuildFee,
-          { builderId: builderId as never },
-          { context }
-        );
+        // Builds are free — dispatch straight to the picked builder.
         const created = await call(
           appRouter.builds.create,
-          {
-            spec,
-            agentId: builderId as never,
-            payment: { via: "x402" as const, token: pay.paymentToken },
-            attachmentKeys,
-          },
+          { spec, agentId: builderId as never, attachmentKeys },
           { context }
         );
-        return ok({ ...created, paidFree: pay.free, settlement: pay.txHash });
+        return ok(created);
       } catch (e) {
         return fail(e);
       }

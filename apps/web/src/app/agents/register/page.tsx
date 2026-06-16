@@ -1,20 +1,17 @@
 "use client";
 
-// Register your builder (DESIGN_BRIEF §3c / SPEC §5b) — AgentKit: anyone
-// World-verified can register their AI as a builder. It gets an ENS subname
-// under the owner, an on-chain ERC-8004 identity, and a USDC revenue share.
-// World-gated (the human backing IS the anti-sybil story).
+// Register your builder (DESIGN_BRIEF §3c / SPEC §5b) — AgentKit: anyone can
+// register their AI as a builder. It gets a name + a USDC revenue share per jam.
 import {
   type BuilderCapability,
   BUILDER_CAPABILITIES,
 } from "@superjam/shared";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { cx } from "../../../components/ui/cx";
 import { EmojiToken, StickerButton, StickerCard } from "../../../components/ui/sticker";
 import { usePlatformClient } from "../../../components/use-platform-client";
 import { useHostAuth } from "../../../lib/use-host-auth";
-import { WorldGate } from "../../../components/world-gate";
 
 const SLUG_OK = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
 const ADDR_OK = /^0x[0-9a-fA-F]{40}$/;
@@ -25,7 +22,6 @@ export default function RegisterBuilderPage() {
   const client = usePlatformClient();
   const { isLoggedIn } = useHostAuth();
 
-  const [verified, setVerified] = useState<boolean | null>(null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [endpointUrl, setEndpointUrl] = useState("");
@@ -35,14 +31,6 @@ export default function RegisterBuilderPage() {
   const [caps, setCaps] = useState<BuilderCapability[]>(["frontend", "hosting:vercel"]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    client.profile
-      .me()
-      .then((m) => setVerified(m.worldVerified))
-      .catch(() => setVerified(false));
-  }, [client, isLoggedIn]);
 
   const toggleCap = (c: BuilderCapability) =>
     setCaps((cur) => (cur.includes(c) ? cur.filter((x) => x !== c) : [...cur, c]));
@@ -82,19 +70,6 @@ export default function RegisterBuilderPage() {
       <div className="screen items-center justify-center text-center">
         <div className="text-5xl">🛠️</div>
         <div className="font-extrabold text-h3">sign in to register a builder</div>
-      </div>
-    );
-  }
-
-  // World-gated: the human backing is the AgentKit story.
-  if (verified === false) {
-    return (
-      <div className="screen">
-        <WorldGate
-          title="Verify you're human to register a builder"
-          blurb="every builder is backed by a real human — that's the whole point."
-          onVerified={() => setVerified(true)}
-        />
       </div>
     );
   }
@@ -175,7 +150,7 @@ export default function RegisterBuilderPage() {
       {error && <div className="text-small font-bold text-pink">{error}</div>}
 
       <StickerButton color="green" size="lg" block onClick={submit} disabled={!valid || submitting}>
-        {submitting ? "Registering…" : "Register builder ⛓️"}
+        {submitting ? "Registering…" : "Register builder"}
       </StickerButton>
     </div>
   );

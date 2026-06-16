@@ -1,17 +1,15 @@
 "use client";
 
 // Make — idea → jam (DESIGN_BRIEF §3c). A sequence of beats, never a labelled
-// wizard: idea → follow-ups → plan → choose builder → (World gate, once) →
-// workshop → reveal. Machinery hidden throughout: no build logs, file names,
-// terminals, or "AI/agent" talk anywhere a user can see.
+// wizard: idea → follow-ups → plan → choose builder → workshop → reveal.
+// Machinery hidden throughout: no build logs, file names, terminals, or
+// "AI/agent" talk anywhere a user can see.
 import type { AppSpec, BuildDraftId, BuildId, BuilderAgentId, RefineResult, Similar } from "@superjam/shared";
-import { ATTACH_MAX_MB, BUILD_ATTACH_MAX, DEMO_MODE } from "@superjam/shared";
+import { ATTACH_MAX_MB, BUILD_ATTACH_MAX } from "@superjam/shared";
 import { useLogin } from "../../components/login";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useConfirm } from "../../components/confirm/confirm-provider";
-import { jamEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { Input, Textarea } from "../../components/ui/field";
@@ -22,15 +20,13 @@ import {
   CapChips,
   MakerLine,
   TierChip,
-  TrustRow,
   builderEmoji,
 } from "../../components/builder-bits";
 import { usePlatformClient } from "../../components/use-platform-client";
-import { WorldGate } from "../../components/world-gate";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { useBuildDraft } from "../../lib/use-build-draft";
 
-type Step = "home" | "followups" | "plan" | "builder" | "worldgate" | "workshop" | "reveal";
+type Step = "home" | "followups" | "plan" | "builder" | "workshop" | "reveal";
 
 /** An uploaded reference attachment (image or doc) for the build prompt. */
 interface Attachment {
@@ -65,21 +61,17 @@ const fileToDataUrl = (file: File): Promise<string> =>
 interface Builder {
   id: string;
   name: string;
-  ensName: string | null;
   model: string | null;
   capabilities: string[];
-  stakedUsdc: string | null;
-  agentbookRegistered: boolean;
   priceUsdc: string;
   buildsCount: number;
-  /** The human backer — every builder is an AI agent backed by a verified human. */
-  owner: { username: string; worldVerified: boolean };
+  /** The maker — every builder is an AI agent run by a person. */
+  owner: { username: string };
 }
 
-/** The picked builder + how its fee was settled, carried into builds.create. */
+/** The picked builder, carried into builds.create. Builds are free. */
 interface Chosen {
   agentId: string;
-  payment?: { via: "x402"; token: string };
 }
 
 export default function MakePage() {
@@ -95,8 +87,7 @@ function MakeFlow() {
   const search = useSearchParams();
   const remixSlug = search.get("remix");
   const client = usePlatformClient();
-  const { confirm } = useConfirm();
-  const { hostUser, isLoggedIn, meStatus } = useHostAuth();
+  const { hostUser, isLoggedIn } = useHostAuth();
   const { openLogin } = useLogin();
   const username = hostUser?.username ?? "you";
 
@@ -394,11 +385,8 @@ function MakeFlow() {
         rows.map((a) => ({
           id: a.id,
           name: a.name,
-          ensName: a.ensName,
           model: a.model,
           capabilities: a.capabilities ?? [],
-          stakedUsdc: a.stakedUsdc,
-          agentbookRegistered: a.agentbookRegistered,
           priceUsdc: a.priceUsdc,
           buildsCount: a.buildsCount,
           owner: a.owner,
@@ -421,41 +409,10 @@ function MakeFlow() {
   const goBuilders = () => go("builder");
 
   const pickBuilder = async (b: Builder) => {
-    const price = Number(b.priceUsdc);
-    let pick: Chosen = { agentId: b.id };
-    if (price > 0) {
-      // Paid builders settle the fee via the confirm sheet BEFORE dispatch — over
-      // the x402 PRIVATE rail (free for a verified human hiring a human-backed
-      // builder). The sheet quotes the builder + offers top-up if short.
-      const res = await confirm({
-        kind: "buildFee",
-        builderId: b.id,
-        toName: b.ensName ?? undefined,
-        amountUsdc: price,
-        jam: spec ? { name: spec.name, iconEmoji: spec.iconEmoji } : undefined,
-      }).catch(() => ({ approved: false, txHash: null, paymentToken: undefined }));
-      // A successful buildFee always returns a server-signed paymentToken (the
-      // receipt builds.create trusts). No token ⇒ treat as not approved.
-      if (!res.approved || !res.paymentToken) return;
-      pick = { agentId: b.id, payment: { via: "x402", token: res.paymentToken } };
-    }
+    // Builds are free — pick the builder and go straight to the build.
+    const pick: Chosen = { agentId: b.id };
     setChosen(pick);
-    // Don't treat a not-yet-loaded/failed profile as "unverified" — that would
-    // route an already-verified human into the gate (→ nullifier_replayed).
-    // Resolve `me` authoritatively when it isn't settled yet.
-    let verified = hostUser?.worldVerified ?? false;
-    if (meStatus !== "ready") {
-      verified = await client.profile
-        .me()
-        .then((m) => m.worldVerified)
-        .catch(() => false);
-    }
-    // Pass the pick directly (state isn't flushed yet on the non-gated path); the
-    // world-gate path re-renders first, so its onVerified reads `chosen` from state.
-    // DEMO: skip the World-ID gate (its RP context may be unconfigured) — go straight
-    // to the build so a fresh, unverified demo account can complete the flow.
-    if (!DEMO_MODE && !verified) go("worldgate");
-    else startBuild(pick);
+    startBuild(pick);
   };
 
   const startBuild = async (pick?: Chosen) => {
@@ -469,12 +426,11 @@ function MakeFlow() {
         attachmentKeys,
         draftId: draftId as BuildDraftId,
         ...(c?.agentId ? { agentId: c.agentId as BuilderAgentId } : {}),
-        ...(c?.payment ? { payment: c.payment } : {}),
       });
       setBuildId(res.buildId);
     } catch {
-      // The free build may be spent / sign-in needed — the workshop falls back
-      // to its animation and the reveal opens the spec slug.
+      // Sign-in needed / builder unavailable — the workshop falls back to its
+      // animation and the reveal opens the spec slug.
     }
   };
 
@@ -535,10 +491,6 @@ function MakeFlow() {
           onPick={pickBuilder}
           onInfo={(id) => router.push(`/agents/${id}?from=build&d=${draftId}`)}
         />
-      )}
-
-      {step === "worldgate" && (
-        <WorldGate onVerified={() => startBuild(chosen ?? undefined)} />
       )}
 
       {step === "workshop" && spec && (
@@ -1073,13 +1025,11 @@ function BuilderBeat({
                       <span className="font-extrabold text-body truncate">{b.name}</span>
                       <TierChip model={b.model} />
                     </div>
-                    <MakerLine username={b.owner.username} worldVerified={b.owner.worldVerified} />
+                    <MakerLine username={b.owner.username} />
                   </div>
                 </div>
                 {/* what it can build */}
                 <CapChips capabilities={b.capabilities} />
-                {/* the per-agent trust signals (stake + human-backed, only where true) */}
-                <TrustRow stakedUsdc={b.stakedUsdc} agentbookRegistered={b.agentbookRegistered} />
                 {/* actions */}
                 <div className="flex items-center gap-2 pt-2.5 border-t-2 border-dashed border-ink/15">
                   <button
@@ -1134,7 +1084,6 @@ const STEP_LABEL: Record<string, string> = {
   followups: "Questions",
   plan: "the Plan",
   builder: "Builder",
-  worldgate: "Verify",
   workshop: "Building",
   reveal: "Reveal",
 };
@@ -1233,7 +1182,7 @@ function WorkshopBeat({
         if (cancelled) return;
         if (Array.isArray(s.events)) setEvents(s.events as StepEvent[]);
         if (s.status === "failed") {
-          setFailed(s.error ?? "couldn't finish this jam");
+          setFailed(s.error ?? "the workshop hit a snag — give it another go.");
           return;
         }
         if (
@@ -1260,8 +1209,8 @@ function WorkshopBeat({
       <div className="flex flex-col items-center gap-4 py-10 text-center">
         <EmojiToken emoji="😖" color="pink" size={72} rounded="toy" />
         <div className="text-h3 font-extrabold">couldn't finish this jam</div>
-        <div className="text-small font-semibold text-muted max-w-[260px]">
-          the workshop hit a snag — give it another go.
+        <div className="text-small font-semibold text-muted max-w-[280px]">
+          {failed}
         </div>
         <StickerButton color="pink" size="lg" onClick={() => location.assign("/build")}>
           Try again
@@ -1295,7 +1244,6 @@ function RevealBeat({
   slug: string;
   onPlay: () => void;
 }) {
-  const ens = jamEns(slug);
   const link = `superjam.fun/${username}/${slug}`;
   const copy = () => navigator.clipboard?.writeText(`https://${link}`).catch(() => {});
   return (
@@ -1326,7 +1274,6 @@ function RevealBeat({
           ▸ Play
         </StickerButton>
       </div>
-      <span className="sr-only">{ens}</span>
     </div>
   );
 }

@@ -1,24 +1,6 @@
 // Platform-wide limits + identifiers (§7). Single source of truth; routers,
 // the bridge, and the SDK all read from here.
 
-// --- hackathon demo switch ---
-// Mocks every broken payment / on-chain rail (Dynamic delegation → Unlink/x402 is
-// down) so the "describe → pay a builder → it builds & deploys" flow works end to
-// end. Read by the server (api routers) AND the browser (apps/web World-gate skip),
-// so it MUST be a hardcoded constant — `process.env` isn't inlined into the client
-// bundle. Flip to false + redeploy to restore the real rails once delegation is fixed.
-// Typed `: boolean` (not the literal `true`) so the `!DEMO_MODE` branches aren't seen
-// as statically-dead code by tsc/oxlint in the build gate.
-export const DEMO_MODE: boolean = true;
-
-// A well-formed fake tx hash (0x + 64 hex) so UI receipts / explorer links render
-// when a mocked rail short-circuits the real settlement.
-export const fakeTxHash = (): string =>
-  "0x" +
-  Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(
-    ""
-  );
-
 // --- storage / data quotas ---
 export const STORAGE_MAX_KEYS = 1000; // KV keys per (user, app)
 export const STORAGE_VALUE_MAX_BYTES = 64 * 1024; // serialized value cap
@@ -63,7 +45,6 @@ export const TOPUP_PER_HUMAN_PER_DAY = 1;
 export const AGENT_PRICE_MAX_USDC = "5";
 export const POT_STAKE_MAX_USDC = "10";
 export const POT_TOTAL_MAX_USDC = "100";
-export const X402_MAX_USDC = "2";
 
 // --- AI (in-app sdk.ai + refine) ---
 export const AI_CALLS_PER_USER_APP_DAY = 25;
@@ -74,7 +55,6 @@ export const AI_APP_MODEL = "gemini-2.5-flash-lite";
 export const AI_IMAGES_MAX = 4; // images per sdk.ai.chat call
 export const AI_MESSAGES_MAX = 32; // messages per sdk.ai.chat call
 export const REFINE_CALLS_PER_USER_DAY = 20;
-export const X402_CALLS_PER_USER_APP_DAY = 10;
 
 // --- discovery ---
 export const LIST_MAX = 500;
@@ -110,9 +90,7 @@ export const BRIDGE_HELLO_TIMEOUT_MS = 5000; // no reply ⇒ standalone mode
 // --- reserved counter names (reuse app_counter, §7) ---
 export const PLAYS_COUNTER = "_plays";
 export const AI_QUOTA_COUNTER = "_ai_quota";
-export const X402_QUOTA_COUNTER = "_x402_quota";
 export const RESERVED_COUNTERS = [
   PLAYS_COUNTER,
   AI_QUOTA_COUNTER,
-  X402_QUOTA_COUNTER,
 ] as const;

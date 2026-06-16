@@ -313,13 +313,11 @@ export const createChatService = ({
       });
     },
 
-    /** Record a completed PRIVATE (Unlink) tip / pay-a-friend as a money line.
-     *  SERVER-AUTHORITATIVE: payments.privateSend has ALREADY executed the shielded
-     *  transfer server-side (the server holds the delegated signer), so there's no
-     *  public Transfer log to read — we trust the move and record the line, with the
-     *  amount taken from the same call that moved the money. Friends-only +
-     *  idempotent on txHash (no double-record / replay). */
-    async recordPrivateTip(
+    /** Record a completed pay-a-friend as a money line. The public-rail relay has
+     *  ALREADY moved the USDC (browser-signed EIP-3009 → payments.relay returned the
+     *  txHash); we trust the move and record the line, with the amount taken from the
+     *  same call. Friends-only + idempotent on txHash (no double-record / replay). */
+    async recordTip(
       from: Sender,
       toUsername: string,
       amountUsdc: string,

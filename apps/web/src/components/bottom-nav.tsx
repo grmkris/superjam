@@ -10,7 +10,7 @@ import { useHostAuth } from "../lib/use-host-auth";
 import { usePlatformClient } from "./use-platform-client";
 import { cx } from "./ui/cx";
 
-interface Tab {
+export interface Tab {
   href: string;
   emoji: string;
   label: string;
@@ -18,7 +18,8 @@ interface Tab {
   match: (p: string) => boolean;
 }
 
-const TABS: Tab[] = [
+// The three Toybox tabs — shared by BottomNav (mobile) and SideNav (desktop).
+export const TABS: Tab[] = [
   { href: "/build", emoji: "⚡", label: "Make", match: (p) => p.startsWith("/build") },
   { href: "/", emoji: "🧸", label: "Discover", match: (p) => p === "/" },
   { href: "/inbox", emoji: "✉️", label: "Inbox", match: (p) => p.startsWith("/inbox") },
@@ -28,7 +29,7 @@ export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const unread = useUnreadCount(pathname);
   return (
-    <nav className="flex border-t-2 border-ink bg-card px-2 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shrink-0">
+    <nav className="flex lg:hidden border-t-2 border-ink bg-card px-2 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shrink-0">
       {TABS.map((tab) => {
         const active = tab.match(pathname);
         return (
@@ -66,8 +67,9 @@ export function BottomNav() {
 }
 
 // Unread badge count — the retention surface. Refetches on route change (so
-// leaving /inbox after mark-all-read clears it) and on window focus.
-function useUnreadCount(pathname: string): number {
+// leaving /inbox after mark-all-read clears it) and on window focus. Exported so
+// SideNav (desktop) can carry the same badge.
+export function useUnreadCount(pathname: string): number {
   const client = usePlatformClient();
   const { isLoggedIn } = useHostAuth();
   const [unread, setUnread] = useState(0);

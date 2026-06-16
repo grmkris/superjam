@@ -1,18 +1,13 @@
 "use client";
 
-// Jam page (DESIGN_BRIEF §3b-iii) — the jam plus its Reviews (the ✓-human
-// feedback surface; comments are folded into reviews backend-side). Full ENS
-// name tag (↗ Basescan), remix lineage, built-by row. Reviews are real
-// (reviews.list); leaving one is World-gated (reviews.upsert).
+// Jam page (DESIGN_BRIEF §3b-iii) — the jam plus its Reviews (the feedback
+// surface; comments are folded into reviews backend-side). Remix lineage,
+// built-by row. Reviews are real (reviews.list / reviews.upsert).
 import type { AppId } from "@superjam/shared";
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { NameTag } from "../../../components/name-tag";
 import { FriendPicker } from "../../../components/chat/friend-picker";
-import { VerifiedBadge } from "../../../components/verified-badge";
-import { WorldGate } from "../../../components/world-gate";
-import { ensApp } from "../../../components/ui/brand";
 import { cx } from "../../../components/ui/cx";
 import { EmojiToken, Pill, StickerButton, StickerCard } from "../../../components/ui/sticker";
 import { Input } from "../../../components/ui/field";
@@ -21,11 +16,9 @@ import { EmptyState } from "../../../components/ui/empty-state";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { type FeedJam, loadFeed } from "../../../components/feed/jam";
 import { usePlatformClient } from "../../../components/use-platform-client";
-import { useHostAuth } from "../../../lib/use-host-auth";
 
 interface Review {
   username: string;
-  worldVerified: boolean;
   rating: number;
   text: string | null;
   createdAt: string | number | Date;
@@ -49,22 +42,12 @@ export default function JamPage({
   const { slug } = use(params);
   const router = useRouter();
   const client = usePlatformClient();
-  const { hostUser, meStatus } = useHostAuth();
 
   const [jam, setJam] = useState<FeedJam | null | "missing">(null);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [verified, setVerified] = useState(false);
-  const [gate, setGate] = useState(false);
   const [draftRating, setDraftRating] = useState(0);
   const [draftText, setDraftText] = useState("");
   const [sendKind, setSendKind] = useState<"share" | "challenge" | null>(null);
-
-  // Only trust the verified flag once `me` has actually resolved — a pending or
-  // failed fetch must not read as "unverified" (that gates a verified human →
-  // nullifier_replayed). WorldGate itself recovers if the gate still shows.
-  useEffect(() => {
-    if (meStatus === "ready") setVerified(Boolean(hostUser?.worldVerified));
-  }, [hostUser, meStatus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,10 +97,6 @@ export default function JamPage({
 
   const submitReview = async () => {
     if (jam === null || jam === "missing" || draftRating === 0) return;
-    if (!verified) {
-      setGate(true);
-      return;
-    }
     try {
       await client.reviews.upsert({
         appId: jam.id as AppId,
@@ -171,7 +150,7 @@ export default function JamPage({
         </button>
         {avg && (
           <span className="ml-auto text-tiny font-bold text-muted">
-            ★ {avg} · {reviews.length} humans
+            ★ {avg} · {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
           </span>
         )}
       </div>
@@ -189,8 +168,7 @@ export default function JamPage({
               <Link href={`/u/${jam.maker.username}`} className="focus-ring font-bold hover:text-ink">
                 @{jam.maker.username}
               </Link>
-            )}{" "}
-            {jam.maker.verified && <VerifiedBadge variant="pill" />}
+            )}
           </div>
         </div>
         <StickerButton
@@ -203,15 +181,14 @@ export default function JamPage({
         </StickerButton>
       </StickerCard>
 
-      {/* chain facts */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {jam.ensName && <NameTag name={jam.ensName} href={ensApp(jam.ensName)} />}
-        {jam.remixOf && (
+      {/* remix lineage */}
+      {jam.remixOf && (
+        <div className="flex items-center gap-1.5 flex-wrap">
           <Pill className="text-tiny">
             🔁 remix of {jam.remixOf.name} <span className="text-blue">↗</span>
           </Pill>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* send / challenge a friend */}
       <div className="flex gap-2">
@@ -242,71 +219,45 @@ export default function JamPage({
         </div>
       )}
 
-      {/* composer (World-gated) */}
-      {gate ? (
-        <WorldGate
-          title="Verify to leave a review"
-          blurb="reviews are humans only — no bot ratings."
-          onVerified={() => {
-            setVerified(true);
-            setGate(false);
-            client.profile.me().then(() => {}).catch(() => {});
-          }}
-        />
-      ) : (
-        <div className="mt-2 flex flex-col gap-2">
-          <div className="flex items-center gap-1.5">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                onClick={() => setDraftRating(n)}
-                className={cx(
-                  "focus-ring text-2xl leading-none",
-                  n <= draftRating ? "opacity-100" : "opacity-30"
-                )}
-                aria-label={`${n} stars`}
-              >
-                ★
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              value={draftText}
-              onChange={(e) => setDraftText(e.target.value)}
-              maxLength={280}
-              placeholder="say something…"
-              className="flex-1 rounded-full text-small"
-            />
-            <MicButton
-              value={draftText}
-              onChange={(t) => setDraftText(t.slice(0, 280))}
-            />
-            <StickerButton
-              color="yellow"
-              size="md"
-              onClick={submitReview}
-              disabled={draftRating === 0}
-            >
-              ↑
-            </StickerButton>
-          </div>
-          {verified ? (
-            <div className="flex items-center justify-center gap-1.5 text-tiny font-bold text-muted">
-              <VerifiedBadge />
-              prove you're human once with World ID — no bots in here
-            </div>
-          ) : (
+      {/* composer */}
+      <div className="mt-2 flex flex-col gap-2">
+        <div className="flex items-center gap-1.5">
+          {[1, 2, 3, 4, 5].map((n) => (
             <button
-              onClick={() => setGate(true)}
-              className="focus-ring flex items-center justify-center gap-1.5 text-tiny font-extrabold text-blue sticker-press"
+              key={n}
+              onClick={() => setDraftRating(n)}
+              className={cx(
+                "focus-ring text-2xl leading-none",
+                n <= draftRating ? "opacity-100" : "opacity-30"
+              )}
+              aria-label={`${n} stars`}
             >
-              <VerifiedBadge />
-              Verify with World ID to review →
+              ★
             </button>
-          )}
+          ))}
         </div>
-      )}
+        <div className="flex gap-2">
+          <Input
+            value={draftText}
+            onChange={(e) => setDraftText(e.target.value)}
+            maxLength={280}
+            placeholder="say something…"
+            className="flex-1 rounded-full text-small"
+          />
+          <MicButton
+            value={draftText}
+            onChange={(t) => setDraftText(t.slice(0, 280))}
+          />
+          <StickerButton
+            color="yellow"
+            size="md"
+            onClick={submitReview}
+            disabled={draftRating === 0}
+          >
+            ↑
+          </StickerButton>
+        </div>
+      </div>
 
       {sendKind && (
         <FriendPicker
@@ -345,7 +296,6 @@ function ReviewCard({ r }: { r: Review }) {
           <EmojiToken emoji={avatarEmoji(r.username)} color="green" size={30} />
           <span className="font-extrabold text-small">@{r.username}</span>
         </Link>
-        {r.worldVerified && <VerifiedBadge variant="pill" />}
         <span className="ml-auto text-tiny font-semibold text-muted">
           {ago(r.createdAt)}
         </span>

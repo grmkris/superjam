@@ -1,34 +1,25 @@
 "use client";
 
-// Profile (DESIGN_BRIEF §3f) — behind the @kris ▾ chip. Identity (@name + ENS +
-// ✓-human), the Dynamic wallet block (address + USDC balance as the hero
-// number), your registered builders, and the World verify block. USDC only — no
-// gas / network / token lists.
+// Profile (DESIGN_BRIEF §3f) — behind the @kris ▾ chip. Identity (@name), the
+// Dynamic wallet block (address + USDC balance as the hero number), and your
+// registered builders. USDC only — no gas / network / token lists.
 import type { AppId, BuildDraftId } from "@superjam/shared";
 import { useLogout } from "@dynamic-labs-sdk/react-hooks";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { NameTag } from "../../components/name-tag";
-import { VerifiedBadge } from "../../components/verified-badge";
-import { ensApp, userEns } from "../../components/ui/brand";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { usePlatformClient } from "../../components/use-platform-client";
-import { VerifySheet } from "../../components/verify-sheet";
 import { WalletCard } from "../../components/wallet/wallet-card";
-import { EnablePrivacy } from "../../components/wallet/enable-privacy";
 import { useLogin } from "../../components/login";
 import { useHostAuth } from "../../lib/use-host-auth";
 
 interface Me {
   username: string;
-  ensName: string | null;
   walletAddress: string | null;
-  worldVerified: boolean;
 }
 interface Builder {
   id: string;
   name: string;
-  ensName: string | null;
   buildsCount: number;
 }
 /** A paused wizard draft (pending build) — resumable from where it stopped. */
@@ -64,7 +55,6 @@ export default function ProfilePage() {
   const [builders, setBuilders] = useState<Builder[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [jams, setJams] = useState<Jam[]>([]);
-  const [verifying, setVerifying] = useState(false);
 
   const discardDraft = (id: string) => {
     setDrafts((d) => d.filter((x) => x.id !== id));
@@ -80,9 +70,7 @@ export default function ProfilePage() {
     client.profile.me().then((m) =>
       setMe({
         username: m.username,
-        ensName: m.ensName,
         walletAddress: m.walletAddress,
-        worldVerified: m.worldVerified,
       })
     ).catch(() => {});
 
@@ -93,7 +81,7 @@ export default function ProfilePage() {
       .mine()
       .then((rows) =>
         setBuilders(
-          rows.map((a) => ({ id: a.id, name: a.name, ensName: a.ensName, buildsCount: a.buildsCount }))
+          rows.map((a) => ({ id: a.id, name: a.name, buildsCount: a.buildsCount }))
         )
       )
       .catch(() => {});
@@ -146,46 +134,12 @@ export default function ProfilePage() {
       <div className="flex items-center gap-3">
         <EmojiToken emoji="🙂" color="green" size={56} rounded="toy" tilt={-5} />
         <div className="flex flex-col gap-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="font-extrabold text-h3">@{me?.username ?? "you"}</span>
-            {me?.worldVerified && <VerifiedBadge variant="pill" />}
-          </div>
-          <NameTag
-            name={me?.ensName ?? userEns(me?.username ?? "you")}
-            state={me?.ensName ? "minted" : "pending"}
-            href={me?.ensName ? ensApp(me.ensName) : undefined}
-          />
+          <span className="font-extrabold text-h3">@{me?.username ?? "you"}</span>
         </div>
       </div>
 
-      {/* wallet — a single private (shielded) balance; public USDC auto-shields. */}
+      {/* wallet — a single public USDC balance */}
       <WalletCard walletAddress={me?.walletAddress ?? null} />
-
-      {/* delegate the embedded wallet so the private rail can sign on your behalf */}
-      <EnablePrivacy />
-
-      {/* World verify block */}
-      <StickerCard color={me?.worldVerified ? "white" : "cream"} className="p-4 flex items-center gap-3">
-        <EmojiToken emoji="🌍" color={me?.worldVerified ? "green" : "yellow"} size={40} rounded="toy" />
-        <div className="flex flex-col">
-          <div className="font-extrabold text-body">
-            {me?.worldVerified ? "Verified human ✓" : "Not verified yet"}
-          </div>
-          <div className="text-small font-semibold text-muted">
-            {me?.worldVerified ? "World ID · one human, one account" : "verify to publish, review & build"}
-          </div>
-        </div>
-        {!me?.worldVerified && (
-          <StickerButton
-            color="green"
-            size="sm"
-            onClick={() => setVerifying(true)}
-            className="ml-auto rounded-full"
-          >
-            Verify
-          </StickerButton>
-        )}
-      </StickerCard>
 
       {/* your jams — pending (drafts) → running (building) → completed (live) */}
       {(drafts.length > 0 || jams.length > 0) && (
@@ -290,7 +244,6 @@ export default function ProfilePage() {
                   {b.buildsCount.toLocaleString()} jams built
                 </div>
               </div>
-              {b.ensName && <NameTag name={b.ensName} href={ensApp(b.ensName)} className="ml-auto" />}
             </StickerCard>
           ))
         )}
@@ -305,14 +258,6 @@ export default function ProfilePage() {
       >
         Log out
       </StickerButton>
-
-      <VerifySheet
-        open={verifying}
-        onClose={() => setVerifying(false)}
-        onVerified={loadMe}
-        title="Verify you're human"
-        blurb="verify once to publish, review & build — one human, one account."
-      />
     </div>
   );
 }

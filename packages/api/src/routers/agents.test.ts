@@ -123,12 +123,14 @@ describe("agents.register", () => {
     expect(agent).not.toHaveProperty("token");
   });
 
-  test("registration is gated on World verification", async () => {
+  test("any logged-in user can register (no World gate)", async () => {
     const { db, ctxFor, signIn } = await harness();
-    const unverified = await createTestUser(db, { worldVerified: false });
-    await expect(
-      call(agentsRouter.register, REGISTER, { context: ctxFor(await signIn(unverified)) })
-    ).rejects.toBeInstanceOf(ORPCError);
+    const owner = await createTestUser(db, { worldVerified: false });
+    const agent = await call(agentsRouter.register, REGISTER, {
+      context: ctxFor(await signIn(owner)),
+    });
+    expect(agent.slug).toBe("toybox-builder");
+    expect(agent.ownerUserId).toBe(owner.id);
   });
 
   test("a duplicate slug is a CONFLICT", async () => {

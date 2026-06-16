@@ -35,7 +35,6 @@ export {
   type AgentIdentityResult,
   nullAgentIdentity,
 } from "./lib/agent-identity.ts";
-export { createAgentIdentity } from "./lib/agent-identity-impl.ts";
 export {
   findEligibleBuilders,
   selectEligibleBuilder,

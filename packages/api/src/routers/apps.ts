@@ -13,7 +13,6 @@ import {
   type AppManifest,
   AppManifestSchema,
   type BuildId,
-  DEMO_MODE,
   LIST_MAX,
   PLAYS_COUNTER,
   RESERVED_LABELS,
@@ -21,7 +20,6 @@ import {
   type UserId,
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
-import type { Address } from "viem";
 import { and, desc, eq, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
@@ -124,47 +122,7 @@ export const finalizeExternalApp = async (
   if (!row) {
     throw new ORPCError("NOT_FOUND", { message: "App not found" });
   }
-
-  // ENS mint (§11 step 5 / §16) — best-effort, AFTER listing. Mints
-  // `slug.username.<parent>` under the owner's node + sets the app's url/
-  // category/remix records, so the jam is enumerable from ENS alone (the
-  // chain-sourced catalog). NEVER fails finalize: a key-less / ENS-down env (or
-  // an owner without a wallet) just lists the app un-named. Mirrors the
-  // best-effort contract of createAgentIdentity.
-  if (onchain && !DEMO_MODE) {
-    try {
-      const owner = await db.query.user.findFirst({
-        where: eq(user.id, row.ownerUserId),
-        columns: { walletAddress: true, username: true },
-      });
-      if (owner?.walletAddress) {
-        // ENSv2-native (Sepolia L1) — `<slug>.<user>.superjam.eth` (nested under
-        // the owner's claimed username via ENSIP-10 wildcard; see ens-v2.ts), the
-        // single naming path: resolvable in standard ENS tooling
-        // (viem/ethers/app.ens.domains). Falls back to flat `<slug>.superjam.eth`
-        // if the owner has no username. Best-effort — an ENS failure NEVER fails
-        // finalize; the app stays listed un-named. (category/remixOf are
-        // DB-sourced for the feed, not on-chain.)
-        const v2 = await onchain.mintV2Subname({
-          slug: row.slug,
-          owner: owner.walletAddress as Address,
-          under: owner.username ?? undefined,
-          records: { url: input.entryUrl },
-        });
-        const [named] = await db
-          .update(app)
-          .set({ ensName: v2.ensName, ensTxHash: v2.txHash })
-          .where(eq(app.id, row.id))
-          .returning();
-        return named ?? row;
-      }
-    } catch (err) {
-      logger?.warn(
-        { err: String(err), appId: row.id },
-        "app ENS mint failed (best-effort, app stays listed un-named)"
-      );
-    }
-  }
+  // ENS naming is dropped for now — the app is listed under its plain slug.
   return row;
 };
 

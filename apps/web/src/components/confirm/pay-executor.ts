@@ -1,15 +1,12 @@
 "use client";
 
 // useRelayExecutor — the REAL confirm-sheet executor (DESIGN_BRIEF §3d). Turns an
-// approved ConfirmIntent into money over the right rail (§15):
-//   • tip / payFriend → the SHIELDED Unlink rail (payments.privateSend), private
-//     by default, server-signed (no browser signature).
-//   • buildFee → the x402 private rail (builds.payBuildFee), settled server-side.
-//   • publish / stake → the PUBLIC EIP-3009 gasless relay: resolve recipient →
-//     build the transfer authorization → sign it with the Dynamic embedded wallet
-//     (in the browser; the key never leaves the user) → relay via payments.relay.
-//     These are the payments the platform must verify by reading an on-chain
-//     receipt, so they stay public.
+// approved ConfirmIntent into money over the ONE public rail (§15): tip /
+// payFriend / publish / pot stake all resolve the recipient → build the EIP-3009
+// transfer authorization → sign it with the Dynamic embedded wallet (in the
+// browser; the key never leaves the user) → relay gaslessly via payments.relay.
+// A friend send also records a chat money-line (payments.recordTip). Builds are
+// free — there's no buildFee leg.
 // Injected into <ConfirmProvider> by client-root's WiredConfirm (which sits inside
 // <Providers> so the wallet is reachable).
 //
@@ -18,7 +15,7 @@
 import type { EvmWalletAccount } from "@dynamic-labs-sdk/evm";
 import { createWalletClientForWalletAccount } from "@dynamic-labs-sdk/evm/viem";
 import { useWalletAccounts } from "@dynamic-labs-sdk/react-hooks";
-import type { AppId, BuilderAgentId } from "@superjam/shared";
+import type { AppId } from "@superjam/shared";
 import {
   PUBLIC_CHAIN,
   USDC,
@@ -40,37 +37,12 @@ export function useRelayExecutor(): PayExecutor {
 
   return useCallback<PayExecutor>(
     async (intent) => {
-      // Build fee → the x402 PRIVATE rail (§14). Settled server-side from the
-      // shielded balance (or free for a verified human hiring a human-backed
-      // builder) — no browser signing, no public wallet. Returns null when free.
-      if (intent.kind === "buildFee") {
-        if (!intent.builderId) {
-          throw new Error("Missing builder for the build fee");
-        }
-        const { txHash, paymentToken } = await client.builds.payBuildFee({
-          builderId: intent.builderId as BuilderAgentId,
-        });
-        return { txHash, paymentToken };
-      }
-
       if (!intent.to) {
         throw new Error("Missing recipient");
       }
 
-      // Tips + in-jam payUSDC → the SHIELDED Unlink rail (§15, private by default).
-      // Server-side via the delegated signer — no browser signature, no public
-      // wallet, no on-chain Transfer log. A friend send also records the chat line.
-      if (intent.kind === "tip" || intent.kind === "payFriend") {
-        const { txHash } = await client.payments.privateSend({
-          to: intent.to,
-          amount: String(intent.amountUsdc),
-          appId: intent.appId as AppId | undefined,
-        });
-        return { txHash };
-      }
-
-      // Public rail (publish fee / pot stake) — the platform must verify these by
-      // reading the on-chain receipt, so they stay on the EIP-3009 gasless relay.
+      // Every money move rides the public EIP-3009 gasless relay: resolve the
+      // recipient → sign in the browser → relay → real tx hash.
       if (!evmAccount) {
         throw new Error("Connect your wallet to pay");
       }
@@ -120,6 +92,18 @@ export function useRelayExecutor(): PayExecutor {
         },
         signature,
       });
+
+      // A friend send (@username) records a chat money-line server-side. The money
+      // has already moved; the line is best-effort.
+      if (intent.kind === "payFriend" && intent.to.startsWith("@")) {
+        await client.payments
+          .recordTip({
+            toUsername: intent.to.slice(1),
+            amountUsdc: String(intent.amountUsdc),
+            txHash,
+          })
+          .catch(() => {});
+      }
       return { txHash };
     },
     [client, evmAccount]

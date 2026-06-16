@@ -159,6 +159,45 @@
   }
 }
 
+/* ── Desktop (lg ≥1024px) ───────────────────────────────────────────────────
+   Keep the Toybox column centered, but make room for the left sidebar (rendered
+   in AppChrome) and widen the content column modestly. The ink-outline frame
+   stays — the sidebar carries the left ink border, the column keeps its right. */
+@media (min-width: 1024px) {
+  /* Widen the framed sheet to fit the ~220px sidebar + a ~600px content column,
+     still centered with paper around it. The ink-outline frame wraps the whole
+     thing; the SideNav draws the inner divider between rail and content. */
+  .app-shell.has-sidenav {
+    max-width: 820px;
+  }
+
+  /* Headings look tiny at desktop scale — bump the display end of the ramp. */
+  :root {
+    --text-hero: 56px;
+    --text-h1: 40px;
+    --text-h2: 32px;
+  }
+}
+
+/* ── Pointer hover affordances ──────────────────────────────────────────────
+   The whole app was tap-only (no :hover). Desktop has a pointer, so give the
+   sticker press-targets a tasteful lift on hover: the hard shadow grows a touch
+   and the element rises 1px (the inverse of the :active press-down). */
+@media (hover: hover) {
+  .sticker-press {
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .sticker-press:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sticker-md);
+  }
+  /* re-assert the press-down so hover→active still reads as a tap */
+  .sticker-press:active {
+    transform: translateY(2px);
+    box-shadow: var(--shadow-sticker-sm);
+  }
+}
+
 /* ── Motion (polish pass) ──────────────────────────────────────────────────
    Route entrance reuses the existing `fadein` keyframe (applied as
    motion-safe:animate-[fadein…] on <main>). Adds a list `rise` cascade and a

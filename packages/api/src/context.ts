@@ -8,10 +8,11 @@ import type { Address } from "viem";
 import { type AppTokenIssuer, nullAppTokenIssuer } from "./auth/app-token.ts";
 import type { AuthVerifier } from "./auth/verifier.ts";
 import { type WorldVerifier, nullWorldVerifier } from "./auth/world.ts";
-import type { AgentIdentity } from "./lib/agent-identity.ts";
-import { createAgentIdentity } from "./lib/agent-identity-impl.ts";
-import type { AgentReputation } from "./lib/agent-reputation.ts";
-import { createAgentReputation } from "./lib/agent-reputation-impl.ts";
+import { type AgentIdentity, nullAgentIdentity } from "./lib/agent-identity.ts";
+import {
+  type AgentReputation,
+  nullAgentReputation,
+} from "./lib/agent-reputation.ts";
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
 import { type ObjectStore, nullObjectStore } from "./services/object-store.ts";
@@ -82,12 +83,11 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     unlink: deps.unlink ?? nullUnlinkService,
     world: deps.world ?? nullWorldVerifier,
     objectStore: deps.objectStore ?? nullObjectStore,
-    // Defaults to the live ENS-minting identity over whatever onchain we have
-    // (nullOnchain ⇒ mints reject ⇒ provision returns {} — still best-effort).
-    agentIdentity: deps.agentIdentity ?? createAgentIdentity(onchain),
-    // Live ERC-8004 reputation over whatever onchain we have (nullOnchain ⇒
-    // writeReputation rejects ⇒ the reviews router's try/catch degrades it).
-    agentReputation: deps.agentReputation ?? createAgentReputation(onchain),
+    // Onchain agent identity (ENS / ERC-8004) + reputation are dropped for now —
+    // agents are plain marketplace rows. The no-op defaults make register/review
+    // succeed with nothing attached on-chain.
+    agentIdentity: deps.agentIdentity ?? nullAgentIdentity,
+    agentReputation: deps.agentReputation ?? nullAgentReputation,
     treasuryAddress: deps.treasuryAddress,
     headers: deps.headers,
   };

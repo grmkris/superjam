@@ -8,7 +8,6 @@ import { useInitStatus } from "@dynamic-labs-sdk/react-hooks";
 import { RESERVED_LABELS } from "@superjam/shared";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ROOT, userEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
@@ -107,7 +106,7 @@ export default function WelcomePage() {
         : avail === "taken"
           ? "taken"
           : "typing";
-  const fullEns = userEns(name.trim().toLowerCase() || "your-name");
+  const handle = name.trim().toLowerCase() || "your-name";
 
   const claim = async () => {
     if (state !== "available") return;
@@ -142,7 +141,7 @@ export default function WelcomePage() {
             name={name}
             setName={setName}
             state={state}
-            fullEns={fullEns}
+            handle={handle}
             onClaim={claim}
             claiming={claiming}
           />
@@ -226,14 +225,14 @@ function ClaimBeat({
   name,
   setName,
   state,
-  fullEns,
+  handle,
   onClaim,
   claiming,
 }: {
   name: string;
   setName: (v: string) => void;
   state: NameState;
-  fullEns: string;
+  handle: string;
   onClaim: () => void;
   claiming: boolean;
 }) {
@@ -246,7 +245,7 @@ function ClaimBeat({
           Claim your name
         </div>
         <div className="text-body font-medium text-muted text-center">
-          it's yours on the chain — forever
+          it's yours — your @handle on SuperJam
         </div>
       </div>
 
@@ -262,6 +261,7 @@ function ClaimBeat({
                 : "border-ink"
           )}
         >
+          <span className="font-mono text-body font-medium text-muted">@</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value.toLowerCase())}
@@ -270,12 +270,8 @@ function ClaimBeat({
             spellCheck={false}
             aria-label="Your name"
             placeholder="your-name"
-            className="font-mono text-body font-bold bg-transparent outline-none w-[7.5ch] min-w-0"
+            className="font-mono text-body font-bold bg-transparent outline-none flex-1 min-w-0"
           />
-          <span className="inline-block w-0.5 h-4 bg-pink" />
-          <span className="font-mono text-body font-medium text-muted">
-            .{ROOT}
-          </span>
           <span className="ml-auto">{availChip(state)}</span>
         </div>
 
@@ -293,15 +289,15 @@ function ClaimBeat({
                 )}
               />
               <span className="font-mono text-small font-semibold">
+                <span className="text-muted">@{handle}/</span>
                 {p}
-                <span className="text-muted">.{fullEns}</span>
               </span>
             </div>
           ))}
           <div className="flex items-center gap-1.5">
             <span className="size-1.5 rounded-full border-[1.5px] border-dashed border-muted bg-card shrink-0" />
             <span className="font-mono text-small font-semibold text-muted">
-              your-next-jam.{fullEns}
+              @{handle}/your-next-jam
             </span>
           </div>
         </div>
@@ -313,7 +309,7 @@ function ClaimBeat({
           onClick={onClaim}
           disabled={state !== "available" || claiming}
         >
-          {claiming ? "Claiming…" : "That's me! ⛓️"}
+          {claiming ? "Claiming…" : "That's me!"}
         </StickerButton>
       </StickerCard>
     </>

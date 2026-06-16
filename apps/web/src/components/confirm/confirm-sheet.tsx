@@ -4,16 +4,11 @@
 // sheet OVER the iframe; stays Toybox (warm, not a cold bank). Trust is marked
 // by the "🔒 superjam confirm" chip + "asked for by <jam> — jams never touch
 // your wallet", not by a change of visual language. Four states.
-import type { BuilderAgentId } from "@superjam/shared";
-import { useCallback, useEffect, useState } from "react";
-import { useTopUp } from "../wallet/use-top-up";
-import { HumanBackedBadge } from "../builder-bits";
 import { NameTag } from "../name-tag";
 import { basescan } from "../ui/brand";
 import { cx } from "../ui/cx";
 import { ToyboxSheet } from "../ui/sheet";
 import { EmojiToken, StickerButton } from "../ui/sticker";
-import { usePlatformClient } from "../use-platform-client";
 import type { ConfirmIntent } from "./confirm-controller";
 
 export type ConfirmPhase = "review" | "pending" | "success" | "error";
@@ -30,8 +25,6 @@ function summary(intent: ConfirmIntent): string {
       return `Stake ${amt}`;
     case "payFriend":
       return `Send ${amt} to a friend`;
-    case "buildFee":
-      return "Build fee";
     default:
       return `Send ${amt}`;
   }
@@ -75,28 +68,14 @@ export function ConfirmSheet({
         )}
       </div>
 
-      {phase === "review" && intent.kind === "buildFee" && (
-        <BuildFeeReview intent={intent} onApprove={onApprove} onReject={onReject} />
+      {phase === "review" && (
+        <ReviewBody intent={intent} onApprove={onApprove} onReject={onReject} />
       )}
-      {phase === "review" &&
-        (intent.kind === "tip" || intent.kind === "payFriend") && (
-          <PrivateSendReview
-            intent={intent}
-            onApprove={onApprove}
-            onReject={onReject}
-          />
-        )}
-      {phase === "review" &&
-        intent.kind !== "buildFee" &&
-        intent.kind !== "tip" &&
-        intent.kind !== "payFriend" && (
-          <ReviewBody intent={intent} onApprove={onApprove} onReject={onReject} />
-        )}
       {phase === "pending" && <PendingBody txHash={txHash} />}
       {phase === "success" && <SuccessBody intent={intent} txHash={txHash} />}
       {phase === "error" && <ErrorBody error={error} onClose={onReject} />}
 
-      {intent.jam && phase === "review" && intent.kind !== "buildFee" && (
+      {intent.jam && phase === "review" && (
         <div className="text-center text-small font-medium text-muted leading-snug">
           asked for by {intent.jam.name} — jams never touch your wallet.
         </div>
@@ -149,294 +128,6 @@ function ReviewBody({
   );
 }
 
-// Tip / pay-a-friend review — the SHIELDED Unlink rail (§15, private by default).
-// The "🕶 private" framing tells the user this leaves no public trace; it reads the
-// caller's shielded balance and, if short, offers a top-up before sending. Settles
-// server-side via the delegated signer on Approve (no browser signature).
-function PrivateSendReview({
-  intent,
-  onApprove,
-  onReject,
-}: {
-  intent: ConfirmIntent;
-  onApprove: () => void;
-  onReject: () => void;
-}) {
-  const client = usePlatformClient();
-  const { topUp, busy } = useTopUp();
-  const [shielded, setShielded] = useState<string | null | "loading">("loading");
-
-  const load = useCallback(() => {
-    setShielded("loading");
-    client.payments
-      .privateBalance()
-      .then((b) => setShielded(b.shieldedUsdc))
-      .catch(() => setShielded(null));
-  }, [client]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  if (shielded === "loading") {
-    return (
-      <div className="flex flex-col items-center gap-3 py-5">
-        <div className="h-12 w-40 bg-card border-2 border-ink rounded-toy animate-pulse" />
-        <div className="h-7 w-28 bg-card border-2 border-ink rounded-full animate-pulse" />
-      </div>
-    );
-  }
-
-  // recipient: a friend's name tag, the jam being tipped, or the raw address.
-  const recipientName =
-    intent.toName ?? (intent.kind === "tip" ? intent.jam?.name : undefined);
-  const recipient = recipientName ? (
-    <NameTag name={recipientName} />
-  ) : (
-    <span className="font-mono text-small font-bold bg-card border-2 border-ink rounded-full px-3 py-1">
-      {shortAddr(intent.to ?? "")}
-    </span>
-  );
-
-  const sufficient = shielded !== null && Number(shielded) >= intent.amountUsdc;
-
-  // shielded balance is short — top up first, then re-read.
-  if (!sufficient) {
-    return (
-      <>
-        <div className="flex flex-col items-center gap-1.5">
-          <div className="text-body font-bold text-muted">
-            {intent.kind === "tip" ? "Tip" : "Send"} privately 🕶
-          </div>
-          <div className="text-hero font-extrabold">
-            {intent.amountUsdc.toFixed(2)}{" "}
-            <span className="text-2xl text-muted">USDC</span>
-          </div>
-          <div className="mt-1">{recipient}</div>
-          <div className="text-small font-semibold text-pink text-center mt-1">
-            not enough in your private balance ({shielded ?? "0"} USDC) — airdrop to send.
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <StickerButton color="white" size="lg" block onClick={onReject}>
-            Reject
-          </StickerButton>
-          <StickerButton
-            color="green"
-            size="lg"
-            block
-            disabled={busy !== null}
-            onClick={async () => {
-              if (await topUp()) load();
-            }}
-          >
-            {busy ? "Airdropping…" : "Airdrop $5 →"}
-          </StickerButton>
-        </div>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <div className="flex flex-col items-center gap-1.5">
-        <div className="text-body font-bold text-muted">
-          {intent.kind === "tip" ? "Tip" : "Send"} privately 🕶
-        </div>
-        <div className="text-hero font-extrabold">
-          {intent.amountUsdc.toFixed(2)}{" "}
-          <span className="text-2xl text-muted">USDC</span>
-        </div>
-        <div className="mt-1">{recipient}</div>
-        {intent.memo && (
-          <div className="text-small font-semibold text-ink text-center mt-1">
-            “{intent.memo}”
-          </div>
-        )}
-        <div className="text-tiny font-semibold text-muted mt-1">
-          from your private balance · {shielded ?? "—"} USDC
-        </div>
-      </div>
-      <div className="flex gap-3">
-        <StickerButton color="white" size="lg" block onClick={onReject}>
-          Reject
-        </StickerButton>
-        <StickerButton color="green" size="lg" block onClick={onApprove}>
-          Approve
-        </StickerButton>
-      </div>
-    </>
-  );
-}
-
-interface BuildFeeQuote {
-  builder: {
-    id: string;
-    name: string;
-    slug: string;
-    ensName: string | null;
-    endpointUrl: string;
-    displayName: string;
-  };
-  priceUsdc: string;
-  free: {
-    eligible: boolean;
-    usesLeft: number | null;
-    usesTotal: number | null;
-    reason: "worldid" | null;
-  };
-  balance: { shieldedUsdc: string | null; sufficient: boolean };
-}
-
-// The build-fee review (DESIGN_BRIEF §3d, §14): quotes the chosen builder, then
-// shows one of — FREE (a verified human hiring a human-backed builder), PAID
-// (settles over the x402 private rail), or PAID-but-SHORT (offers a top-up first).
-function BuildFeeReview({
-  intent,
-  onApprove,
-  onReject,
-}: {
-  intent: ConfirmIntent;
-  onApprove: () => void;
-  onReject: () => void;
-}) {
-  const client = usePlatformClient();
-  const { topUp, busy } = useTopUp();
-  const [quote, setQuote] = useState<BuildFeeQuote | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  const loadQuote = useCallback(() => {
-    if (!intent.builderId) {
-      setFailed(true);
-      return;
-    }
-    setFailed(false);
-    client.builds
-      .quoteBuilder({ builderId: intent.builderId as BuilderAgentId })
-      .then((q) => setQuote(q as BuildFeeQuote))
-      .catch(() => setFailed(true));
-  }, [client, intent.builderId]);
-
-  useEffect(() => {
-    loadQuote();
-  }, [loadQuote]);
-
-  if (failed) {
-    return (
-      <div className="flex flex-col items-center gap-3 py-2">
-        <EmojiToken emoji="😖" color="pink" size={48} />
-        <div className="text-small font-semibold text-muted text-center">
-          couldn't load the build fee — try again.
-        </div>
-        <StickerButton color="white" size="md" block onClick={onReject}>
-          Close
-        </StickerButton>
-      </div>
-    );
-  }
-
-  if (!quote) {
-    return (
-      <div className="flex flex-col items-center gap-3 py-5">
-        <div className="h-12 w-40 bg-card border-2 border-ink rounded-toy animate-pulse" />
-        <div className="h-7 w-28 bg-card border-2 border-ink rounded-full animate-pulse" />
-      </div>
-    );
-  }
-
-  const price = Number(quote.priceUsdc);
-
-  // FREE — a verified human hiring a human-backed (AgentBook) builder.
-  if (quote.free.eligible) {
-    return (
-      <>
-        <div className="flex flex-col items-center gap-2">
-          <div className="text-body font-bold text-muted">Build fee</div>
-          <div className="text-hero font-extrabold text-green-ink">Free</div>
-          <HumanBackedBadge size="md" />
-          <div className="text-small font-semibold text-muted text-center px-2 mt-1">
-            you're a verified human &amp; {quote.builder.name} is human-backed — this
-            build's on the house.
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <StickerButton color="white" size="lg" block onClick={onReject}>
-            Not now
-          </StickerButton>
-          <StickerButton color="green" size="lg" block onClick={onApprove}>
-            Use free build
-          </StickerButton>
-        </div>
-      </>
-    );
-  }
-
-  // PAID but the shielded balance is short — top up first, then re-quote.
-  if (!quote.balance.sufficient) {
-    return (
-      <>
-        <div className="flex flex-col items-center gap-1.5">
-          <div className="text-body font-bold text-muted">Build fee</div>
-          <div className="text-hero font-extrabold">
-            {price.toFixed(2)} <span className="text-2xl text-muted">USDC</span>
-          </div>
-          <NameTag name={quote.builder.displayName} />
-          <div className="text-small font-semibold text-pink text-center mt-1">
-            not enough in your balance ({quote.balance.shieldedUsdc ?? "0"} USDC) —
-            airdrop to build.
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <StickerButton color="white" size="lg" block onClick={onReject}>
-            Reject
-          </StickerButton>
-          <StickerButton
-            color="green"
-            size="lg"
-            block
-            disabled={busy !== null}
-            onClick={async () => {
-              if (await topUp()) {
-                setQuote(null);
-                loadQuote();
-              }
-            }}
-          >
-            {busy ? "Airdropping…" : "Airdrop $5 →"}
-          </StickerButton>
-        </div>
-      </>
-    );
-  }
-
-  // PAID, balance covers it — settles over the x402 private rail on Approve.
-  return (
-    <>
-      <div className="flex flex-col items-center gap-1.5">
-        <div className="text-body font-bold text-muted">Build fee</div>
-        <div className="text-hero font-extrabold">
-          {price.toFixed(2)} <span className="text-2xl text-muted">USDC</span>
-        </div>
-        <NameTag name={quote.builder.displayName} />
-        <div className="text-small font-semibold text-ink text-center mt-1">
-          “build fee — no refunds”
-        </div>
-        <div className="text-tiny font-semibold text-muted">
-          from your private balance · {quote.balance.shieldedUsdc ?? "—"} USDC
-        </div>
-      </div>
-      <div className="flex gap-3">
-        <StickerButton color="white" size="lg" block onClick={onReject}>
-          Reject
-        </StickerButton>
-        <StickerButton color="green" size="lg" block onClick={onApprove}>
-          Approve
-        </StickerButton>
-      </div>
-    </>
-  );
-}
-
 function PendingBody({ txHash }: { txHash?: string | null }) {
   return (
     <div className="flex flex-col items-center gap-3 py-3">
@@ -454,18 +145,12 @@ function SuccessBody({
   intent: ConfirmIntent;
   txHash?: string | null;
 }) {
-  // A build fee with no hash is the World free build — no money moved.
-  const freeBuild = intent.kind === "buildFee" && !txHash;
   return (
     <div className="flex flex-col items-center gap-2 py-3">
       <EmojiToken emoji="✓" color="green" size={64} />
-      <div className="font-extrabold text-h3">
-        {freeBuild ? "Free build unlocked! 🎉" : "sent! 🎉"}
-      </div>
+      <div className="font-extrabold text-h3">sent! 🎉</div>
       <div className="text-body font-semibold text-muted">
-        {freeBuild
-          ? "your jam's on the house"
-          : `${intent.amountUsdc.toFixed(2)} USDC on its way`}
+        {`${intent.amountUsdc.toFixed(2)} USDC on its way`}
       </div>
     </div>
   );
