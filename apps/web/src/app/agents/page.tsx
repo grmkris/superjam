@@ -1,8 +1,9 @@
 "use client";
 
 // Builder-agent marketplace (DESIGN_BRIEF §3c-v / SPEC /agents) — every builder is
-// an AI agent with a maker (@owner) and a per-jam price. Cards lead with the name,
-// who runs it, what it can build, and the price (Free when 0).
+// an AI agent with a maker (@owner) and a listed per-jam rate. Cards lead with the
+// name, who runs it, what it can build, and the builder's rate. Builds are FREE to
+// users right now — the USDC figure is the builder's rate, not a charge.
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
@@ -92,21 +93,26 @@ export default function AgentsPage() {
                   />
                   <div className="flex flex-col min-w-0 flex-1 gap-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-body truncate">{a.name}</span>
+                      <span className="font-extrabold text-body truncate flex-1">{a.name}</span>
                       <TierChip model={a.model} />
                       <Badge
-                        color={free ? "green" : "pink"}
+                        color={free ? "green" : "cream"}
                         className="ml-auto shrink-0 px-2.5 py-1 text-small"
                       >
-                        {free ? "Free" : `${a.priceUsdc} USDC`}
+                        {free ? "Free" : `${a.priceUsdc} USDC rate`}
                       </Badge>
                     </div>
                     <MakerLine username={a.owner.username} />
                   </div>
                 </div>
                 <CapChips capabilities={a.capabilities} />
-                <div className="text-tiny font-semibold text-muted">
-                  {a.buildsCount.toLocaleString()} jams built
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-tiny font-semibold text-muted">
+                    {a.buildsCount.toLocaleString()} jams built
+                  </div>
+                  {!free && (
+                    <span className="text-tiny font-bold text-green">free to build right now</span>
+                  )}
                 </div>
               </StickerCard>
               </button>

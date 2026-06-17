@@ -36,15 +36,23 @@ export function BottomNav() {
           <Link
             key={tab.href}
             href={tab.href}
-            className="relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[44px] no-underline"
+            className="focus-ring relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[44px] rounded-toy no-underline"
           >
-            <span
-              className={cx(
-                "text-xl leading-none transition-transform",
-                active ? "scale-110" : "grayscale opacity-50"
+            {/* emoji wrapper anchors the unread badge — no magic offsets */}
+            <span className="relative inline-flex">
+              <span
+                className={cx(
+                  "text-xl leading-none transition-transform",
+                  active ? "scale-110" : "grayscale opacity-50"
+                )}
+              >
+                {tab.emoji}
+              </span>
+              {tab.label === "Inbox" && unread > 0 && (
+                <span className="absolute -right-2.5 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-[1.5px] border-ink bg-pink px-1 text-[10px] font-extrabold text-white">
+                  {unread > 9 ? "9+" : unread}
+                </span>
               )}
-            >
-              {tab.emoji}
             </span>
             <span
               className={cx(
@@ -54,11 +62,6 @@ export function BottomNav() {
             >
               {tab.label}
             </span>
-            {tab.label === "Inbox" && unread > 0 && (
-              <span className="absolute top-0 right-[26%] flex items-center justify-center min-w-[17px] h-[17px] px-1 rounded-full bg-pink border-[1.5px] border-ink text-white text-[10px] font-extrabold">
-                {unread > 9 ? "9+" : unread}
-              </span>
-            )}
           </Link>
         );
       })}

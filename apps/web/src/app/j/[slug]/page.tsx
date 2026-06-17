@@ -13,6 +13,7 @@ import { EmojiToken, Pill, StickerButton, StickerCard } from "../../../component
 import { Input } from "../../../components/ui/field";
 import { MicButton } from "../../../components/ui/mic-button";
 import { EmptyState } from "../../../components/ui/empty-state";
+import { avatarEmoji } from "../../../components/ui/identity";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { type FeedJam, loadFeed } from "../../../components/feed/jam";
 import { usePlatformClient } from "../../../components/use-platform-client";
@@ -270,18 +271,6 @@ export default function JamPage({
   );
 }
 
-// Deterministic per-commenter avatar — different handles get different faces so a
-// thread reads like a crowd, not one repeated 🙂. Stable for a given username.
-const AVATARS = [
-  "🦊", "🐱", "🐸", "🐼", "🐨", "🐰", "🐯", "🐵",
-  "🦉", "🐙", "🦄", "🐝", "🐧", "🐢", "🦋", "🐳",
-];
-function avatarEmoji(username: string): string {
-  let h = 0;
-  for (let i = 0; i < username.length; i++) h = (h * 31 + username.charCodeAt(i)) | 0;
-  return AVATARS[Math.abs(h) % AVATARS.length] ?? "🙂";
-}
-
 // One comment in the thread — identity row, a speech-bubble for the text (the
 // rounded-tl-md corner is the little tail pointing back at the avatar), then the
 // rating chip underneath. Rating-only comments skip the bubble.
@@ -301,7 +290,7 @@ function ReviewCard({ r }: { r: Review }) {
         </span>
       </div>
       {r.text && (
-        <div className="ml-[38px] bg-card border-2 border-ink rounded-2xl rounded-tl-md shadow-sticker-sm px-3.5 py-2 text-small font-semibold leading-snug">
+        <div className="ml-[38px] bg-card border-2 border-ink rounded-toy rounded-tl-md shadow-sticker-sm px-3.5 py-2 text-small prose-body">
           {r.text}
         </div>
       )}

@@ -353,11 +353,11 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
         {msgs.map((m) => (
           <div key={m.id} className={cx("max-w-[82%]", m.fromMe ? "self-end" : "self-start")}>
             {m.kind === "tip" ? (
-              <div className="flex items-center gap-2 bg-green border-2 border-ink rounded-2xl px-3.5 py-2 text-small font-extrabold shadow-sticker-sm">
+              <div className="flex items-center gap-2 bg-green border-2 border-ink rounded-toy px-3.5 py-2 text-small font-extrabold shadow-sticker-sm">
                 💸 {m.fromMe ? "sent" : "got"} {m.amountUsdc} USDC
               </div>
             ) : m.kind === "request" ? (
-              <div className="flex flex-col gap-1.5 bg-yellow border-2 border-ink rounded-2xl px-3.5 py-2.5 shadow-sticker-sm">
+              <div className="flex flex-col gap-1.5 bg-yellow border-2 border-ink rounded-toy px-3.5 py-2.5 shadow-sticker-sm">
                 <div className="text-small font-extrabold">
                   🙏 {m.fromMe ? "you asked for" : `@${friend.username} asked for`} {m.amountUsdc} USDC
                 </div>
@@ -383,7 +383,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
             ) : (
               <div
                 className={cx(
-                  "border-2 border-ink rounded-2xl px-3.5 py-2 text-small font-semibold shadow-sticker-sm",
+                  "border-2 border-ink rounded-toy px-3.5 py-2 text-small font-semibold shadow-sticker-sm",
                   m.fromMe ? "bg-pink text-white rounded-br-sm" : "bg-card rounded-bl-sm"
                 )}
               >

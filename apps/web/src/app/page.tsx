@@ -91,7 +91,7 @@ function FeedSkeleton() {
     <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
       <Skeleton className={cx("size-[140px] rounded-toy-lg", wash)} />
       <Skeleton className={cx("w-40 h-7 rounded-full", wash)} />
-      <Skeleton className={cx("w-64 h-12 rounded-2xl", wash)} />
+      <Skeleton className={cx("w-64 h-12 rounded-toy", wash)} />
       <Skeleton className={cx("w-36 h-12 rounded-full", wash)} />
     </div>
   );

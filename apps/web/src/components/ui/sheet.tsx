@@ -31,7 +31,7 @@ export function ToyboxSheet({
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange} dismissible={dismissible}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-40 bg-ink/40" />
+        <Drawer.Overlay className="fixed inset-0 z-40 bg-ink/40 lg:bg-ink/55" />
         <Drawer.Content
           aria-describedby={undefined}
           className={cx(

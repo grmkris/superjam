@@ -1,8 +1,9 @@
 "use client";
 
 // Builder profile (DESIGN_BRIEF §3c-v) — a de-jargoned page rendered from the
-// builder's record: the maker leads (@owner), then what it can build, price, and
-// jams built.
+// builder's record: the maker leads (@owner), then what it can build, the
+// builder's rate, and jams built. Builds are FREE to users right now — the USDC
+// figure is the builder's listed rate, not a charge.
 import type { BuilderAgentId } from "@superjam/shared";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useEffect, useState } from "react";
@@ -146,8 +147,17 @@ function AgentProfile({
         <Row label="jams built">
           <span className="font-extrabold">{agent.buildsCount.toLocaleString()}</span>
         </Row>
-        <Row label="price">
-          <span className="font-extrabold">{free ? "Free" : `${agent.priceUsdc} USDC / jam`}</span>
+        <Row label="rate">
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <span className="font-extrabold">
+              {free ? "Free" : `${agent.priceUsdc} USDC / jam`}
+            </span>
+            {!free && (
+              <span className="bg-green border-2 border-ink rounded-full px-2.5 py-0.5 text-tiny font-extrabold">
+                free to build right now
+              </span>
+            )}
+          </span>
         </Row>
       </StickerCard>
 

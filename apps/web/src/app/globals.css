@@ -26,6 +26,10 @@
 
   /* type */
   --font-display: "Baloo 2", ui-sans-serif, system-ui, sans-serif;
+  /* Refined body companion for LONG-FORM prose only (taglines, descriptions,
+     reviews) via `.prose-body`. Baloo 2 stays the voice for everything
+     structural — headings, buttons, nav, labels — so the Toybox identity holds. */
+  --font-body: "Figtree", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 
   /* type scale — the only sizes the product should use. Weight stays explicit
@@ -60,13 +64,25 @@
 }
 
 @layer base {
+  :root {
+    /* Whisper-quiet "sticker-sheet" dot grid — a faint ink polka layered UNDER
+       the solid candy surfaces so screens read with depth, never as flat fills.
+       6% ink keeps it subliminal; it must never compete with the stickers. */
+    --dots: radial-gradient(
+      color-mix(in srgb, var(--color-ink) 6%, transparent) 1px,
+      transparent 1.6px
+    );
+    --dots-size: 20px 20px;
+  }
   html,
   body {
     margin: 0;
     height: 100%;
   }
   body {
-    background: var(--color-paper);
+    background-color: var(--color-paper);
+    background-image: var(--dots);
+    background-size: var(--dots-size);
     color: var(--color-ink);
     font-family: var(--font-display);
     font-weight: 500;
@@ -104,12 +120,24 @@
     gap: 1rem; /* gap-4 — the default screen rhythm */
     min-height: 100%;
     padding: 1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
-    background: var(--color-cream);
+    background-color: var(--color-cream);
+    background-image: var(--dots);
+    background-size: var(--dots-size);
   }
 
   /* Headline "drop" shadow — token, not a hardcoded hex. */
   .ink-drop {
     text-shadow: var(--shadow-text-ink);
+  }
+
+  /* Long-form prose — the refined body companion. Apply ONLY to paragraphs of
+     real text (taglines, descriptions, reviews), never to UI chrome. A hair
+     lighter + looser than Baloo body so blocks of text breathe. */
+  .prose-body {
+    font-family: var(--font-body);
+    font-weight: 450;
+    letter-spacing: 0.005em;
+    line-height: 1.45;
   }
 
   /* Keyboard focus ring in the ink color (pointer taps stay clean). */
@@ -280,35 +308,5 @@
   .animate-pop,
   .stagger > * {
     animation: none !important;
-  }
-}
-
-/* ── Shield rise (profile wallet) ──────────────────────────────────────────
-   Coins rise up into the balance when public USDC becomes private. Distance is
-   per-coin via --rise (negative = up); spawn 2-3 with staggered delay. */
-@keyframes shield-rise {
-  0% {
-    opacity: 0;
-    transform: translateY(40px) scale(0.6) rotate(0deg);
-  }
-  22% {
-    opacity: 1;
-    transform: translateY(24px) scale(1) rotate(-8deg);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(var(--rise, -80px)) scale(0.45) rotate(16deg);
-  }
-}
-
-@layer components {
-  .shield-rise {
-    animation: shield-rise 0.9s cubic-bezier(0.4, 0, 0.6, 1) both;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .shield-rise {
-    display: none;
   }
 }

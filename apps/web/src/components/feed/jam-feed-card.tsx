@@ -16,6 +16,7 @@ import { FriendPicker } from "../chat/friend-picker";
 import { HandleLink } from "../handle-link";
 import { cx } from "../ui/cx";
 import { EmojiToken } from "../ui/sticker";
+import { avatarEmoji } from "../ui/identity";
 import { FeedActionRail } from "./feed-action-rail";
 import { type FeedJam, toViewerApp } from "./jam";
 
@@ -133,7 +134,7 @@ export function JamFeedCard({
           href={`/u/${jam.maker.username}`}
           className="focus-ring inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-bold shadow-sticker-sm sticker-press"
         >
-          <EmojiToken emoji="🦊" color="green" size={20} />
+          <EmojiToken emoji={avatarEmoji(jam.maker.username)} color="green" size={20} />
           <span className="font-bold">@{jam.maker.username}</span>
         </Link>
         {jam.remixOf && (
@@ -143,7 +144,7 @@ export function JamFeedCard({
         )}
       </div>
 
-      <div className="max-w-[280px] bg-card/95 border-2 border-ink rounded-2xl shadow-sticker px-4 py-2.5 text-center text-body font-semibold leading-snug">
+      <div className="max-w-[280px] bg-card/95 border-2 border-ink rounded-toy shadow-sticker px-4 py-2.5 text-center text-body prose-body">
         “{jam.tagline}”
       </div>
 
@@ -184,7 +185,7 @@ export function JamFeedCard({
           <span className="flex flex-col">
             <span className="font-extrabold text-body text-ink">
               {next.name}{" "}
-              <span className="font-semibold text-green-deep">· @{next.maker.username} ✓</span>
+              <span className="font-semibold text-green-deep">· @{next.maker.username}</span>
             </span>
             <span className="text-xs font-bold text-green-deep">↑ swipe for the next jam</span>
           </span>

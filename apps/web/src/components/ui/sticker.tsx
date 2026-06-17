@@ -41,7 +41,7 @@ export function StickerButton({
   ...rest
 }: StickerButtonProps) {
   const sizes = {
-    sm: "text-sm px-3 py-1.5 rounded-xl shadow-sticker-sm",
+    sm: "text-sm px-3 py-1.5 rounded-toy shadow-sticker-sm",
     md: "text-base px-4 min-h-[48px] rounded-toy shadow-sticker-md",
     lg: "text-lg px-6 min-h-[54px] rounded-toy shadow-sticker-md",
   }[size];
@@ -49,7 +49,7 @@ export function StickerButton({
     <button
       className={cx(
         "inline-flex items-center justify-center gap-2 border-2 border-ink font-extrabold",
-        "sticker-press disabled:opacity-50 disabled:active:translate-y-0",
+        "focus-ring sticker-press disabled:opacity-50 disabled:active:translate-y-0",
         sizes,
         FILL[color],
         block && "w-full",
@@ -132,7 +132,7 @@ export function EmojiToken({
     <span
       className={cx(
         "inline-flex items-center justify-center border-2 border-ink shadow-sticker shrink-0",
-        rounded === "full" ? "rounded-full" : "rounded-2xl",
+        rounded === "full" ? "rounded-full" : "rounded-toy",
         FILL[color],
         className
       )}

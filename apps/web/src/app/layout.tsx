@@ -37,7 +37,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
-        {/* Baloo 2 — the Toybox display face (DESIGN_BRIEF §2). */}
+        {/* Baloo 2 — the Toybox display face (DESIGN_BRIEF §2). Figtree — the
+            refined body companion for long-form prose (.prose-body). */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -45,7 +46,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Figtree:wght@400;450;500;600&display=swap"
           rel="stylesheet"
         />
       </head>

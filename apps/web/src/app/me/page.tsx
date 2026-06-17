@@ -143,7 +143,7 @@ export default function ProfilePage() {
 
       {/* your jams — pending (drafts) → running (building) → completed (live) */}
       {(drafts.length > 0 || jams.length > 0) && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 stagger">
           <div className="text-small font-extrabold uppercase tracking-wide text-muted">
             your jams
           </div>
@@ -220,7 +220,7 @@ export default function ProfilePage() {
       )}
 
       {/* registered builders */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 stagger">
         <div className="flex items-baseline">
           <div className="text-small font-extrabold uppercase tracking-wide text-muted">
             your builders

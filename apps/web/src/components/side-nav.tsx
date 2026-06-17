@@ -29,10 +29,10 @@ export function SideNav() {
             key={tab.href}
             href={tab.href}
             className={cx(
-              "sticker-press focus-ring relative flex items-center gap-3 rounded-toy border-2 px-4 py-3 no-underline",
+              "sticker-press focus-ring relative flex items-center gap-3 rounded-toy border-2 px-4 py-3 no-underline transition-colors",
               active
                 ? "border-ink bg-pink shadow-sticker"
-                : "border-transparent bg-transparent"
+                : "border-transparent bg-transparent hover:bg-ink/[0.06]"
             )}
           >
             <span

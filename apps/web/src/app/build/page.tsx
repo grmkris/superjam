@@ -111,8 +111,8 @@ function MakeFlow() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  // --- resumable draft (URL + localStorage + DB) — survives reload / pay redirect /
-  //     World-App round-trip, so the wizard resumes instead of resetting to home. ---
+  // --- resumable draft (URL + localStorage + DB) — survives reload / sign-in
+  //     round-trip, so the wizard resumes instead of resetting to home. ---
   const { draftId, persist, load } = useBuildDraft({
     initialDraftId: search.get("d"),
     isLoggedIn,
@@ -693,7 +693,7 @@ function HomeBeat({
           <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             More drafts
           </div>
-          <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
+          <div className="stagger flex max-h-64 flex-col gap-2 overflow-y-auto">
             {drafts.map((d) => (
               <StickerCard key={d.id} color="cream" className="p-3 flex items-center gap-3">
                 <EmojiToken
@@ -766,7 +766,7 @@ function FollowupsBeat({
     <>
       <div className="flex items-start gap-2">
         <EmojiToken emoji="⚡" color="yellow" size={30} tilt={-6} />
-        <div className="bg-card border-2 border-ink rounded-2xl rounded-tl-sm px-3.5 py-3 text-small font-semibold shadow-sticker">
+        <div className="bg-card border-2 border-ink rounded-toy rounded-tl-sm px-3.5 py-3 text-small font-semibold shadow-sticker">
           Ooh, fun! Two quick things before I draw up the plan:
         </div>
       </div>
@@ -933,13 +933,13 @@ function PlanBeat({
       {/* refine exchange */}
       {exchange.map((e, i) => (
         <div key={i} className="flex flex-col gap-1.5">
-          <div className="self-end max-w-[78%] bg-pink text-white border-2 border-ink rounded-2xl rounded-br-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
+          <div className="self-end max-w-[78%] bg-pink text-white border-2 border-ink rounded-toy rounded-br-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
             {e.you}
           </div>
           {e.back && (
             <div className="flex items-end gap-2">
               <EmojiToken emoji="⚡" color="yellow" size={26} tilt={-6} />
-              <div className="bg-card border-2 border-ink rounded-2xl rounded-bl-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
+              <div className="bg-card border-2 border-ink rounded-toy rounded-bl-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
                 {e.back}
               </div>
             </div>
@@ -1011,13 +1011,13 @@ function BuilderBeat({
           <div className="text-small font-semibold text-muted">give it a moment and try again</div>
         </StickerCard>
       ) : (
-        <div className="flex flex-col gap-3.5">
+        <div className="stagger flex flex-col gap-3.5">
           {builders.map((b) => {
             const free = Number(b.priceUsdc) === 0;
             const tv = builderEmoji(b.priceUsdc);
             return (
               <StickerCard key={b.id} className="p-4 flex flex-col gap-3">
-                {/* header: identity token + name + tier */}
+                {/* header: identity token + name + tier + rate */}
                 <div className="flex items-start gap-3">
                   <EmojiToken emoji={tv.emoji} color={tv.color} size={46} rounded="toy" tilt={-4} />
                   <div className="flex flex-col min-w-0 flex-1 gap-1">
@@ -1025,7 +1025,15 @@ function BuilderBeat({
                       <span className="font-extrabold text-body truncate">{b.name}</span>
                       <TierChip model={b.model} />
                     </div>
-                    <MakerLine username={b.owner.username} />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <MakerLine username={b.owner.username} />
+                      <span className="text-tiny font-semibold text-muted">
+                        · rate {free ? "free" : `${b.priceUsdc} USDC`}
+                      </span>
+                      <Badge color="green" className="border-[1.5px] px-2 text-tiny">
+                        free right now
+                      </Badge>
+                    </div>
                   </div>
                 </div>
                 {/* what it can build */}
@@ -1048,7 +1056,7 @@ function BuilderBeat({
                       free ? "bg-green text-ink" : "bg-pink text-white"
                     )}
                   >
-                    {free ? "Pick · Free" : `Pick · ${b.priceUsdc} USDC`}
+                    Pick
                     <span aria-hidden>→</span>
                   </button>
                 </div>
@@ -1251,7 +1259,7 @@ function RevealBeat({
       <div className="text-4xl">🎉</div>
       <EmojiToken emoji={spec.iconEmoji} color="yellow" size={96} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
       <div className="text-h2 font-extrabold">{spec.name} is live!</div>
-      <div className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-l-md rounded-r-full pl-2.5 pr-3 py-1.5">
+      <div className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full pl-2.5 pr-3 py-1.5">
         <span className="size-[7px] rounded-full bg-yellow border-[1.5px] border-ink" />
         <span className="font-mono text-small font-bold">
           {slug}
@@ -1311,21 +1319,23 @@ function BuildHistory() {
       <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
         Your builds
       </div>
-      {rows.map((b) => (
-        <button key={b.id} onClick={() => setOpen(b)} className="text-left">
-          <StickerCard className="p-3 flex items-center gap-3">
-            <EmojiToken emoji={b.iconEmoji} color="yellow" size={36} rounded="toy" />
-            <div className="flex min-w-0 flex-col">
-              <div className="truncate text-small font-extrabold">{b.name}</div>
-              <div className="text-tiny font-semibold text-muted">
-                {relTime(b.createdAt)}
-                {b.durationMs ? ` · ${fmtDur(b.durationMs)}` : ""}
+      <div className="stagger flex flex-col gap-2.5">
+        {rows.map((b) => (
+          <button key={b.id} onClick={() => setOpen(b)} className="text-left">
+            <StickerCard className="p-3 flex items-center gap-3">
+              <EmojiToken emoji={b.iconEmoji} color="yellow" size={36} rounded="toy" />
+              <div className="flex min-w-0 flex-col">
+                <div className="truncate text-small font-extrabold">{b.name}</div>
+                <div className="text-tiny font-semibold text-muted">
+                  {relTime(b.createdAt)}
+                  {b.durationMs ? ` · ${fmtDur(b.durationMs)}` : ""}
+                </div>
               </div>
-            </div>
-            <span className="ml-auto shrink-0">{buildBadge(b.status)}</span>
-          </StickerCard>
-        </button>
-      ))}
+              <span className="ml-auto shrink-0">{buildBadge(b.status)}</span>
+            </StickerCard>
+          </button>
+        ))}
+      </div>
       {open && <BuildDetailSheet build={open} onClose={() => setOpen(null)} />}
     </div>
   );

@@ -18,6 +18,7 @@ import {
   StickerCard,
 } from "../../../components/ui/sticker";
 import { EmptyState } from "../../../components/ui/empty-state";
+import { type Accent, accentFor } from "../../../components/ui/identity";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { useLogin } from "../../../components/login";
 import { usePlatformClient } from "../../../components/use-platform-client";
@@ -45,17 +46,14 @@ interface Jam {
 
 const short = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-// A deterministic accent per handle so every profile owns a colour (mirrors the
-// feed's per-jam accents). Stable across renders, no storage needed.
-const ACCENTS = ["pink", "yellow", "green", "blue"] as const;
-const ACCENT_BG: Record<(typeof ACCENTS)[number], string> = {
+// A deterministic accent per handle so every profile owns a colour — shared with
+// the feed + reviews via ui/identity so a person looks the same everywhere.
+const ACCENT_BG: Record<Accent, string> = {
   pink: "bg-pink",
   yellow: "bg-yellow",
   green: "bg-green",
   blue: "bg-blue",
 };
-const accentFor = (s: string): (typeof ACCENTS)[number] =>
-  ACCENTS[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % ACCENTS.length]!;
 
 const joinedLabel = (d: string | number | Date): string => {
   const t = new Date(d);

@@ -111,11 +111,12 @@ export default function RegisterBuilderPage() {
           mono
         />
         <Field
-          label="Price (USDC / jam)"
+          label="Your rate per jam"
           value={priceUsdc}
           onChange={setPriceUsdc}
           placeholder="0"
           mono
+          hint="USDC — users build free right now"
         />
         <Field
           label="Payout wallet"

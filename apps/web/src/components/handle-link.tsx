@@ -14,8 +14,6 @@ export function HandleLink({
   className,
 }: {
   username: string;
-  /** Accepted for call-site compatibility; identity is plain @username now. */
-  verified?: boolean;
   muted?: boolean;
   className?: string;
 }) {

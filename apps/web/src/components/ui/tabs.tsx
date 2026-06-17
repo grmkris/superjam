@@ -50,7 +50,7 @@ export function ToyboxTabs<T extends string>({
               "focus-ring cursor-pointer rounded-full font-extrabold transition-colors",
               "data-[active]:bg-ink data-[active]:text-cream",
               segmented
-                ? "flex-1 px-4 py-1.5 text-small text-muted"
+                ? "flex-1 px-4 py-1.5 text-small text-muted hover:text-ink data-[active]:hover:text-cream"
                 : "border-2 border-ink bg-card px-4 py-1.5 text-small text-ink shadow-sticker-sm sticker-press"
             )}
           >

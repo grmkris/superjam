@@ -5,8 +5,9 @@
 // derived client-side.
 import type { AppRouterClient } from "@superjam/api/client";
 import type { ViewerApp } from "../app-frame";
+import { type Accent, accentFor } from "../ui/identity";
 
-export type Accent = "blue" | "pink" | "green" | "yellow";
+export type { Accent };
 
 export interface FeedJam extends ViewerApp {
   maker: { username: string; verified: boolean };
@@ -20,12 +21,6 @@ export interface FeedJam extends ViewerApp {
 }
 
 export type FeedTab = "foryou" | "friends" | "new";
-
-const ACCENTS: Accent[] = ["blue", "pink", "green", "yellow"];
-const accentFor = (seed: string): Accent =>
-  ACCENTS[
-    [...seed].reduce((a, c) => a + c.charCodeAt(0), 0) % ACCENTS.length
-  ] as Accent;
 
 export async function loadFeed(
   client: AppRouterClient,
