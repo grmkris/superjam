@@ -8,7 +8,6 @@ import {
   type VercelTeardown,
 } from "@superjam/builder/deploy";
 import { createLogger } from "@superjam/logger";
-import { createX402HireResource } from "@superjam/onchain/x402-resource";
 import { serve } from "@hono/node-server";
 import { runAgentBuild } from "./agent-build.ts";
 import { createBuilderApp } from "./app.ts";
@@ -58,42 +57,11 @@ const runner = createBuildRunner({
   resolveEntryUrl: makeVercelEntryUrlResolver(env.VERCEL_TOKEN),
 });
 
-// The x402 "hire" resource (§14): when this builder has a wallet + price set, the
-// platform's `payBuildFee` settles the build fee here (Circle Gateway, Arc) before
-// dispatching to /builds. Absent the config ⇒ undefined ⇒ POST / answers 501 and
-// the paid path degrades cleanly (the box still boots + builds for free flows).
-// PURE Circle — no AgentKit extension, so plain payers never have to echo it.
-const hire =
-  env.AGENT_WALLET_ADDRESS && env.AGENT_PRICE_USDC
-    ? createX402HireResource({
-        payTo: env.AGENT_WALLET_ADDRESS,
-        priceUsdc: env.AGENT_PRICE_USDC,
-        circleApiKey: env.CIRCLE_GATEWAY_API_KEY,
-      })
-    : undefined;
-
-// The AgentKit "human-backed" resource (World prize) on a SEPARATE route, POST /world.
-// A verified human-backed caller (the user's delegated wallet in AgentBook) gets
-// AGENT_FREE_TRIAL_USES free builds; declaring the AgentKit extension here (not on the
-// Circle `/`) keeps the plain-payment path clean. Enabled only when a free-trial is set.
-const hireWorld =
-  env.AGENT_WALLET_ADDRESS && env.AGENT_PRICE_USDC && env.AGENT_FREE_TRIAL_USES
-    ? createX402HireResource({
-        payTo: env.AGENT_WALLET_ADDRESS,
-        priceUsdc: env.AGENT_PRICE_USDC,
-        circleApiKey: env.CIRCLE_GATEWAY_API_KEY,
-        routePattern: "POST /world",
-        freeTrialUses: env.AGENT_FREE_TRIAL_USES,
-      })
-    : undefined;
-
 const app = createBuilderApp({
   token: env.BUILDER_TOKEN,
   runner,
   teardown: (args) => teardownApp(args, { teardownVercel, neon }),
   claudeAuth,
-  hire,
-  hireWorld,
 });
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {

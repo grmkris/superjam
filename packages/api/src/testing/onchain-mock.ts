@@ -7,12 +7,6 @@ import type { Address, Hex } from "viem";
 export interface MockOnchain extends Onchain {
   /** Every sendUsdc call, in order — assert payout count/amounts/idempotency. */
   sends: { to: Address; value: Usdc }[];
-  /** Every fundViaCctp (Sepolia→Arc bridge) call, in order. */
-  bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[];
-  /** Every stakeViaCctp (cross-chain stake top-up) call, in order. */
-  stakeBridges: { builder: Address; amount: Usdc }[];
-  /** Every unlink.payX402 (private→x402 build fee) call, in order. */
-  x402Pays: { url: string; amount: Usdc; fromUnlinkAddress: string }[];
   /** Every game.write (onchain-game move) call, in order — assert the player
    *  was stamped + the target address pinned to the app's own contract. */
   gameWrites: { address: Address; functionName: string; args: readonly unknown[] }[];
@@ -29,7 +23,6 @@ export interface MockOnchainOptions {
     expectedTo: Address;
     minAmount: Usdc;
   }) => Promise<{ from: Address; value: Usdc }>;
-  unlinkAvailable?: boolean;
 }
 
 let sendSeq = 0;
@@ -42,9 +35,6 @@ export const createMockOnchain = (
   opts: MockOnchainOptions = {}
 ): MockOnchain => {
   const sends: { to: Address; value: Usdc }[] = [];
-  const bridges: { amount: Usdc; mintRecipient: Address; fast: boolean }[] = [];
-  const stakeBridges: { builder: Address; amount: Usdc }[] = [];
-  const x402Pays: { url: string; amount: Usdc; fromUnlinkAddress: string }[] = [];
   const gameWrites: { address: Address; functionName: string; args: readonly unknown[] }[] = [];
   let gameRead: () => unknown = () => 0n;
   let verify =
@@ -57,11 +47,7 @@ export const createMockOnchain = (
     serverAddress:
       opts.serverAddress ?? "0x000000000000000000000000000000000000eeee",
     sends,
-    bridges,
-    stakeBridges,
-    x402Pays,
     gameWrites,
-    stakeSlash: null,
     agentBook: { lookupHuman: async () => null },
     game: {
       read: async () => gameRead(),
@@ -76,15 +62,6 @@ export const createMockOnchain = (
     setVerify(fn) {
       verify = fn;
     },
-    unlink: {
-      available: opts.unlinkAvailable ?? false,
-      privateTransfer: async () => ({ hash: fakeHash() }),
-      faucetPrivateTokens: async () => ({ hash: fakeHash() }),
-      payX402: async ({ url, amount, fromUnlinkAddress }) => {
-        x402Pays.push({ url, amount, fromUnlinkAddress });
-        return { hash: fakeHash() };
-      },
-    },
     verifyUsdcTransfer: (params) =>
       verify({ expectedTo: params.expectedTo, minAmount: params.minAmount }),
     usdcBalance: async () => usdc(0n),
@@ -92,15 +69,6 @@ export const createMockOnchain = (
     sendUsdc: async (_chain, to, value) => {
       sends.push({ to, value });
       return fakeHash();
-    },
-    fundViaCctp: async ({ amount, mintRecipient, fast = true }) => {
-      bridges.push({ amount, mintRecipient, fast });
-      // mock: no fee deducted — `minted` == amount (real adapter returns amount − maxFee).
-      return { burnTxHash: fakeHash(), mintTxHash: fakeHash(), minted: amount };
-    },
-    stakeViaCctp: async ({ builder, amount }) => {
-      stakeBridges.push({ builder, amount });
-      return { burnTxHash: fakeHash(), mintTxHash: fakeHash(), staked: amount };
     },
     mintV2Subname: async ({ slug }) => ({
       ensName: `${slug}.superjam.eth`,

@@ -16,7 +16,6 @@ import {
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
 import { type ObjectStore, nullObjectStore } from "./services/object-store.ts";
-import { type UnlinkService, nullUnlinkService } from "./services/unlink-service.ts";
 
 export interface ApiContext {
   db: Database;
@@ -29,9 +28,6 @@ export interface ApiContext {
   onchain: Onchain;
   /** AI pot-resolution oracle (§9). Disabled by default. */
   oracle: PotOracle;
-  /** Per-user private-payments rail (§23, Unlink). Degraded by default — the
-   *  server injects the live service (UNLINK_API_KEY + Dynamic delegated signer). */
-  unlink: UnlinkService;
   /** World ID backend verifier (§14, the human gate). Keyless by default. */
   world: WorldVerifier;
   /** Blob storage for uploads/bundles (§17, S3/Railway bucket). Degraded by default. */
@@ -56,8 +52,6 @@ export interface CreateContextDeps {
   onchain?: Onchain;
   /** Optional — defaults to the null oracle (AI-resolve unavailable). */
   oracle?: PotOracle;
-  /** Optional — defaults to the degraded Unlink service (private ops reject). */
-  unlink?: UnlinkService;
   /** Optional — defaults to the keyless World verifier (verify rejects). */
   world?: WorldVerifier;
   /** Optional — defaults to the degraded object store (uploads/presign reject). */
@@ -80,7 +74,6 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     issuer: deps.issuer ?? nullAppTokenIssuer,
     onchain,
     oracle: deps.oracle ?? nullOracle,
-    unlink: deps.unlink ?? nullUnlinkService,
     world: deps.world ?? nullWorldVerifier,
     objectStore: deps.objectStore ?? nullObjectStore,
     // Onchain agent identity (ENS / ERC-8004) + reputation are dropped for now —

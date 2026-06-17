@@ -40,13 +40,6 @@ export const serverEnvSchema = z.object({
   // server-wallet signer) stays optional until the chain lane provisions it.
   DYNAMIC_ENVIRONMENT_ID: z.string().min(1),
   DYNAMIC_API_TOKEN: optionalStr,
-  // Dynamic Delegated Access (§23, the blessed flow): the RSA private key (PEM)
-  // that decrypts the per-user delegated share from the `wallet.delegation.created`
-  // webhook; the matching public key lives in the Dynamic dashboard. The webhook
-  // secret verifies the event signature. Both optional — private payments degrade
-  // (nullUnlinkService) until set.
-  DYNAMIC_DELEGATION_PRIVATE_KEY: optionalStr, // RSA PKCS8 PEM (server-only secret)
-  DYNAMIC_WEBHOOK_SECRET: optionalStr,
 
   // app identity token — the platform MINTS these (ES256) so an external,
   // developer-hosted mini-app's backend can verify the SuperJam user against
@@ -73,11 +66,6 @@ export const serverEnvSchema = z.object({
   // ERC-8004 agent identity — same Sepolia L1 chain as ENSv2, signed by the shared
   // ENS-admin signer (ENS_V2_SIGNER_KEY). Absent ⇒ 8004 ops degrade.
   ERC8004_REGISTRY: optionalStr,
-  // StakeSlash yield-escrow on Arc (Circle #1). Absent ⇒ agent staking degrades.
-  STAKE_SLASH_ADDRESS: optionalStr,
-  // CctpEscrowHook on Arc (Circle #2 cross-chain stake). Absent ⇒ stakeViaCctp
-  // rejects; same-chain stake top-up + funding are unaffected.
-  CCTP_ESCROW_HOOK_ADDRESS: optionalStr,
   TREASURY_ADDRESS: optionalStr,
   // World Chain (480) RPC for the AgentBook human-backed read. Absent ⇒ public default.
   WORLDCHAIN_RPC_URL: optionalStr,
@@ -86,12 +74,6 @@ export const serverEnvSchema = z.object({
   // Sepolia L1 RPC — the single identity chain (ENSv2 + ERC-8004).
   SEPOLIA_RPC_URL: optionalStr,
   ARC_RPC_URL: optionalStr,
-
-  // privacy rail (gated)
-  UNLINK_API_KEY: optionalStr,
-  UNLINK_APP_ID: optionalStr,
-  CIRCLE_GATEWAY_API_KEY: optionalStr,
-  ARC_PAYER_EOA_KEY: optionalStr,
 });
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 

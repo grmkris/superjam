@@ -38,7 +38,6 @@ export const toMe = (user: User) => ({
   walletAddress: user.walletAddress,
   worldVerified: user.worldVerified,
   freeBuildsUsed: user.freeBuildsUsed,
-  unlinkAddress: user.unlinkAddress,
   createdAt: user.createdAt,
 });
 

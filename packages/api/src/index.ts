@@ -59,16 +59,10 @@ export {
   nullOnchain,
   type Onchain,
   type OnchainConfig,
-  loadLiveUnlinkTransport,
 } from "@superjam/onchain";
 export { type PotOracle, nullOracle } from "./lib/oracle.ts";
 export { createRateLimiter, type RateLimiter } from "./lib/rate-limit.ts";
 export { createCounterService } from "./services/counter-service.ts";
-export {
-  type UnlinkService,
-  createUnlinkService,
-  nullUnlinkService,
-} from "./services/unlink-service.ts";
 export { createStorageService } from "./services/storage-service.ts";
 export { createDataService } from "./services/data-service.ts";
 export { createMessageService } from "./services/message-service.ts";

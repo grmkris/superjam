@@ -9,9 +9,9 @@
   },
   "dependencies": {
     "@base-ui-components/react": "catalog:",
-    "@dynamic-labs-sdk/client": "^1.8.2",
-    "@dynamic-labs-sdk/evm": "^1.8.2",
-    "@dynamic-labs-sdk/react-hooks": "^1.8.2",
+    "@dynamic-labs-sdk/client": "^1.12.0",
+    "@dynamic-labs-sdk/evm": "^1.12.0",
+    "@dynamic-labs-sdk/react-hooks": "^1.12.0",
     "@orpc/client": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@superjam/api": "workspace:*",

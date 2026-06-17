@@ -11,33 +11,17 @@ import {
   createOnchainFromConfig,
   createRateLimiter,
   createWorldVerifier,
-  loadLiveUnlinkTransport,
   nullOnchain,
   resolveUserFromPat,
 } from "@superjam/api";
-import { createDb, runMigrations, schema } from "@superjam/db";
+import { createDb, runMigrations } from "@superjam/db";
 import { createLogger } from "@superjam/logger";
-import {
-  OnchainError,
-  PUBLIC_CHAIN,
-  type UnlinkSdk,
-  createArcX402Signer,
-} from "@superjam/onchain";
+import { PUBLIC_CHAIN } from "@superjam/onchain";
 import { SERVICE_URLS } from "@superjam/shared";
-import { eq } from "drizzle-orm";
 import { RPCHandler } from "@orpc/server/fetch";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { hireViaAgentkit } from "@superjam/onchain/agentkit-client";
 import { createS3Store } from "./bucket.ts";
-import {
-  createDelegatedSigner,
-  createDelegatedUnlinkService,
-} from "./delegated-signer.ts";
-import {
-  loadDelegationCreds,
-  registerDelegationWebhook,
-} from "./delegation-webhook.ts";
 import {
   createDynamicServerWallet,
   dynamicWalletEnv,
@@ -93,81 +77,11 @@ if (dynEnv) {
     dynServerWallet = undefined;
   }
 }
-// Per-user private-payments rail (§23): the server signs AS the user via Dynamic
-// delegated access (no per-tx popup). Live only when the delegation private key +
-// Unlink key + Dynamic env are all present; else createContext defaults to
-// nullUnlinkService (private payments return CHAIN_UNAVAILABLE until configured).
-const unlink =
-  dynEnv && env.DYNAMIC_DELEGATION_PRIVATE_KEY && env.UNLINK_API_KEY
-    ? createDelegatedUnlinkService({
-        environmentId: env.DYNAMIC_ENVIRONMENT_ID,
-        dynamicApiKey: dynEnv.authToken,
-        unlinkApiKey: env.UNLINK_API_KEY,
-        rpcUrl: env.ARC_RPC_URL,
-        faucetKey: env.ARC_PAYER_EOA_KEY,
-        loadCreds: (userId) => loadDelegationCreds(db, userId),
-      })
-    : undefined;
-
-// The Circle Gateway leg (§3/§23) — the private→x402 transport that lights up
-// `onchain.unlink.payX402` (consumed by builds.payBuildFee). GATED: live only when
-// the server wallet (the x402 signer), the per-user Unlink service, AND the Circle
-// key are all present; otherwise null ⇒ payX402 degrades to PAYMENT_REQUIRED and
-// nothing else is affected (the cut-first posture). The `UnlinkSdk` adapter bridges
-// the transport's address-keyed ops to the per-user service: it resolves
-// `fromUnlinkAddress → userId` and unshields to the SERVER WALLET, whose Circle
-// Gateway escrow then settles the agent's x402 resource (the private→public→x402 leg).
-const unlinkTransport = (() => {
-  if (!dynServerWallet?.account || !unlink) return loadLiveUnlinkTransport(env);
-  const signer = createArcX402Signer(dynServerWallet.account, env.ARC_RPC_URL);
-  const serverWalletAddress = dynServerWallet.address;
-  const userIdFor = async (unlinkAddress: string): Promise<string> => {
-    const row = await db.query.user.findFirst({
-      columns: { id: true },
-      where: eq(schema.user.unlinkAddress, unlinkAddress),
-    });
-    if (!row) {
-      throw new OnchainError(
-        "CHAIN_UNAVAILABLE",
-        "No SuperJam user owns that shielded account",
-      );
-    }
-    return row.id;
-  };
-  const adapter: UnlinkSdk = {
-    privateTransfer: async ({ fromUnlinkAddress, toUnlinkAddress, amount }) => ({
-      hash: await unlink.transfer(
-        await userIdFor(fromUnlinkAddress),
-        toUnlinkAddress,
-        amount,
-      ),
-    }),
-    faucetPrivateTokens: async ({ toUnlinkAddress, amount }) => ({
-      hash: await unlink.faucet(toUnlinkAddress, amount),
-    }),
-    withdraw: async ({ fromUnlinkAddress, amount }) => ({
-      hash: await unlink.withdraw(
-        await userIdFor(fromUnlinkAddress),
-        serverWalletAddress,
-        amount,
-      ),
-    }),
-  };
-  return loadLiveUnlinkTransport(env, { signer, unlink: adapter });
-})();
-
 const onchain =
   createOnchainFromConfig({
     serverWallet: dynServerWallet,
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
     arcRpcUrl: env.ARC_RPC_URL,
-    unlink: {
-      apiKey: env.UNLINK_API_KEY,
-      appId: env.UNLINK_APP_ID,
-      ...(unlinkTransport
-        ? { transport: unlinkTransport, gatewayConfigured: true }
-        : {}),
-    },
     // ERC-8004 (§14/§16): the canonical reference IdentityRegistry, set via
     // ERC8004_REGISTRY (Base Sepolia). ReputationRegistry defaults to the paired
     // canonical address in the binding. Absent ⇒ 8004 ops degrade (never fail).
@@ -183,12 +97,6 @@ const onchain =
         : undefined,
     sepoliaRpcUrl: env.SEPOLIA_RPC_URL,
     ensV2SignerKey: env.ENS_V2_SIGNER_KEY,
-    // StakeSlash yield-escrow on Arc (Circle #1) — agent stakes earn yield. Absent
-    // ⇒ onchain.stakeSlash is null and staking degrades (never blocks a register).
-    stakeSlashAddress: env.STAKE_SLASH_ADDRESS,
-    // CctpEscrowHook on Arc (Circle #2) — cross-chain stake top-up lands here. Absent
-    // ⇒ stakeViaCctp rejects; same-chain stake + funding unaffected.
-    cctpEscrowHookAddress: env.CCTP_ESCROW_HOOK_ADDRESS,
     // World AgentBook (World prize) — read-only human-backed detection on World Chain.
     // Both default (canonical contract + public RPC), so this works with no env set.
     worldchainRpcUrl: env.WORLDCHAIN_RPC_URL,
@@ -273,54 +181,15 @@ const makeContext = (headers: Headers): ApiContext =>
     issuer,
     onchain,
     oracle,
-    unlink,
     world,
     objectStore,
     treasuryAddress,
     headers,
   });
 
-// World/AgentKit "human-backed" lane (§14) — lets the MCP prove the user's agent is
-// backed by a real human by signing the AgentKit attestation AS the user's delegated
-// wallet (the AgentBook-registered address), then calling the builder's `/world`
-// endpoint. Live only when delegation is configured (same gate as the Unlink rail).
-const humanBackedHire =
-  dynEnv && env.DYNAMIC_DELEGATION_PRIVATE_KEY
-    ? (() => {
-        const delegated = createDelegatedSigner({
-          environmentId: env.DYNAMIC_ENVIRONMENT_ID,
-          dynamicApiKey: dynEnv.authToken,
-          loadCreds: (userId) => loadDelegationCreds(db, userId),
-        });
-        return async (userId: string, endpointUrl: string) => {
-          const account = await delegated.getUserSigner(userId);
-          return hireViaAgentkit({
-            endpointUrl,
-            signer: {
-              address: account.address,
-              signMessage: (message) => account.signMessage({ message }),
-            },
-          });
-        };
-      })()
-    : undefined;
-
 // MCP endpoint (§MCP) — external agents (a user's Claude Code) hire builders AS the
-// user via a `sjat_…` PAT. Tools run the existing build flow + pay via delegation;
-// `verify_human_agent` exercises the World/AgentKit human-backed lane.
-registerMcp(app, { makeContext, humanBackedHire });
-
-// Dynamic delegation webhook (§23) — receives wallet.delegation.created/revoked,
-// decrypts + stores the per-user MPC share so the server can sign privately on the
-// user's behalf. Gateway routes /api/* → server. Mounted only when configured.
-if (env.DYNAMIC_DELEGATION_PRIVATE_KEY && env.DYNAMIC_WEBHOOK_SECRET) {
-  registerDelegationWebhook(app, {
-    db,
-    logger,
-    privateKeyPem: env.DYNAMIC_DELEGATION_PRIVATE_KEY,
-    webhookSecret: env.DYNAMIC_WEBHOOK_SECRET,
-  });
-}
+// user via a `sjat_…` PAT. Tools run the existing (free) build flow in-process.
+registerMcp(app, { makeContext });
 
 app.use("/rpc/*", async (c, next) => {
   const { matched, response } = await rpc.handle(c.req.raw, {
