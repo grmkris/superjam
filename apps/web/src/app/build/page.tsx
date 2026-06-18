@@ -7,9 +7,8 @@
 import type { AppSpec, BuildDraftId, BuildId, BuilderAgentId, RefineResult, Similar } from "@superjam/shared";
 import { ATTACH_MAX_MB, BUILD_ATTACH_MAX } from "@superjam/shared";
 import { useLogin } from "../../components/login";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { Input, Textarea } from "../../components/ui/field";
@@ -436,8 +435,6 @@ function MakeFlow() {
 
   return (
     <div className="screen">
-      <Header username={username} />
-
       {step === "home" && (
         <HomeBeat
           idea={idea}
@@ -517,20 +514,6 @@ function MakeFlow() {
   );
 }
 
-function Header({ username }: { username: string }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <EmojiToken emoji="⚡" color="yellow" size={32} tilt={-6} />
-      <div className="font-extrabold text-h3">superjam</div>
-      <Link
-        href="/me"
-        className="focus-ring ml-auto bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-semibold no-underline text-ink"
-      >
-        @{username} ▾
-      </Link>
-    </div>
-  );
-}
 
 function HomeBeat({
   idea,

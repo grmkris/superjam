@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { BottomNav } from "./bottom-nav";
 import { SideNav } from "./side-nav";
+import { TopBar } from "./top-bar";
 
 const FULL_BLEED = (p: string): boolean =>
   p === "/welcome" || p.startsWith("/app/");
@@ -22,14 +23,18 @@ export function AppChrome({ children }: { children: ReactNode }) {
   return (
     // mobile: vertical column with the bottom tab bar. desktop (lg): a left
     // SideNav rail beside the content column (has-sidenav drops the doubled
-    // left ink border — the rail draws it). BottomNav hides on lg.
+    // left ink border — the rail draws it). BottomNav hides on lg. The TopBar
+    // pins above the scroll region so the profile avatar is always reachable.
     <div className="app-shell has-sidenav flex flex-col lg:flex-row h-[100dvh] overflow-hidden">
       <SideNav />
-      <main
-        key={pathname}
-        className="flex-1 min-h-0 overflow-y-auto motion-safe:animate-[fadein_0.2s_ease-out]"
-      >
-        {children}
+      <main className="flex flex-1 min-h-0 flex-col">
+        <TopBar />
+        <div
+          key={pathname}
+          className="flex-1 min-h-0 overflow-y-auto motion-safe:animate-[fadein_0.2s_ease-out]"
+        >
+          {children}
+        </div>
       </main>
       <BottomNav />
     </div>
