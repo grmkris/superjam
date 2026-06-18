@@ -20,21 +20,35 @@ export function AppChrome({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
+  // The Discover feed is edge-to-edge immersive — the profile floats over it
+  // (transparent overlay) instead of sitting under a solid bar.
+  const immersive = pathname === "/";
+
   return (
     // mobile: vertical column with the bottom tab bar. desktop (lg): a left
     // SideNav rail beside the content column (has-sidenav drops the doubled
-    // left ink border — the rail draws it). BottomNav hides on lg. The TopBar
-    // pins above the scroll region so the profile avatar is always reachable.
+    // left ink border — the rail draws it). BottomNav hides on lg.
     <div className="app-shell has-sidenav flex flex-col lg:flex-row h-[100dvh] overflow-hidden">
       <SideNav />
-      <main className="flex flex-1 min-h-0 flex-col">
-        <TopBar />
-        <div
-          key={pathname}
-          className="flex-1 min-h-0 overflow-y-auto motion-safe:animate-[fadein_0.2s_ease-out]"
-        >
-          {children}
-        </div>
+      <main className="relative flex flex-1 min-h-0 flex-col">
+        {immersive ? (
+          <>
+            <div key={pathname} className="flex-1 min-h-0 overflow-hidden">
+              {children}
+            </div>
+            <TopBar overlay />
+          </>
+        ) : (
+          <>
+            <TopBar />
+            <div
+              key={pathname}
+              className="flex-1 min-h-0 overflow-y-auto motion-safe:animate-[fadein_0.2s_ease-out]"
+            >
+              {children}
+            </div>
+          </>
+        )}
       </main>
       <BottomNav />
     </div>

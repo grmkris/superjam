@@ -39,16 +39,17 @@ export default function DiscoverPage() {
 
   return (
     <div className="relative h-full bg-blue">
-      {/* tab pills — hidden while a jam plays so they don't overlap its header */}
+      {/* tab pills — left-clustered so the floating profile avatar (top-right) has
+          room; hidden while a jam plays so they don't overlap its header */}
       {!playing && (
-        <div className="absolute top-5 left-0 right-0 z-20 flex gap-2 px-4">
+        <div className="absolute top-5 left-0 z-20 flex gap-2 px-4">
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               aria-pressed={tab === t.key}
               className={cx(
-                "focus-ring flex-1 text-center border-2 border-ink rounded-full px-4 py-1.5 text-small",
+                "focus-ring border-2 border-ink rounded-full px-4 py-1.5 text-small",
                 tab === t.key
                   ? "bg-ink text-cream font-bold"
                   : "bg-white/85 text-ink font-semibold"

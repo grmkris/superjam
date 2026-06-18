@@ -26,9 +26,22 @@ const TITLES: Record<string, string> = {
   "/agents": "Builders",
 };
 
-export function TopBar() {
+export function TopBar({ overlay = false }: { overlay?: boolean }) {
   const pathname = usePathname() ?? "/";
   const { isLoggedIn, hostUser } = useHostAuth();
+
+  const profile =
+    isLoggedIn && hostUser ? (
+      <ProfileMenu username={hostUser.username} />
+    ) : (
+      <LoginButton />
+    );
+
+  // Overlay: float ONLY the profile control over an immersive surface (the Discover
+  // feed) — no cream strip, no wordmark — so the feed stays edge-to-edge.
+  if (overlay) {
+    return <div className="absolute right-0 top-0 z-30 p-3">{profile}</div>;
+  }
 
   return (
     <header className="shrink-0 flex h-14 items-center justify-between gap-2 border-b-2 border-ink bg-cream px-4">
@@ -43,12 +56,7 @@ export function TopBar() {
       <div className="hidden text-h3 font-extrabold lg:block">
         {TITLES[pathname] ?? ""}
       </div>
-
-      {isLoggedIn && hostUser ? (
-        <ProfileMenu username={hostUser.username} />
-      ) : (
-        <LoginButton />
-      )}
+      {profile}
     </header>
   );
 }

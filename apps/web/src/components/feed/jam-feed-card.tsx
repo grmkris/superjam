@@ -120,7 +120,9 @@ export function JamFeedCard({
   return (
     <section
       className={cx(
-        "relative h-full snap-start flex flex-col items-center justify-center gap-4 px-6 pt-24 pb-28 overflow-hidden",
+        // pr reserves a gutter for the absolute action rail so the centered
+        // poster (name/tagline/Play) never sits under it (content-left, rail-right).
+        "relative h-full snap-start flex flex-col items-center justify-center gap-4 pl-6 pr-[4.5rem] pt-24 pb-28 overflow-hidden",
         ACCENT_BG[jam.accent]
       )}
     >

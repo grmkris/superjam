@@ -14,7 +14,6 @@ import { Badge } from "../../components/ui/badge";
 import { Input, Textarea } from "../../components/ui/field";
 import { MicButton } from "../../components/ui/mic-button";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
-import { ToyboxSheet } from "../../components/ui/sheet";
 import {
   CapChips,
   MakerLine,
@@ -587,6 +586,22 @@ function HomeBeat({
         />
       </div>
 
+      {/* lightweight idea scaffolds, right under the box */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-tiny font-bold text-muted">try:</span>
+        {["a tip jar with a leaderboard", "a daily trivia game", "a doodle guessing duel"].map(
+          (ex) => (
+            <button
+              key={ex}
+              onClick={() => setIdea(ex)}
+              className="focus-ring rounded-full border-2 border-ink bg-cream px-2.5 py-1 text-tiny font-semibold text-muted sticker-press"
+            >
+              {ex}
+            </button>
+          )
+        )}
+      </div>
+
       {/* Reference attachments — images (mockups/sketches) + docs (CSV/Excel/PDF). */}
       {isLoggedIn && (
         <div className="flex flex-col gap-2">
@@ -657,28 +672,17 @@ function HomeBeat({
         </StickerButton>
       )}
 
-      <div className="flex flex-wrap gap-2 mt-1">
-        {["a tip jar with a leaderboard", "a daily trivia game", "a doodle guessing duel"].map(
-          (ex) => (
-            <button
-              key={ex}
-              onClick={() => setIdea(ex)}
-              className="focus-ring bg-cream border-2 border-ink rounded-full px-3 py-1.5 text-small font-semibold text-muted sticker-press"
-            >
-              {ex}
-            </button>
-          )
-        )}
-      </div>
-
       {drafts.length > 0 && (
         <div className="mt-5 flex flex-col gap-2.5">
           <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
-            More drafts
+            Pick up where you left off
           </div>
           <div className="stagger flex max-h-64 flex-col gap-2 overflow-y-auto">
             {drafts.map((d) => (
-              <StickerCard key={d.id} color="cream" className="p-3 flex items-center gap-3">
+              <div
+                key={d.id}
+                className="flex items-center gap-3 rounded-toy border-2 border-ink bg-card p-3 shadow-sticker-sm"
+              >
                 <EmojiToken
                   emoji={d.iconEmoji ?? "⚡"}
                   color="yellow"
@@ -686,37 +690,35 @@ function HomeBeat({
                   rounded="toy"
                   tilt={-4}
                 />
-                <div className="flex flex-col min-w-0">
-                  <div className="font-extrabold text-small truncate">
+                <div className="flex min-w-0 flex-col">
+                  <div className="line-clamp-2 text-small font-extrabold leading-snug">
                     {d.name ?? d.prompt ?? "Untitled idea"}
                   </div>
-                  <div className="text-tiny font-semibold text-muted truncate">
+                  <div className="truncate text-tiny font-semibold text-muted">
                     {d.step === "home" ? "idea" : `paused at ${stepLabel(d.step)}`} ·{" "}
                     {relTime(d.updatedAt)}
                   </div>
                 </div>
-                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                <div className="ml-auto flex shrink-0 items-center gap-1.5">
                   <button
                     onClick={() => onResumeDraft(d.id, d.step)}
-                    className="focus-ring whitespace-nowrap border-2 border-ink rounded-full bg-pink text-white px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                    className="focus-ring whitespace-nowrap rounded-full border-2 border-ink bg-pink px-3 py-1.5 text-small font-extrabold text-white shadow-sticker-sm sticker-press"
                   >
                     Resume →
                   </button>
                   <button
                     onClick={() => onDiscardDraft(d.id)}
                     aria-label="discard draft"
-                    className="focus-ring text-muted font-extrabold px-1.5 text-body"
+                    className="focus-ring px-1.5 text-body font-extrabold text-muted"
                   >
                     ✕
                   </button>
                 </div>
-              </StickerCard>
+              </div>
             ))}
           </div>
         </div>
       )}
-
-      {isLoggedIn && <BuildHistory />}
     </div>
   );
 }
@@ -1062,14 +1064,6 @@ function fmtDelta(ms: number): string {
   return `+${m}m${String(Math.floor(s % 60)).padStart(2, "0")}s`;
 }
 
-/** "3.4s" / "1m04s" — a duration. */
-function fmtDur(ms: number): string {
-  const s = ms / 1000;
-  if (s < 60) return `${s.toFixed(1)}s`;
-  const m = Math.floor(s / 60);
-  return `${m}m${String(Math.floor(s % 60)).padStart(2, "0")}s`;
-}
-
 /** Friendly name for the make-flow beat a draft paused on (for draft cards). */
 const STEP_LABEL: Record<string, string> = {
   followups: "Questions",
@@ -1088,12 +1082,6 @@ function relTime(d: string | number | Date): string {
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
-}
-
-function buildBadge(status: string) {
-  if (status === "done") return <Badge color="green">done</Badge>;
-  if (status === "failed") return <Badge color="pink">failed</Badge>;
-  return <Badge color="yellow">building…</Badge>;
 }
 
 /** The real per-step timeline, read from build.events (live + historical). */
@@ -1266,122 +1254,5 @@ function RevealBeat({
         </StickerButton>
       </div>
     </div>
-  );
-}
-
-type BuildRow = {
-  id: string;
-  prompt: string;
-  status: string;
-  error: string | null;
-  durationMs: number | null;
-  createdAt: string | number | Date;
-  appId: string | null;
-  slug: string | null;
-  appStatus: string | null;
-  name: string;
-  iconEmoji: string;
-};
-
-/** Past builds + their persisted step timelines (read from build.events). */
-function BuildHistory() {
-  const client = usePlatformClient();
-  const [rows, setRows] = useState<BuildRow[] | null>(null);
-  const [open, setOpen] = useState<BuildRow | null>(null);
-
-  useEffect(() => {
-    client.builds
-      .list()
-      .then((r) => setRows(r as BuildRow[]))
-      .catch(() => setRows([]));
-  }, [client]);
-
-  if (!rows || rows.length === 0) return null;
-  return (
-    <div className="mt-5 flex flex-col gap-2.5">
-      <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
-        Your builds
-      </div>
-      <div className="stagger flex flex-col gap-2.5">
-        {rows.map((b) => (
-          <button key={b.id} onClick={() => setOpen(b)} className="text-left">
-            <StickerCard className="p-3 flex items-center gap-3">
-              <EmojiToken emoji={b.iconEmoji} color="yellow" size={36} rounded="toy" />
-              <div className="flex min-w-0 flex-col">
-                <div className="truncate text-small font-extrabold">{b.name}</div>
-                <div className="text-tiny font-semibold text-muted">
-                  {relTime(b.createdAt)}
-                  {b.durationMs ? ` · ${fmtDur(b.durationMs)}` : ""}
-                </div>
-              </div>
-              <span className="ml-auto shrink-0">{buildBadge(b.status)}</span>
-            </StickerCard>
-          </button>
-        ))}
-      </div>
-      {open && <BuildDetailSheet build={open} onClose={() => setOpen(null)} />}
-    </div>
-  );
-}
-
-/** A build's stored step timeline — live-polls while in-flight, static once done. */
-function BuildDetailSheet({ build, onClose }: { build: BuildRow; onClose: () => void }) {
-  const client = usePlatformClient();
-  const router = useRouter();
-  const [events, setEvents] = useState<StepEvent[]>([]);
-  const [status, setStatus] = useState<string>(build.status);
-  const [error, setError] = useState<string | null>(build.error);
-  const [slug, setSlug] = useState<string | null>(build.slug);
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const inflight = (s: string) => s !== "done" && s !== "failed";
-    const poll = async () => {
-      try {
-        const r = await client.builds.status({ buildId: build.id as BuildId });
-        if (cancelled) return;
-        if (Array.isArray(r.events)) setEvents(r.events as StepEvent[]);
-        setStatus(r.status);
-        setError(r.error);
-        if (r.slug) setSlug(r.slug);
-        if (inflight(r.status)) timer = setTimeout(poll, 1500);
-      } catch {
-        /* transient */
-      }
-    };
-    poll();
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [client, build.id]);
-
-  const running = status !== "done" && status !== "failed";
-  return (
-    <ToyboxSheet open onOpenChange={(o) => !o && onClose()} title={build.name} className="gap-3">
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-small font-semibold text-muted">
-          {build.prompt}
-        </span>
-        {buildBadge(status)}
-      </div>
-      <StepTimeline events={events} running={running} />
-      {status === "failed" && error && (
-        <div className="break-words rounded-toy border-2 border-pink bg-cream px-3 py-2 text-small font-semibold text-pink">
-          {error}
-        </div>
-      )}
-      {status === "done" && slug && (
-        <StickerButton color="pink" size="lg" block onClick={() => router.push(`/app/${slug}`)}>
-          ▸ Play
-        </StickerButton>
-      )}
-      {status === "failed" && (
-        <StickerButton color="white" size="lg" block onClick={() => router.push("/build")}>
-          Try again
-        </StickerButton>
-      )}
-    </ToyboxSheet>
   );
 }
