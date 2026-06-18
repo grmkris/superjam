@@ -65,9 +65,10 @@ export default function DiscoverPage() {
       ) : jams.length === 0 ? (
         <EmptyFeed onMake={() => router.push("/build")} />
       ) : (
-        // mobile: hard full-screen snap scroll; desktop (lg): smooth free
-        // scroll in the same single centered column — no snap.
-        <div className="h-full overflow-y-auto snap-y snap-mandatory lg:snap-none lg:scroll-smooth">
+        // Full-screen vertical snap on every size — one jam locks into place, the
+        // next peeks then snaps in (TikTok-style on mobile AND desktop). Cards are
+        // h-full snap-start targets; snap-always keeps the wheel from over-scrolling.
+        <div className="h-full overflow-y-auto snap-y snap-mandatory snap-always">
           {jams.map((jam, i) => (
             <JamFeedCard
               key={jam.id}
