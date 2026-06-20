@@ -53,9 +53,10 @@ const issuer = await createAppTokenIssuer({
 // Agent signer: a Dynamic TSS-MPC server wallet when configured (Best Agentic
 // Build — no raw key), else the funded plain-key fallback. The MPC client auth
 // is async, so it's built here at boot and injected as a pre-made ServerWallet.
-// This wallet signs the single money chain (PUBLIC_CHAIN = Arc). Any failure
-// degrades to the raw-key path so boot never breaks. (Identity — ENSv2 + ERC-8004
-// — is on Sepolia L1 with its own dedicated signer; see ensV2/ensV2SignerKey.)
+// This wallet signs the single money chain (PUBLIC_CHAIN = Arc). In prod a failure
+// is fatal (no silent raw-key degrade); outside prod it falls back so boot never
+// breaks. (Identity — ENSv2 + ERC-8004 — is on Sepolia L1 with its own dedicated
+// signer; see ensV2/ensV2SignerKey.)
 const dynEnv = dynamicWalletEnv();
 let dynServerWallet: Awaited<ReturnType<typeof createDynamicServerWallet>> | undefined;
 if (dynEnv) {
@@ -70,10 +71,12 @@ if (dynEnv) {
       "agent signer: Dynamic TSS-MPC server wallet",
     );
   } catch (err) {
-    logger.error(
-      { err: String(err) },
-      "Dynamic server wallet init failed — falling back to raw key",
-    );
+    // In prod a misconfigured MPC wallet must NOT silently degrade to the raw key
+    // (you'd believe MPC is signing when it isn't) — fail fast so it's caught at
+    // boot. Outside prod, fall back so local/dev rehearsal never breaks.
+    logger.error({ err: String(err) }, "Dynamic server wallet init failed");
+    if (env.APP_ENV === "prod") throw err;
+    logger.warn("falling back to raw-key signer (non-prod)");
     dynServerWallet = undefined;
   }
 }

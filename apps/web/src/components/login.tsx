@@ -8,8 +8,13 @@
 // an effect in <LoginProvider>. "just your email / one tap, no seed phrase."
 import {
   authenticateWithSocial,
+  completeDeviceRegistration,
   completeSocialRedirect,
+  detectDeviceRegistrationRedirect,
   detectOAuthRedirect,
+  getDeviceRegistrationTokenFromUrl,
+  isDeviceRegistrationRequired,
+  logout,
   sendEmailOTP,
   verifyOTP,
 } from "@dynamic-labs-sdk/client";
@@ -17,7 +22,11 @@ import {
   createWaasWalletAccounts,
   getChainsMissingWaasWalletAccounts,
 } from "@dynamic-labs-sdk/client/waas";
-import { useInitStatus } from "@dynamic-labs-sdk/react-hooks";
+import {
+  useInitStatus,
+  useOnEvent,
+  useUser,
+} from "@dynamic-labs-sdk/react-hooks";
 import {
   createContext,
   useCallback,
@@ -74,11 +83,66 @@ export function LoginProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [prefill, setPrefill] = useState("");
   const { data: initStatus } = useInitStatus();
+  const { data: user } = useUser();
 
   const openLogin = useCallback((email?: string) => {
     setPrefill(email?.trim() ?? "");
     setOpen(true);
   }, []);
+
+  // Device registration (2026_04_01 API). New-device sign-ins carry a
+  // `device:register` scope the SDK won't clear until the device is verified via
+  // an emailed link. Two parts: (1) when the browser returns from that link,
+  // finish the registration here; (2) while a signed-in user still needs it,
+  // block the app behind a "check your email" gate until it clears.
+  const [deviceRegistered, setDeviceRegistered] = useState(false);
+  useOnEvent({
+    event: "deviceRegistrationCompleted",
+    listener: () => setDeviceRegistered(true),
+  });
+  useOnEvent({
+    event: "deviceRegistrationCompletedInAnotherTab",
+    listener: () => setDeviceRegistered(true),
+  });
+  // A fresh login resets the latch so a different account can be gated again.
+  useEffect(() => {
+    if (!user) setDeviceRegistered(false);
+  }, [user]);
+
+  // Complete the device-registration email redirect on return. Strips the token
+  // from the URL so a refresh doesn't re-fire and legit params survive.
+  useEffect(() => {
+    if (initStatus !== "finished") return;
+    let cancelled = false;
+    void (async () => {
+      const url = new URL(window.location.href);
+      if (!detectDeviceRegistrationRedirect({ url: url.href }) || cancelled) {
+        return;
+      }
+      try {
+        const deviceToken = getDeviceRegistrationTokenFromUrl({ url: url.href });
+        await completeDeviceRegistration({ deviceToken });
+        setDeviceRegistered(true);
+      } catch {
+        // surfaced through the gate; the user can re-open the email link
+      } finally {
+        window.history.replaceState(
+          {},
+          "",
+          url.origin + url.pathname + url.hash
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initStatus]);
+
+  const needsDeviceRegistration =
+    initStatus === "finished" &&
+    !deviceRegistered &&
+    !!user &&
+    isDeviceRegistrationRequired(user);
 
   // Complete a Google (OAuth) sign-in when the browser returns from the provider.
   // Gated on init so the client is ready; only strips the URL when it really was
@@ -122,7 +186,54 @@ export function LoginProvider({ children }: { children: ReactNode }) {
     <LoginContext.Provider value={{ openLogin }}>
       {children}
       <LoginSheet open={open} onOpenChange={setOpen} initialEmail={prefill} />
+      {needsDeviceRegistration ? (
+        <DeviceRegistrationGate email={user?.email ?? null} />
+      ) : null}
     </LoginContext.Provider>
+  );
+}
+
+// Full-screen block shown while a signed-in user must verify a new device. The
+// SDK has already emailed the link (no extra call); this clears automatically on
+// the `deviceRegistrationCompleted*` events or the email-redirect completion.
+function DeviceRegistrationGate({ email }: { email: string | null }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        background: "rgba(0,0,0,0.45)",
+        backdropFilter: "blur(4px)",
+      }}
+    >
+      <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-toy border-2 border-ink bg-cream p-6 text-center">
+        <EmojiToken emoji="📧" color="blue" size={64} tilt={-6} />
+        <div className="text-h3 font-extrabold">Verify this device</div>
+        <p className="text-small font-medium text-muted">
+          For your security, we emailed a verification link
+          {email ? (
+            <>
+              {" "}
+              to <span className="font-bold text-ink">{email}</span>
+            </>
+          ) : null}
+          . Open it to keep using SuperJam on this device — this page updates
+          automatically once you do.
+        </p>
+        <button
+          type="button"
+          className="mt-1 text-small font-semibold text-muted underline"
+          onClick={() => void logout()}
+        >
+          Use a different account
+        </button>
+      </div>
+    </div>
   );
 }
 

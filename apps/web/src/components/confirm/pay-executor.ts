@@ -12,9 +12,11 @@
 //
 // New headless SDK: the EVM wallet account comes from useWalletAccounts(); a viem
 // WalletClient is built with createWalletClientForWalletAccount().
+import { authenticatePasskeyMFA, checkStepUpAuth } from "@dynamic-labs-sdk/client";
 import type { EvmWalletAccount } from "@dynamic-labs-sdk/evm";
 import { createWalletClientForWalletAccount } from "@dynamic-labs-sdk/evm/viem";
 import { useWalletAccounts } from "@dynamic-labs-sdk/react-hooks";
+import { TokenScope } from "@dynamic-labs/sdk-api-core";
 import type { AppId } from "@superjam/shared";
 import {
   PUBLIC_CHAIN,
@@ -69,6 +71,18 @@ export function useRelayExecutor(): PayExecutor {
         validBefore,
         nonce: randomTransferNonce(),
       });
+
+      // 2b) step-up auth (2026_04_01): when the environment enforces elevated
+      // auth for signing, satisfy it before we sign. checkStepUpAuth never throws
+      // and returns isRequired=false when step-up isn't configured (the common
+      // path here). We only prompt when a credential is actually available — a
+      // transient check failure defaults to isRequired=true with NO credentials,
+      // which must not block a normal payment. (Embedded wallets use a passkey;
+      // if the env uses TOTP/OTP instead, this needs a code-entry UI.)
+      const stepUp = await checkStepUpAuth({ scope: TokenScope.Walletsign });
+      if (stepUp.isRequired && stepUp.credentials?.length) {
+        await authenticatePasskeyMFA({ requestedScopes: [TokenScope.Walletsign] });
+      }
 
       // 3) sign in the browser
       const signature = await walletClient.signTypedData({

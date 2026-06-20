@@ -21,7 +21,6 @@ export const idTypesMapNameToPrefix = {
   potStake: "pst",
   friendship: "fnd",
   directMessage: "dm",
-  userDelegation: "udl",
   buildDraft: "bdr",
   userToken: "utk",
 } as const;

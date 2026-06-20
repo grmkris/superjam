@@ -10,5 +10,4 @@ export * from "./like.db.ts";
 export * from "./message.db.ts";
 export * from "./friend.db.ts";
 export * from "./dm.db.ts";
-export * from "./delegation.db.ts";
 export * from "./user-token.db.ts";
