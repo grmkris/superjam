@@ -69,13 +69,12 @@ const starterFiles = (spec: AppSpec, _ctx: KitContext): Record<string, string> =
 const gate = (files: Record<string, string>): GateResult => {
   const page = files["app/page.tsx"] ?? "";
   const missing: string[] = [];
+  // The essential onchain action is the WRITE (the move actually happens on-chain,
+  // gasless + player-stamped). Reading state back is encouraged (the starter + prompt
+  // do it) but NOT gated — requiring it just traps cheap models that drop the read
+  // when they rewrite the page, which defeats the whole point of templating (reliability).
   if (!/\.onchain\.write\(/.test(page)) {
-    missing.push("make a move with sdk.onchain.write({ fn, args }) (gasless, player auto-stamped)");
-  }
-  // Reading state back is what makes it feel onchain — the score/board/result must
-  // reflect the contract after a write (and survive a reload), not just local state.
-  if (!/\.onchain\.read\(/.test(page)) {
-    missing.push("read the on-chain state back with sdk.onchain.read({ fn, args }) so results/score reflect the contract + survive a reload");
+    missing.push("make the move on-chain with sdk.onchain.write({ fn, args }) (gasless, player auto-stamped) — don't fake it with local state");
   }
   return { ok: missing.length === 0, missing };
 };
