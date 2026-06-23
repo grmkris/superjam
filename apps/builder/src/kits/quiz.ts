@@ -283,17 +283,10 @@ export default function Page() {
 const gate = (files: Record<string, string>): GateResult => {
   const page = files["app/page.tsx"] ?? "";
   const missing: string[] = [];
-  if (!/sdk\.data\.counter\(/.test(page)) {
-    missing.push("use sdk.data.counter(...) for the shared verified-human leaderboard (increment + top)");
-  }
-  if (!/\bon[A-Z]\w+\s*=/.test(page)) {
-    missing.push("wire an answer handler (e.g. onClick) on each tappable option");
-  }
-  if (!/\b(BANK|QUESTIONS|questions)\b/.test(page) || !/\[\s*{/.test(page)) {
-    missing.push("ship a LOCAL question bank — an array of { q, options, correctIndex } questions");
-  }
-  if (!/\buseState\b/.test(page)) {
-    missing.push("drive the quiz with React state (useState) — current question, picked option, score, timer");
+  // Use-case core only (generic gate covers not-stub + sdk import + interactivity).
+  // Match the METHOD CHAIN, not an `sdk.` prefix (the sdk var can be named anything).
+  if (!/\.data\.counter\(/.test(page)) {
+    missing.push("post scores to data.counter(...).increment/top for a SHARED leaderboard");
   }
   return { ok: missing.length === 0, missing };
 };

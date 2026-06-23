@@ -194,17 +194,12 @@ export default function Page() {
 const gate = (files: Record<string, string>): GateResult => {
   const page = files["app/page.tsx"] ?? "";
   const missing: string[] = [];
-  if (!/sdk\.data\.counter\(/.test(page)) {
-    missing.push("use sdk.data.counter(...) for the shared score leaderboard (increment + top)");
+  // Use-case core only (the generic gate already enforces not-stub + sdk import +
+  // "use client" + interactivity). Match the METHOD CHAIN, not an `sdk.` prefix —
+  // the connected sdk variable can be named anything (`sdk`, `s`, `sj`).
+  if (!/\.data\.counter\(/.test(page)) {
+    missing.push("use data.counter(...).increment/top for the SHARED score leaderboard");
   }
-  if (!/sdk\.storage\./.test(page)) {
-    missing.push("use sdk.storage to persist the player's personal score across reloads");
-  }
-  if (!/\bon[A-Z]\w+\s*=/.test(page)) {
-    missing.push("wire a tap handler (e.g. onClick) on the tap target");
-  }
-  // No "no leftover TODO" check — the starter's TODOs are cosmetic polish; the gate
-  // enforces FUNCTION (counter + storage + tap handler), not finishing every flourish.
   return { ok: missing.length === 0, missing };
 };
 

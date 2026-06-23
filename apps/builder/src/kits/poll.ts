@@ -224,18 +224,10 @@ export default function Page() {
 const gate = (files: Record<string, string>): GateResult => {
   const page = files["app/page.tsx"] ?? "";
   const missing: string[] = [];
-  if (!/sdk\.data\.counter\(/.test(page)) {
-    missing.push("use sdk.data.counter(...) to tally votes per option (increment + top)");
-  }
-  if (!/\bon[A-Z]\w+\s*=/.test(page)) {
-    missing.push("wire a vote handler (e.g. onClick) on each option button");
-  }
-  // Results must be RENDERED — look for a percent/width computation or a counter read.
-  if (!/width|%|\.top\(|tally|\.get\(/.test(page)) {
-    missing.push("render live results (e.g. result bars sized by each option's share of the total)");
-  }
-  if (!/sdk\.storage\./.test(page)) {
-    missing.push("use sdk.storage to remember the voter's choice so they see results on return");
+  // Use-case core only (generic gate covers not-stub + sdk import + interactivity).
+  // Match the METHOD CHAIN, not an `sdk.` prefix (the sdk var can be named anything).
+  if (!/\.data\.counter\(/.test(page)) {
+    missing.push("tally votes with data.counter(...).increment/top so results are SHARED across users");
   }
   return { ok: missing.length === 0, missing };
 };

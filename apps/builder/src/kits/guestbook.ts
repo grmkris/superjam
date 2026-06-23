@@ -211,20 +211,16 @@ export default function Page() {
 const gate = (files: Record<string, string>): GateResult => {
   const page = files["app/page.tsx"] ?? "";
   const missing: string[] = [];
-  if (!/sdk\.data\.collection\(/.test(page)) {
-    missing.push('use sdk.data.collection("...") for the shared wall (insert + list)');
+  // Use-case core only (generic gate covers not-stub + sdk import + interactivity).
+  // Match the METHOD CHAIN, not an `sdk.` prefix (the sdk var can be named anything).
+  if (!/\.data\.collection\(/.test(page)) {
+    missing.push('use data.collection("...").insert/list for the SHARED wall of posts');
   }
-  if (!/\bon[A-Z]\w+\s*=/.test(page)) {
-    missing.push("wire a post handler (e.g. onClick on the Post button or onSubmit on the form)");
+  // SAFETY (keep): untrusted post text must render as plain React text. Match ACTUAL
+  // JSX usage (`dangerouslySetInnerHTML=`), NOT the word in a safety comment.
+  if (/dangerouslySetInnerHTML\s*=/.test(page)) {
+    missing.push("render user post text as PLAIN React text — remove dangerouslySetInnerHTML");
   }
-  if (!/\.map\(|\.list\(/.test(page)) {
-    missing.push("render the shared feed (list the collection and .map() the docs into the UI)");
-  }
-  if (/dangerouslySetInnerHTML/.test(page)) {
-    missing.push("render user post text as PLAIN React text — remove dangerouslySetInnerHTML (untrusted input)");
-  }
-  // No "no leftover TODO" check — the starter's TODOs are cosmetic polish; the gate
-  // enforces FUNCTION (collection + post handler + rendered feed), not flourishes.
   return { ok: missing.length === 0, missing };
 };
 

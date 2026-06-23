@@ -156,11 +156,9 @@ const guestbook: AppSpec = {
     "Render all message text as plain text",
     "Playful Toybox styling",
   ],
-  data: {
-    collections: [{ name: "messages", fields: [{ name: "text", type: "string" }], writtenWhen: "post" }],
-    counters: [],
-    storage: [],
-  },
+  // Zero-backend: the shared wall uses the sdk.data.collection PRIMITIVE, not a Neon
+  // relational collection — so spec.data.collections stays EMPTY (else it provisions Neon).
+  data: { collections: [], counters: [], storage: [] },
   ui: { layout: "single centered column", sections: ["compose", "feed"] },
   acceptance: ["Posting adds to the shared feed", "Everyone sees all messages newest-first", "No console errors"],
 };
