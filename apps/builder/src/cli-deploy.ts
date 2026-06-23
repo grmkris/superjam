@@ -16,10 +16,17 @@ import { dirname, join } from "node:path";
 // it lowercase + dns-safe + no `---`, ≤100 chars. Sanitize so the per-app name
 // (e.g. superjam-<appId>) is always valid; a stable name means re-deploys update
 // the same project instead of orphaning a new one.
+//
+// CRITICAL: map `_` and `.` to `-`. Vercel itself rewrites underscores in a project
+// name to hyphens on create (`superjam-app_x` → `superjam-app-x`), so if we KEEP the
+// underscore here the name we report ≠ the project Vercel actually made, and the
+// entryUrl resolver (vercel-alias.ts) looks up a 404 project → records the wrong,
+// dead guessed URL. Matching Vercel's own normalization (same rule as projectNameFor)
+// keeps deploy-name == real-project-name == resolver-lookup.
 export const vercelProjectName = (raw: string): string =>
   raw
     .toLowerCase()
-    .replace(/[^a-z0-9._-]/g, "-")
+    .replace(/[^a-z0-9-]/g, "-")
     .replace(/-{3,}/g, "--")
     .replace(/^-+|-+$/g, "")
     .slice(0, 90) || "superjam-app";

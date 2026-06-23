@@ -58,7 +58,7 @@ describe("cliDeploy", () => {
   test("sanitizes the project name for the alias", async () => {
     const run: DeployRunner = async () => ({ code: 0, stdout: OK_JSON, stderr: "" });
     const res = await cliDeploy({ files, name: "Superjam_App---X" }, run);
-    expect(res.entryUrl).toBe("https://superjam_app--x.vercel.app");
+    expect(res.entryUrl).toBe("https://superjam-app--x.vercel.app");
   });
 
   test("appends --token when given", async () => {
@@ -90,8 +90,10 @@ describe("vercelRemove", () => {
       seenArgv = argv;
       return { code: 0, stdout: "Removed 1 project", stderr: "" };
     };
+    // Underscores normalize to hyphens (Vercel does this on create) so the name
+    // matches the real project — same rule as projectNameFor.
     await vercelRemove("Superjam-App_1", {}, run);
-    expect(seenArgv).toEqual(["vercel", "remove", "superjam-app_1", "--yes"]);
+    expect(seenArgv).toEqual(["vercel", "remove", "superjam-app-1", "--yes"]);
   });
 
   test("treats a missing project as success (idempotent)", async () => {
