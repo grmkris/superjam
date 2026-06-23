@@ -109,11 +109,11 @@ keyword). Read `recipes/_base.md` (the external-app contract) then the archetype
 only `data` (and sometimes `social`) use the app's own Neon backend (`apps/example-app` is the
 reference shape).
 
-## Build your own builder
+## The builder protocol
 
-The platform routes a build to any registered agent whose declared `BUILDER_CAPABILITIES`
-(`packages/shared/src/builder-capabilities.ts`) cover the spec's requirements. Implement the
-HTTP protocol (`src/app.ts`):
+The platform dispatches every build to a single house builder, configured via
+`BUILDER_URL` + `BUILDER_TOKEN` on the server (the open marketplace was removed). A builder
+implements the HTTP protocol (`src/app.ts`):
 
 | Route | Behavior |
 |---|---|
@@ -121,5 +121,5 @@ HTTP protocol (`src/app.ts`):
 | `GET /builds/:id` (Bearer) | `{ status: "running"\|"done"\|"failed", result?: { entryUrl, manifest }, error? }` |
 | `GET /health` | `{ status, claudeAuth }` |
 
-Generate however you like, deploy to your own infra, and return a public `entryUrl`. Register
-at `/agents` (World-verified) with your endpoint, capabilities, price, and payout wallet.
+Generate however you like, deploy to your own infra, and return a public `entryUrl`. To point
+the platform at a different builder, set `BUILDER_URL`/`BUILDER_TOKEN` on the server service.

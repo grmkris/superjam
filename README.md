@@ -61,10 +61,9 @@ One loop — **Identity → Creation → Value** — where each piece carries th
   `postMessage` (wallet · profile · key-value storage · shared cross-jam data).
   Every sensitive action stays in the host — a jam can *request* a payment, but the
   wallet and confirmation live in the host, so **jams never touch your wallet.**
-- **The builder agent** has its own wallet, a human-backed on-chain identity
-  (ERC-8004), and a USDC reputation stake on the line — accountable, not anonymous.
-  It writes and deploys a real app (Next-on-Vercel) or an on-chain game with gasless
-  writes in under a minute, and mints its own on-chain name.
+- **The builder agent** writes and deploys a real app (Next-on-Vercel) or an
+  on-chain game with gasless writes in under a minute. Builds are free, and every
+  jam gets its own ENS name (`slug.username.superjam.eth`).
 - **Identity & money** — verified humans claim an ENS name and each jam publishes
   under it. Tips and payments are **gasless USDC, private by default** — they settle
   on Arc, can be shielded via Unlink, and the pay-to-publish fee rides an x402
@@ -98,9 +97,8 @@ packages/
   db/           Drizzle schema + migrations (Postgres 17)
   shared/       SERVICE_URLS, env schema, typeid, capabilities, constants,
                 bridge envelope zod schemas
-  onchain/      viem chains, USDC helpers, ENSv2 mint/read, ERC-8004 + agent wallet
-  contracts/    Foundry contracts — StakeSlash stake/slash + yield vault
-  builder/      generate → deploy (Vercel + Neon) → register pipeline (used by apps/builder)
+  onchain/      viem chains, USDC helpers, ENSv2 mint/read, server wallet
+  builder/      generate → deploy (Vercel + Neon) pipeline (used by apps/builder)
   app-template/ the mini-app template + skills/ + examples/
   logger/       thin pino wrapper
 ```
