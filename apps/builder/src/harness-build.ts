@@ -21,7 +21,7 @@ import { z } from "zod";
 import { specNeedsData, type NeonClient } from "@superjam/builder/deploy";
 import type { AppSpec } from "@superjam/shared";
 import { generateImage, generateVoice } from "./assets.ts";
-import type { BackendFactory, ExecResult } from "./backend/index.ts";
+import type { BackendFactory } from "./backend/index.ts";
 import {
   IMAGE_BUDGET,
   VOICE_BUDGET,
@@ -31,6 +31,7 @@ import {
 } from "./build-prompt.ts";
 import { parseDeployOutput, vercelProjectName } from "./cli-deploy.ts";
 import { generateApp } from "./generate.ts";
+import { genericGate, selectKit } from "./kits/index.ts";
 
 // Tool steps the model gets PER build round (one round = one `generateText` call
 // followed by the harness's authoritative `next build`).
@@ -239,7 +240,22 @@ export const runHarnessBuild = async (
       appId: args.appId,
       jwksUrl: args.jwksUrl,
     });
-    await backend.writeFiles(base.files);
+    // A matched use-case kit overlays a near-complete starter (working app/page.tsx
+    // with `// TODO:` gaps) onto the generic skeleton — so a cheap model FILLS gaps
+    // instead of authoring (and coasting). No match ⇒ the generic skeleton + gate.
+    const kit = selectKit(args.spec);
+    const seedFiles = kit
+      ? {
+          ...base.files,
+          ...kit.starterFiles(args.spec, {
+            appId: args.appId,
+            buildId: args.buildId,
+            jwksUrl: args.jwksUrl,
+          }),
+        }
+      : base.files;
+    await backend.writeFiles(seedFiles);
+    const seedPage = seedFiles["app/page.tsx"] ?? "";
 
     // Data app → provision its own Neon DB; the pooled DSN feeds build + deploy env.
     let dsn: string | undefined;
@@ -264,10 +280,15 @@ export const runHarnessBuild = async (
 
     const model = deps.model;
     const system = await buildSystemPrompt(args.spec, HARNESS_SEAMS);
+    // A kit ships a FILLED, ordered checklist; a starter app/page.tsx already exists,
+    // so the model's job is to complete every step + fill the // TODO gaps.
+    const planSection = kit
+      ? `\n\n## Build plan — complete EVERY step (a starter app/page.tsx exists; fill its // TODO gaps)\n${kit.plan(args.spec)}`
+      : "";
     const task = buildTaskPrompt(args.spec, {
       project,
       attachmentUrls: args.attachmentUrls,
-      tail: "\n\nWrite the code; the harness compiles it and sends you any build errors to fix. You cannot run npm/next/vercel — the harness builds & deploys for you.",
+      tail: `${planSection}\n\nWrite the code; the harness compiles it and sends back any build errors OR missing pieces to fix. You cannot run npm/next/vercel — the harness builds & deploys for you.`,
     });
     const tools = buildTools(sandbox, ws, deps.googleKey, (s) => void report.status(s));
 
@@ -284,18 +305,17 @@ export const runHarnessBuild = async (
     let outTokens = 0;
 
     // Outer harness loop: the model implements/fixes, then WE run the authoritative
-    // `next build`. Green → break out and deploy. Non-zero → feed the error tail back
-    // for another round (the model never decides "done" — the build does).
-    let buildResult: ExecResult | undefined;
+    // `next build` AND the anti-coast quality gate. Pass both → deploy. Build error OR
+    // an incomplete (coasting) app → feed the specific gaps back for another round.
+    // The model never decides "done" — the build + gate do.
+    let feedback = ""; // build-error tail OR gate-missing list, for the next round's prompt
+    let passed = false;
     let rounds = 0;
     for (let round = 0; round < MAX_BUILD_ROUNDS; round += 1) {
       rounds = round + 1;
-      const prompt =
-        round === 0
-          ? task
-          : `The build (\`next build\`, run by the harness) failed:\n\n${tail(buildResult?.stderr || buildResult?.stdout || "")}\n\nFix the code so the build passes.`;
+      const prompt = round === 0 ? task : `${feedback}\n\nKeep going — fix and complete the app.`;
       await report.status(
-        round === 0 ? "designing & building the jam" : `fixing build errors (round ${round + 1})`
+        round === 0 ? "designing & building the jam" : `improving the jam (round ${round + 1})`
       );
       const gen = await generateText({ model, system, prompt, tools, stopWhen: stepCountIs(STEPS_PER_ROUND) });
       // totalUsage = aggregated across ALL tool-loop steps (write_file outputs live in
@@ -313,17 +333,30 @@ export const runHarnessBuild = async (
       }
 
       await report.status(`build check (attempt ${round + 1})`);
-      buildResult = await backend.exec("npx next build", {
-        env: buildEnv,
-        timeoutMs: BUILD_TIMEOUT_MS,
-      });
-      if (buildResult.code === 0) break;
+      const build = await backend.exec("npx next build", { env: buildEnv, timeoutMs: BUILD_TIMEOUT_MS });
+      if (build.code !== 0) {
+        feedback = `The build (\`next build\`, run by the harness) failed:\n\n${tail(build.stderr || build.stdout || "")}`;
+        continue;
+      }
+
+      // Green build ≠ done: the seeded stub compiles. Gate on a real, SDK-using app
+      // (generic anti-coast checks + any kit-specific probes). Fail ⇒ re-prompt.
+      const page = await backend.readFile("app/page.tsx").catch(() => "");
+      const base = genericGate(page, seedPage);
+      const extra = kit ? kit.gate({ "app/page.tsx": page }).missing : [];
+      const missing = [...base.missing, ...extra];
+      if (missing.length === 0) {
+        passed = true;
+        break;
+      }
+      feedback = `The app COMPILES but is INCOMPLETE — do NOT stop yet. You still must:\n${missing.map((m) => `- ${m}`).join("\n")}`;
+      await report.status(`quality check: needs work (round ${round + 1})`);
     }
     // Surface model cost (rides build.events; parsed by the benchmark, handy in prod).
     await report.status(`model usage — in:${inTokens} out:${outTokens} tokens, ${rounds} rounds`);
-    if (!buildResult || buildResult.code !== 0) {
+    if (!passed) {
       await report.failed(
-        `the build didn't pass after ${MAX_BUILD_ROUNDS} attempts:\n${tail(buildResult?.stderr ?? "", 1200)}`
+        `couldn't produce a complete app after ${MAX_BUILD_ROUNDS} rounds.\n${tail(feedback, 1200)}`
       );
       return;
     }
