@@ -53,6 +53,22 @@ body {
 }
 .tj-card + .tj-card { margin-top: 14px; }
 
+/* Hero / first-page band — gives the first screen its own identity. In this
+   centered PREVIEW tier it caps a .tj-card (round top, bleeds the card padding);
+   the deployed tier bleeds it full-width. White text on a candy gradient = high
+   contrast (never a dark page background). */
+.tj-hero {
+  margin: -24px -24px 18px;
+  padding: 26px 22px;
+  color: #fff;
+  text-align: center;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  border-radius: var(--radius) var(--radius) 0 0;
+  border-bottom: 2px solid var(--text);
+}
+.tj-hero .tj-title, .tj-hero .tj-sub { color: #fff; }
+.tj-hero .tj-sub { opacity: .92; }
+
 /* Header row — emoji chip + title/sub (+ optional right slot via .tj-spacer).
    Keep it COMPACT: the host shows the jam name in its title pill, so don't repeat
    it as a giant top heading. */

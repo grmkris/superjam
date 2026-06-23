@@ -425,6 +425,24 @@ body {
 /* Mobile-first readable column for content jams. Toys can nest a single tj-card. */
 .tj-app { max-width: 560px; margin: 0 auto; padding: 20px 16px 32px; }
 
+/* ── Hero / first-page band — gives a jam's FIRST screen its own identity instead
+   of a bare card. Bleeds full-width past the .tj-app padding; white text on a candy
+   gradient stays high-contrast. Drop a .tj-title + .tj-sub (or a baked
+   <img src="/hero.png">) inside. This is a contained band, NOT a dark page
+   background — the page itself stays cream. Override the gradient with an inline
+   \`style\` or a new globals.css class for per-jam art. */
+.tj-hero {
+  margin: -20px -16px 18px;
+  padding: 30px 22px;
+  color: #fff;
+  text-align: center;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  border-bottom: 2px solid var(--text);
+  box-shadow: 0 4px 0 var(--text);
+}
+.tj-hero .tj-title, .tj-hero .tj-sub { color: #fff; }
+.tj-hero .tj-sub { opacity: .92; }
+
 /* ── Surfaces ───────────────────────────────────────────────────────────── */
 .tj-card {
   background: var(--card);

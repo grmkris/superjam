@@ -100,20 +100,23 @@ The manifest declares capabilities that gate SDK surface: "payments" → payUSDC
 ## Design — it's a toy, not a tool ("Toybox")
 The Toybox theme is ALREADY loaded (theme.css): cream paper background, ink (#221A33) text, candy-pink \`--accent\`, the Baloo 2 font, 2px ink borders + sticker shadows, and a full set of \`.tj-*\` component classes. High contrast is built in — COMPOSE these classes; do NOT hand-roll raw HTML or restyle the page. The components:
 - \`.tj-app\` — wrap the whole screen in this (the centered, mobile-first column). Inside it, stack \`.tj-card\` surfaces.
+- \`.tj-hero\` — a full-bleed candy header band that gives your FIRST screen its own identity (white text on a candy gradient; bleeds past the .tj-app padding). Drop a \`.tj-title\` hook line + \`.tj-sub\` (or a baked \`<img src="/hero.png">\`) inside; override the gradient with an inline \`style\` or a new globals.css class for per-jam art. Lead with this so the jam doesn't open as a generic bare card.
 - \`.tj-card\` — a white card (ink border + sticker shadow). \`.tj-header\` (a row: \`.tj-emoji\` chip + \`.tj-htext\` with \`.tj-title\`/\`.tj-sub\`, optional \`.tj-spacer\` then a right slot).
 - \`.tj-btn\` (candy primary) + \`.tj-btn-ghost\` / \`.tj-btn-yellow\` / \`.tj-btn-green\` / \`.tj-btn-blue\` variants, \`.tj-btn-block\` (full width). \`.tj-input\` (text/textarea).
 - \`.tj-choices\` (+ \`.tj-cols-2\`) wrapping \`.tj-choice\` buttons — a segmented picker; set \`aria-pressed={selected}\` on the chosen one to fill it accent (use this for this-or-that / multiple-choice).
 - \`.tj-bar\` > \`.tj-bar-fill\` (style \`width:\${pct}%\`) + optional \`.tj-bar-label\` — an animated result/progress bar (poll tallies, quiz scores, meters). Use this instead of a hand-built div.
 - \`.tj-stat\` (big number), \`.tj-badge\` / \`.tj-pill\` (chips), \`.tj-list\`, \`.tj-row\`, \`.tj-grid2\`, \`.tj-center\`, \`.tj-empty\` (empty state), \`.tj-spin\` (loader), \`.tj-pop\`/\`.tj-shake\` (juice). Full-bleed games: \`.tj-stage\` + \`.tj-hud\`.
-- Need a one-off style? Add a NEW class in globals.css or use an inline style for layout only — but the page STAYS cream + ink. NEVER set a dark page/body background, never put dark text on a dark fill, never edit theme.css or its \`:root\` tokens. (A green build with an unreadable or off-theme UI is a FAILURE and will be rejected.)
+- Give your FIRST screen its OWN look — open with a \`.tj-hero\` band (or a full-width section class you add in globals.css) carrying a candy gradient, a baked \`/hero.png\`, or a tinted panel, so each jam feels distinct instead of a generic cream card. Need another one-off style? Add a NEW class in globals.css or an inline style for layout. The PAGE itself still stays cream + ink: NEVER set a dark page/body/\`.tj-app\` background and never put dark text on a dark fill — a vivid hero band with light-on-color text is fine, a dark *page* is not. Never edit theme.css or its \`:root\` tokens. (A green build with an unreadable or off-theme UI is a FAILURE and will be rejected.)
 - Anatomy (imitate this shape):
   \`\`\`tsx
   <main className="tj-app">
+    {/* lead with a hero band (first child of .tj-app so it bleeds full-width) —
+        a hook line, NOT the jam's name (the host bar already shows that) */}
+    <div className="tj-hero">
+      <h1 className="tj-title">Settle it forever 🐾</h1>
+      <p className="tj-sub">Tap your side</p>
+    </div>
     <div className="tj-card">
-      <div className="tj-header">
-        <span className="tj-emoji">🐾</span>
-        <div className="tj-htext"><h1 className="tj-title">Cats vs Dogs</h1><p className="tj-sub">Cast your vote</p></div>
-      </div>
       <div className="tj-choices tj-cols-2">
         <button className="tj-choice" aria-pressed={pick==="cats"} onClick={() => vote("cats")}>Cats</button>
         <button className="tj-choice" aria-pressed={pick==="dogs"} onClick={() => vote("dogs")}>Dogs</button>
@@ -123,7 +126,7 @@ The Toybox theme is ALREADY loaded (theme.css): cream paper background, ink (#22
   </main>
   \`\`\`
 - ONE screen, playable/usable instantly. No routing, no multi-page flows.
-- Do NOT repeat the jam's name as a giant page-topping \`<h1>\` — the host frame already shows it in a title pill above your app. A compact \`.tj-header\` is plenty.
+- You OWN your first screen — make it distinctive (a \`.tj-hero\` band, a themed background, baked art). Just don't repeat the jam's NAME as a giant \`<h1>\`: the host bar already shows it, so spend the hero on a hook line / call-to-action / art instead of the bare title.
 - Playful and self-contained. NEVER show build logs, file names, terminals, code, or any "AI"/"agent"/"compiler" language in the UI.
 - Render ALL user-supplied text as plain text (never dangerouslySetInnerHTML).
 - Defensively parse sdk.ai.chat output (it can return junk) — always have a fallback.

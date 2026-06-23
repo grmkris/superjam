@@ -80,6 +80,10 @@ system, imported in `app/layout.tsx`) with the design tokens + the **Baloo 2** f
 framed jam looks native in the host. **Use its classes instead of ad-hoc `system-ui`
 inline styles. DO NOT edit `theme.css`** — put any custom CSS in `app/globals.css`.
 - Wrap your screen in `<main className="tj-app">` (a mobile-first column).
+- Own your FIRST screen: lead with `tj-hero` (the first child of `tj-app` so it bleeds
+  full-width) — a candy-gradient band with a hook line / call-to-action, NOT the jam's
+  name (the host bar shows that). Override its gradient with an inline `style` or a baked
+  `<img src="/hero.png">` for per-jam art, so each jam opens distinct instead of a bare card.
 - Surfaces & layout: `tj-card` (white, ink border, sticker shadow), `tj-header` (a row:
   `tj-emoji` chip + `tj-htext` holding `tj-title`/`tj-sub`, optional `tj-spacer`),
   `tj-row`, `tj-grid2`, `tj-center`, `tj-list`, `tj-muted`.
@@ -91,7 +95,8 @@ inline styles. DO NOT edit `theme.css`** — put any custom CSS in `app/globals.
   `tj-spin` (loader), `tj-pop`/`tj-shake` (juice). Full-bleed games: `tj-stage`+`tj-hud`.
 - Colors come from CSS vars — `var(--accent)` pink, `var(--yellow)`, `var(--green)`,
   `var(--blue)`, `var(--text)` ink, `var(--bg)` cream, `var(--card)`, `var(--muted)`.
-- NEVER set a dark page/body background or dark-on-dark text — the app stays cream + ink.
+- The PAGE stays cream + ink: NEVER set a dark page/body/`tj-app` background or dark-on-dark
+  text. A vivid `tj-hero` band with light-on-color text is encouraged; a dark *page* is not.
   Do NOT set `fontFamily: "system-ui"` or re-declare fonts — Baloo 2 is the body font.
   Inline styles are fine for layout (flex/grid/spacing); pull color/font/buttons/cards
   from the theme so every jam shares the host's visual language.
