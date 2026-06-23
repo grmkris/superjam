@@ -13,6 +13,7 @@
 //     HARNESS_MODEL=gemini-2.5-flash bun run apps/builder/scripts/try-harness.ts
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { serve } from "@hono/node-server";
+import { createNeonClient } from "@superjam/builder/deploy";
 import type { AppSpec } from "@superjam/shared";
 import { createBuilderApp } from "../src/app.ts";
 import { makeLocalBackend } from "../src/backend/index.ts";
@@ -22,6 +23,8 @@ import { createBuildRunner } from "../src/queue.ts";
 const PORT = 47190;
 const TOKEN = "trial-token";
 const deploy = process.argv.includes("--deploy");
+// --data: build a RELATIONAL spec (data.collections → Neon) to verify the data path.
+const data = process.argv.includes("--data");
 const modelId = process.env.HARNESS_MODEL ?? "gemini-2.5-flash";
 
 const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -33,7 +36,7 @@ const model = createGoogleGenerativeAI({ apiKey: googleKey })(modelId);
 
 // A simple ZERO-BACKEND clicker: per-user count via sdk.storage + a global tally via
 // sdk.data.counter. No collections ⇒ no Neon. Exercises the full loop cheaply.
-const spec: AppSpec = {
+const clickerSpec: AppSpec = {
   name: "Cookie Clicker",
   slug: "cookie-clicker-trial",
   description: "Tap the cookie to score; a global counter tracks everyone's all-time taps.",
@@ -59,8 +62,45 @@ const spec: AppSpec = {
   ],
 };
 
-const appId = "app_trialclicker";
-const buildId = "build_trial1";
+// A RELATIONAL spec (declared collections → Neon-backed) to verify the data path.
+const dataSpec: AppSpec = {
+  name: "Book Club Reviews",
+  slug: "book-reviews-trial",
+  description: "Members post short book reviews with a star rating; everyone sees the shared list.",
+  iconEmoji: "📚",
+  category: "social",
+  capabilities: [],
+  features: [
+    "A form to submit a book title + 1-5 star rating + a short review",
+    "A shared, queryable list of all reviews (newest first), backed by a real database",
+    "Show the average rating per book",
+  ],
+  data: {
+    collections: [
+      {
+        name: "reviews",
+        fields: [
+          { name: "title", type: "string" },
+          { name: "rating", type: "number" },
+          { name: "body", type: "string" },
+        ],
+        writtenWhen: "a member submits a review",
+      },
+    ],
+    counters: [],
+    storage: [],
+  },
+  ui: { layout: "form on top, reviews list below", sections: ["submit", "reviews"] },
+  acceptance: ["Submitting a review persists it to the DB", "The shared list shows all reviews", "No console errors"],
+};
+
+const spec = data ? dataSpec : clickerSpec;
+const appId = data ? "app_trialreviews" : "app_trialclicker";
+const buildId = data ? "build_trialdata" : "build_trial1";
+// Neon client for data apps (reads NEON_API_KEY from .env). Zero-backend builds ignore it.
+const neon = process.env.NEON_API_KEY
+  ? createNeonClient({ apiKey: process.env.NEON_API_KEY })
+  : undefined;
 
 const runner = createBuildRunner({
   maxConcurrent: 1,
@@ -72,6 +112,7 @@ const runner = createBuildRunner({
         model,
         vercelToken: process.env.VERCEL_TOKEN, // omit ⇒ box's logged-in `vercel` CLI
         googleKey,
+        neon,
         dryRun: !deploy,
       }
     ),
