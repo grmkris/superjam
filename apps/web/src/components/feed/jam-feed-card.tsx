@@ -11,9 +11,8 @@ import { useLogin } from "../login";
 import { usePlatformClient } from "../use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
 import Link from "next/link";
-import { AppHost } from "../app-host";
+import { AppStage } from "../app-stage";
 import { FriendPicker } from "../chat/friend-picker";
-import { HandleLink } from "../handle-link";
 import { cx } from "../ui/cx";
 import { EmojiToken } from "../ui/sticker";
 import { avatarEmoji } from "../ui/identity";
@@ -92,30 +91,6 @@ export function JamFeedCard({
     }
     setPlay(true);
   };
-
-  if (playing) {
-    return (
-      <section className={cx("relative h-full snap-start flex flex-col", ACCENT_BG[jam.accent])}>
-        <div className="flex items-center gap-2.5 px-4 pt-5 pb-2">
-          <span className="inline-flex items-center gap-2 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-bold">
-            <span>{jam.iconEmoji}</span>
-            <span>{jam.name}</span>
-            <HandleLink username={jam.maker.username} muted />
-          </span>
-          <button
-            onClick={() => setPlay(false)}
-            aria-label="Close jam"
-            className="focus-ring ml-auto flex items-center justify-center size-[38px] rounded-full bg-card border-2 border-ink text-body font-extrabold sticker-press"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="flex-1 min-h-0 mx-3 mb-3 border-2 border-ink rounded-toy-lg overflow-hidden bg-card">
-          <AppHost app={toViewerApp(jam)} />
-        </div>
-      </section>
-    );
-  }
 
   return (
     <section
@@ -196,6 +171,18 @@ export function JamFeedCard({
 
       {picking && (
         <FriendPicker jamSlug={jam.slug} onClose={() => setPicking(false)} />
+      )}
+
+      {/* Playing takes over the whole screen — AppStage portals to <body>, so it
+          covers this snap cell and all nav. The poster stays mounted underneath,
+          preserving feed scroll position for when the jam is closed. */}
+      {playing && (
+        <AppStage
+          app={toViewerApp(jam)}
+          maker={{ username: jam.maker.username }}
+          titleHref={`/j/${jam.slug}`}
+          onClose={() => setPlay(false)}
+        />
       )}
     </section>
   );
