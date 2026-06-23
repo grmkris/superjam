@@ -40,6 +40,11 @@ export const serverEnvSchema = z.object({
   // server-wallet signer) stays optional until the chain lane provisions it.
   DYNAMIC_ENVIRONMENT_ID: z.string().min(1),
   DYNAMIC_API_TOKEN: optionalStr,
+  // Delegated access (server signs AS the user): RSA PKCS8 PEM that decrypts the
+  // webhook key shares + the HMAC secret that authenticates the webhook. Absent ⇒
+  // the delegation webhook + delegated-pay paths stay disabled (degrade, never crash).
+  DYNAMIC_DELEGATION_PRIVATE_KEY: optionalStr,
+  DYNAMIC_WEBHOOK_SECRET: optionalStr,
 
   // app identity token — the platform MINTS these (ES256) so an external,
   // developer-hosted mini-app's backend can verify the SuperJam user against

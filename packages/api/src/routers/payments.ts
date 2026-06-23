@@ -9,14 +9,18 @@ import {
   OnchainError,
   PUBLIC_CHAIN,
   USDC,
+  authWindow,
+  buildTransferAuth,
   formatUsdc,
   parseUsdc,
+  randomTransferNonce,
   usdc,
 } from "@superjam/onchain";
 import { ORPCError } from "@orpc/server";
 import { desc, eq } from "drizzle-orm";
 import { getAddress, type Hex, isAddressEqual } from "viem";
 import { z } from "zod";
+import type { ApiContext } from "../context.ts";
 import { requireApp } from "../lib/app-context.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
 import { protectedProcedure } from "../orpc.ts";
@@ -39,78 +43,89 @@ const AuthorizationInput = z.object({
   nonce: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
 });
 
+// Resolve a confirm-sheet recipient string → on-chain address. `to` is "appTreasury"
+// (a tip — needs appId), a "@username" (pay a friend), "potEscrow", or an already-0x
+// address. Shared by the browser relay (`resolveRecipient`) and the server-signed
+// relay (`relayDelegated`) so the two never drift on who can receive money.
+async function resolveRecipientAddress(
+  context: ApiContext,
+  to: string,
+  appId?: z.infer<typeof AppId>
+): Promise<{ address: `0x${string}`; displayName: string | undefined }> {
+  const raw = to.trim();
+
+  // already an address
+  if (/^0x[0-9a-fA-F]{40}$/.test(raw)) {
+    return { address: getAddress(raw), displayName: undefined };
+  }
+
+  // pay a friend: @username
+  if (raw.startsWith("@")) {
+    const handle = raw.slice(1).toLowerCase();
+    const u = await context.db.query.user.findFirst({
+      columns: { walletAddress: true, username: true },
+      where: eq(user.username, handle),
+    });
+    if (!u) {
+      throw new ORPCError("BAD_REQUEST", { message: `Unknown user @${handle}` });
+    }
+    if (!u.walletAddress) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: `@${handle} has no wallet yet`,
+      });
+    }
+    return {
+      address: getAddress(u.walletAddress),
+      displayName: `@${u.username}`,
+    };
+  }
+
+  // pot stake → the escrow custodian (the agent server wallet). The host's
+  // stakePot confirm (kind "stake") routes USDC here, then proves it via
+  // bridge.pot.stake (verifyUsdcTransfer expectedTo = escrow). (Opus P seam.)
+  if (raw === "potEscrow") {
+    return {
+      address: getAddress(context.onchain.serverAddress),
+      displayName: "the pot",
+    };
+  }
+
+  // tip to the app treasury (falls back to the owner's wallet)
+  if (raw === "appTreasury") {
+    if (!appId) {
+      throw new ORPCError("BAD_REQUEST", { message: "Missing appId for a tip" });
+    }
+    const appRow = await requireApp(context.db, appId);
+    let address = appRow.treasuryAddress;
+    let displayName: string | undefined = appRow.name ?? undefined;
+    if (!address) {
+      const owner = await context.db.query.user.findFirst({
+        columns: { walletAddress: true, username: true },
+        where: eq(user.id, appRow.ownerUserId),
+      });
+      address = owner?.walletAddress ?? null;
+      displayName = displayName ?? (owner ? `@${owner.username}` : undefined);
+    }
+    if (!address) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "This jam can't receive tips yet",
+      });
+    }
+    return { address: getAddress(address), displayName };
+  }
+
+  throw new ORPCError("BAD_REQUEST", { message: "Unrecognized recipient" });
+}
+
 export const paymentsRouter = {
   // Turn a confirm-sheet recipient into an on-chain address for the host's relay
-  // executor (DESIGN_BRIEF §3d). `to` is "appTreasury" (a tip — needs appId), a
-  // "@username" (pay a friend), or an already-0x address. Pure DB lookups; the
-  // resolved 0x is what the browser signs the EIP-3009 auth against.
+  // executor (DESIGN_BRIEF §3d). The resolved 0x is what the browser signs the
+  // EIP-3009 auth against.
   resolveRecipient: protectedProcedure
     .input(z.object({ to: z.string().min(1), appId: AppId.optional() }))
-    .handler(async ({ context, input }) => {
-      const raw = input.to.trim();
-
-      // already an address
-      if (/^0x[0-9a-fA-F]{40}$/.test(raw)) {
-        return { address: getAddress(raw), displayName: undefined };
-      }
-
-      // pay a friend: @username
-      if (raw.startsWith("@")) {
-        const handle = raw.slice(1).toLowerCase();
-        const u = await context.db.query.user.findFirst({
-          columns: { walletAddress: true, username: true },
-          where: eq(user.username, handle),
-        });
-        if (!u) {
-          throw new ORPCError("BAD_REQUEST", { message: `Unknown user @${handle}` });
-        }
-        if (!u.walletAddress) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: `@${handle} has no wallet yet`,
-          });
-        }
-        return {
-          address: getAddress(u.walletAddress),
-          displayName: `@${u.username}`,
-        };
-      }
-
-      // pot stake → the escrow custodian (the agent server wallet). The host's
-      // stakePot confirm (kind "stake") routes USDC here, then proves it via
-      // bridge.pot.stake (verifyUsdcTransfer expectedTo = escrow). (Opus P seam.)
-      if (raw === "potEscrow") {
-        return {
-          address: getAddress(context.onchain.serverAddress),
-          displayName: "the pot",
-        };
-      }
-
-      // tip to the app treasury (falls back to the owner's wallet)
-      if (raw === "appTreasury") {
-        if (!input.appId) {
-          throw new ORPCError("BAD_REQUEST", { message: "Missing appId for a tip" });
-        }
-        const appRow = await requireApp(context.db, input.appId);
-        let address = appRow.treasuryAddress;
-        let displayName: string | undefined = appRow.name ?? undefined;
-        if (!address) {
-          const owner = await context.db.query.user.findFirst({
-            columns: { walletAddress: true, username: true },
-            where: eq(user.id, appRow.ownerUserId),
-          });
-          address = owner?.walletAddress ?? null;
-          displayName = displayName ?? (owner ? `@${owner.username}` : undefined);
-        }
-        if (!address) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "This jam can't receive tips yet",
-          });
-        }
-        return { address: getAddress(address), displayName };
-      }
-
-      throw new ORPCError("BAD_REQUEST", { message: "Unrecognized recipient" });
-    }),
+    .handler(({ context, input }) =>
+      resolveRecipientAddress(context, input.to, input.appId)
+    ),
 
   /** Relay a user-signed EIP-3009 transfer on the public rail (§13). */
   relay: protectedProcedure
@@ -155,6 +170,87 @@ export const paymentsRouter = {
           signature: input.signature as Hex,
         })
       );
+      return { txHash };
+    }),
+
+  /** Server-signed relay (Dynamic Delegated Access, §23). Same public rail as
+   *  `relay`, but the SERVER produces the user's EIP-712 signature via their
+   *  delegated MPC key share — no browser, no popup. Drives background/scheduled
+   *  payments and the MCP act-as-user flow (the `sjat_` PAT resolves to
+   *  `context.user`). Requires the user to have enabled delegation. */
+  relayDelegated: protectedProcedure
+    .input(
+      z.object({
+        to: z.string().min(1),
+        appId: AppId.optional(),
+        amountUsdc: z.string().min(1),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      if (!context.delegatedSigner) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Delegated signing is not configured on this server",
+        });
+      }
+      if (!context.user.walletAddress) {
+        throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
+      }
+      if (!(await context.delegatedSigner.hasDelegation(context.user.id))) {
+        throw new ORPCError("FORBIDDEN", {
+          message: 'Enable "Let SuperJam act for you" first',
+        });
+      }
+
+      const value = parseUsdc(input.amountUsdc);
+      if (value > TX_CAP) {
+        throw new ORPCError("BAD_REQUEST", { message: "Over the per-tx cap" });
+      }
+
+      const { address: to } = await resolveRecipientAddress(
+        context,
+        input.to,
+        input.appId
+      );
+      const from = getAddress(context.user.walletAddress);
+      const nowSec = BigInt(Math.floor(Date.now() / 1000));
+      const { validAfter, validBefore } = authWindow(nowSec);
+      const typed = buildTransferAuth({
+        usdc: USDC[PUBLIC_CHAIN],
+        from,
+        to,
+        value,
+        validAfter,
+        validBefore,
+        nonce: randomTransferNonce(),
+      });
+
+      const signature = await context.delegatedSigner.signTransferAuth(
+        context.user.id,
+        typed
+      );
+      const txHash = await tryOnchain(() =>
+        context.onchain.relayTransfer({
+          chain: PUBLIC_CHAIN,
+          authorization: typed.message,
+          signature,
+        })
+      );
+
+      // Pay-a-friend → record a chat money-line (best-effort), mirroring the
+      // browser path's payments.recordTip.
+      if (input.to.trim().startsWith("@")) {
+        await createChatService({
+          db: context.db,
+          rateLimiter: context.rateLimiter,
+        })
+          .recordTip(
+            { id: context.user.id, username: context.user.username },
+            input.to.trim().slice(1),
+            input.amountUsdc,
+            txHash
+          )
+          .catch(() => {});
+      }
       return { txHash };
     }),
 

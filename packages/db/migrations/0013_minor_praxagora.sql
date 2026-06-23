@@ -1,0 +1,1 @@
+ALTER TABLE "user_delegation" ADD COLUMN "share_set_id" text;

@@ -3,8 +3,12 @@
 // bearer token from `headers` and adds `user`.
 import type { Database } from "@superjam/db";
 import type { Logger } from "@superjam/logger";
-import { type Onchain, nullOnchain } from "@superjam/onchain";
-import type { Address } from "viem";
+import {
+  type Onchain,
+  type TransferAuthTypedData,
+  nullOnchain,
+} from "@superjam/onchain";
+import type { Address, Hex } from "viem";
 import { type AppTokenIssuer, nullAppTokenIssuer } from "./auth/app-token.ts";
 import type { AuthVerifier } from "./auth/verifier.ts";
 import { type WorldVerifier, nullWorldVerifier } from "./auth/world.ts";
@@ -16,6 +20,17 @@ import {
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
 import { type ObjectStore, nullObjectStore } from "./services/object-store.ts";
+
+/** Server-side delegated signer (Dynamic Delegated Access, §23). Signs the EIP-712
+ *  EIP-3009 transfer authorization AS the user via their approved MPC key share —
+ *  no browser, no per-tx popup. Concrete impl lives in apps/server (Node SDK);
+ *  absent here ⇒ delegated-pay paths reject with a clear "delegate first". */
+export interface DelegatedSigner {
+  /** Does this user have an active delegation on file? */
+  hasDelegation(userId: string): Promise<boolean>;
+  /** Produce the user's EIP-712 signature over a transfer authorization. */
+  signTransferAuth(userId: string, typed: TransferAuthTypedData): Promise<Hex>;
+}
 
 export interface ApiContext {
   db: Database;
@@ -38,6 +53,8 @@ export interface ApiContext {
   agentReputation: AgentReputation;
   /** Platform treasury — recipient of the publish fee (§15). */
   treasuryAddress?: Address;
+  /** Server-signs-as-user (Dynamic Delegated Access). Absent ⇒ delegated paths reject. */
+  delegatedSigner?: DelegatedSigner;
   headers: Headers;
 }
 
@@ -61,6 +78,8 @@ export interface CreateContextDeps {
   /** Optional — defaults to the no-op reputation (reviews skip the 8004 write). */
   agentReputation?: AgentReputation;
   treasuryAddress?: Address;
+  /** Optional — absent ⇒ delegated-pay paths reject with "delegate first". */
+  delegatedSigner?: DelegatedSigner;
   headers: Headers;
 }
 
@@ -82,6 +101,7 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     agentIdentity: deps.agentIdentity ?? nullAgentIdentity,
     agentReputation: deps.agentReputation ?? nullAgentReputation,
     treasuryAddress: deps.treasuryAddress,
+    delegatedSigner: deps.delegatedSigner,
     headers: deps.headers,
   };
 };

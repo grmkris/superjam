@@ -7,6 +7,7 @@ import type { AppId, BuildDraftId } from "@superjam/shared";
 import { useLogout } from "@dynamic-labs-sdk/react-hooks";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { DelegationCard } from "../../components/delegation-card";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { WalletCard } from "../../components/wallet/wallet-card";
@@ -140,6 +141,9 @@ export default function ProfilePage() {
 
       {/* wallet — a single public USDC balance */}
       <WalletCard walletAddress={me?.walletAddress ?? null} />
+
+      {/* delegated access — let the server sign on your behalf (payments + agents) */}
+      <DelegationCard />
 
       {/* your jams — pending (drafts) → running (building) → completed (live) */}
       {(drafts.length > 0 || jams.length > 0) && (

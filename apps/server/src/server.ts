@@ -1,7 +1,9 @@
 // SuperJam server (§6/§12): Hono + oRPC over /rpc/*, health, identity JWKS
 // (added M3). Migrations run on boot (§18). The deployed image ships no Claude
 // CLI — agent builds dispatch to the dev-box builder (§11).
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { serve } from "@hono/node-server";
+import { decryptDelegatedWebhookData } from "@dynamic-labs-wallet/node";
 import {
   type ApiContext,
   appRouter,
@@ -14,14 +16,19 @@ import {
   nullOnchain,
   resolveUserFromPat,
 } from "@superjam/api";
-import { createDb, runMigrations } from "@superjam/db";
+import { createDb, runMigrations, schema } from "@superjam/db";
 import { createLogger } from "@superjam/logger";
 import { PUBLIC_CHAIN } from "@superjam/onchain";
 import { SERVICE_URLS } from "@superjam/shared";
 import { RPCHandler } from "@orpc/server/fetch";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createS3Store } from "./bucket.ts";
+import {
+  createDelegatedSigner,
+  delegatedSignerEnv,
+} from "./delegated-signer.ts";
 import {
   createDynamicServerWallet,
   dynamicWalletEnv,
@@ -168,6 +175,111 @@ app.get("/.well-known/jwks.json", (c) => {
   return c.json(issuer.jwks());
 });
 
+// Dynamic Delegated Access webhook (§23). On user approval Dynamic POSTs
+// `wallet.delegation.created` with encrypted key shares; on revoke,
+// `wallet.delegation.revoked`. We verify the HMAC over the RAW body, decrypt with
+// the RSA private key, and store/remove the user's delegation. Raw route (not oRPC)
+// so we hash the exact bytes received.
+app.post("/api/webhooks/dynamic/delegation", async (c) => {
+  const secret = env.DYNAMIC_WEBHOOK_SECRET;
+  const rsaPem = env.DYNAMIC_DELEGATION_PRIVATE_KEY;
+  if (!secret || !rsaPem) {
+    logger.warn("delegation webhook hit but DYNAMIC_DELEGATION_* not configured");
+    return c.json({ error: "delegation not configured" }, 503);
+  }
+
+  const raw = await c.req.text();
+  const sigHeader = c.req.header("x-dynamic-signature-256") ?? "";
+  const expected = `sha256=${createHmac("sha256", secret).update(raw).digest("hex")}`;
+  const got = Buffer.from(sigHeader);
+  const want = Buffer.from(expected);
+  if (got.length !== want.length || !timingSafeEqual(got, want)) {
+    return c.json({ error: "invalid signature" }, 401);
+  }
+
+  let body: {
+    eventName?: string;
+    userId?: string;
+    data?: {
+      userId?: string;
+      walletId?: string;
+      publicKey?: string;
+      shareSetId?: string;
+      encryptedDelegatedShare?: unknown;
+      encryptedWalletApiKey?: unknown;
+    };
+  };
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return c.json({ error: "bad json" }, 400);
+  }
+
+  const { userDelegation } = schema;
+  try {
+    if (body.eventName === "wallet.delegation.created") {
+      const data = body.data ?? {};
+      const dynamicUserId = body.userId ?? data.userId;
+      if (!dynamicUserId || !data.walletId || !data.publicKey) {
+        return c.json({ error: "missing fields" }, 400);
+      }
+      const owner = await db.query.user.findFirst({
+        columns: { id: true },
+        where: eq(schema.user.dynamicUserId, dynamicUserId),
+      });
+      if (!owner) {
+        // Ack so Dynamic stops retrying; nothing to attach to.
+        logger.warn({ dynamicUserId }, "delegation.created for unknown user");
+        return c.json({ ok: true });
+      }
+      // The encrypted blobs are EncryptedDelegatedPayload at runtime; the webhook
+      // body is untyped JSON, so cast across into the SDK helper.
+      const { decryptedDelegatedShare, decryptedWalletApiKey } =
+        decryptDelegatedWebhookData({
+          privateKeyPem: rsaPem,
+          encryptedDelegatedKeyShare: data.encryptedDelegatedShare as never,
+          encryptedWalletApiKey: data.encryptedWalletApiKey as never,
+        });
+      const values = {
+        userId: owner.id,
+        dynamicUserId,
+        walletId: data.walletId,
+        address: data.publicKey,
+        shareSetId: data.shareSetId ?? null,
+        walletApiKey: decryptedWalletApiKey,
+        keyShare: decryptedDelegatedShare,
+      };
+      await db
+        .insert(userDelegation)
+        .values(values)
+        .onConflictDoUpdate({
+          target: userDelegation.userId,
+          set: {
+            dynamicUserId: values.dynamicUserId,
+            walletId: values.walletId,
+            address: values.address,
+            shareSetId: values.shareSetId,
+            walletApiKey: values.walletApiKey,
+            keyShare: values.keyShare,
+          },
+        });
+      logger.info({ userId: owner.id }, "delegation stored");
+    } else if (body.eventName === "wallet.delegation.revoked") {
+      const dynamicUserId = body.userId ?? body.data?.userId;
+      if (dynamicUserId) {
+        await db
+          .delete(userDelegation)
+          .where(eq(userDelegation.dynamicUserId, dynamicUserId));
+        logger.info({ dynamicUserId }, "delegation revoked");
+      }
+    }
+  } catch (err) {
+    logger.error({ err: String(err) }, "delegation webhook processing failed");
+    return c.json({ error: "processing failed" }, 500);
+  }
+  return c.json({ ok: true });
+});
+
 // Object store (S3): backs attachment uploads + presigned-GET delivery to the
 // builder agent. (Track-A /a bundle serving removed 2026-06-14 — apps are external,
 // framed by app.entryUrl; see docs/PIVOT.md.)
@@ -175,6 +287,18 @@ const objectStore = createS3Store(env);
 
 // One request-context factory, shared by /rpc and /mcp (the MCP tools call the
 // same oRPC procedures in-process as the bearer's user).
+// Delegated signer (Dynamic Delegated Access, §23) — server signs AS the user via
+// their approved key share (server-side payments + MCP act-as-user). Built once at
+// boot; absent (env unset) ⇒ delegated-pay paths reject with a clear "delegate first".
+const delEnv = delegatedSignerEnv();
+const delegatedSigner = delEnv
+  ? createDelegatedSigner(delEnv, db)
+  : undefined;
+logger.info(
+  { enabled: Boolean(delegatedSigner) },
+  "delegated signer (Dynamic Delegated Access)",
+);
+
 const makeContext = (headers: Headers): ApiContext =>
   createContext({
     db,
@@ -187,6 +311,7 @@ const makeContext = (headers: Headers): ApiContext =>
     world,
     objectStore,
     treasuryAddress,
+    delegatedSigner,
     headers,
   });
 
