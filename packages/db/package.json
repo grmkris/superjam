@@ -16,7 +16,7 @@
     "@superjam/shared": "workspace:*",
     "drizzle-orm": "catalog:",
     "drizzle-zod": "catalog:",
-    "pg": "^8.13.0",
+    "pg": "^8.22.0",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -8,9 +8,9 @@
   },
   "dependencies": {
     "@ai-sdk/google": "catalog:",
-    "@dynamic-labs-wallet/core": "1.0.40",
-    "@dynamic-labs-wallet/node": "1.0.40",
-    "@dynamic-labs-wallet/node-evm": "1.0.40",
+    "@dynamic-labs-wallet/core": "1.0.42",
+    "@dynamic-labs-wallet/node": "1.0.42",
+    "@dynamic-labs-wallet/node-evm": "1.0.42",
     "@hono/node-server": "catalog:",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@orpc/server": "catalog:",
@@ -22,7 +22,7 @@
     "ai": "catalog:",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",
-    "pg": "^8.13.0",
+    "pg": "^8.22.0",
     "viem": "catalog:",
     "zod": "catalog:"
   },
