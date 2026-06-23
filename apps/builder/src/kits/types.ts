@@ -4,7 +4,7 @@
 // user UI), starter files the agent fills marked gaps in, and an acceptance gate
 // that rejects an unfinished app. Kits are a HARNESS feature (the agent path is
 // untouched) and ride on the existing recipe/skill/generate machinery.
-import type { AppSpec } from "@superjam/shared";
+import type { AppSpec, SkillName } from "@superjam/shared";
 
 export interface GateResult {
   ok: boolean;
@@ -18,11 +18,20 @@ export interface KitContext {
   jwksUrl: string;
 }
 
+/** Build-time signals a kit can match on beyond the spec (e.g. maker uploads). */
+export interface MatchOpts {
+  /** Number of IMAGE attachments the maker uploaded (→ media kits like photo-album). */
+  imageCount?: number;
+}
+
 export interface Kit {
   id: string;
   title: string;
-  /** Does this kit apply to the spec? (keyword/skill/category match, like selectRecipes.) */
-  match(spec: AppSpec): boolean;
+  /** Skills this kit REQUIRES — the harness merges them into the spec before generateApp
+   *  so per-skill scaffolding seeds (e.g. "map" → the seeded <TripMap> component). */
+  skills?: SkillName[];
+  /** Does this kit apply? (keyword/skill/category + optional build-time signals, like selectRecipes.) */
+  match(spec: AppSpec, opts?: MatchOpts): boolean;
   /** Tailored clarifying questions for refine (Phase C; unused until refine is kit-aware). */
   questions: { q: string; options: string[] }[];
   /** A FILLED, ordered build checklist — injected into the build prompt (and the user UI). */

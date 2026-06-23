@@ -163,12 +163,32 @@ const guestbook: AppSpec = {
   acceptance: ["Posting adds to the shared feed", "Everyone sees all messages newest-first", "No console errors"],
 };
 
+const travel: AppSpec = {
+  name: "3 Days in Lisbon",
+  slug: "lisbon-trip-bench",
+  description: "A curated 3-day Lisbon itinerary on an interactive map.",
+  iconEmoji: "🇵🇹",
+  category: "tool",
+  capabilities: [],
+  features: [
+    "A map with the trip's stops plotted as numbered markers",
+    "A day-by-day list of places (name + a one-line blurb)",
+    "Mark places visited (persists per-user)",
+    "Playful Toybox styling",
+  ],
+  data: { collections: [], counters: [], storage: [{ key: "visited", meaning: "places this user marked visited" }] },
+  ui: { layout: "map on top, day list below", sections: ["map", "itinerary"] },
+  skills: ["map"],
+  acceptance: ["Stops plot on the map", "Day-by-day list renders", "Visited state persists; no console errors"],
+};
+
 const ALL_SPECS: { key: string; spec: AppSpec }[] = [
   { key: "clicker", spec: clicker },
   { key: "reaction", spec: reaction },
   { key: "poll", spec: poll },
   { key: "quiz", spec: quiz },
   { key: "guestbook", spec: guestbook },
+  { key: "travel", spec: travel },
 ];
 // SPECS=poll,quiz filters which specs run (default: clicker + reaction).
 const wanted = (process.env.SPECS ?? "clicker,reaction").split(",").map((s) => s.trim());

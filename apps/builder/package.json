@@ -16,6 +16,7 @@
     "@superjam/shared": "workspace:*",
     "@hono/node-server": "catalog:",
     "ai": "catalog:",
+    "exifr": "^7.1.3",
     "hono": "catalog:",
     "just-bash": "^3.0.2",
     "zod": "catalog:"

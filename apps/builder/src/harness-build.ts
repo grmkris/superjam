@@ -13,6 +13,7 @@
 // queue.ts/app.ts are untouched) — but over `fetch`, not a shelled-out curl, since
 // this driver runs in-process.
 import { generateText, stepCountIs, tool, type LanguageModel } from "ai";
+import exifr from "exifr";
 import { Bash, ReadWriteFs } from "just-bash";
 import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -103,14 +104,101 @@ const reporter = (port: number, buildId: string, token: string) => {
     );
   return {
     status: (label: string) => post({ kind: "status", label }),
-    done: (r: { entryUrl: string; vercelProject: string; neonProjectId?: string }) =>
-      post({ kind: "done", ...r }),
+    done: (r: {
+      entryUrl: string;
+      vercelProject: string;
+      neonProjectId?: string;
+      contractAddress?: string;
+      contractAbi?: readonly unknown[];
+    }) => post({ kind: "done", ...r }),
     failed: (error: string) => post({ kind: "failed", error }),
   };
 };
 
 /** Normalize an agent-supplied path to an absolute path inside the sandbox FS. */
 const fsPath = (p: string): string => (p.startsWith("/") ? p : `/${p}`);
+
+interface PhotoMeta {
+  /** Path under public/ (web-served), e.g. "uploads/0.jpg". */
+  file: string;
+  lat: number | null;
+  lng: number | null;
+  takenAt: number | null;
+}
+
+/**
+ * BUILD-TIME media ingestion. The maker's uploads arrive as presigned URLs; the
+ * sandboxed agent has NO network, so the HARNESS (real host) downloads them into
+ * public/uploads/ (shipped + web-served by the deployed app) and extracts EXIF
+ * GPS/timestamp from images into public/photos.json — the contract media kits
+ * (photo-album) consume. Returns the image count so selectKit can route to a media
+ * kit. (LocalBackend.workdir is real disk; a future sandbox backend needs a binary
+ * write seam.) Best-effort: a failed download/EXIF is skipped, never fatal.
+ */
+const ingestMedia = async (
+  ws: string,
+  urls: string[] | undefined,
+  onStep: (label: string) => void
+): Promise<{ imageCount: number }> => {
+  if (!urls?.length) return { imageCount: 0 };
+  await mkdir(join(ws, "public", "uploads"), { recursive: true });
+  const photos: PhotoMeta[] = [];
+  let imageCount = 0;
+  for (let i = 0; i < urls.length; i += 1) {
+    try {
+      const res = await fetch(urls[i]!);
+      if (!res.ok) continue;
+      const ct = res.headers.get("content-type") ?? "";
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const ext = ct.includes("png")
+        ? "png"
+        : ct.includes("webp")
+          ? "webp"
+          : ct.includes("gif")
+            ? "gif"
+            : ct.includes("jpeg") || ct.includes("jpg")
+              ? "jpg"
+              : ct.includes("pdf")
+                ? "pdf"
+                : ct.includes("csv")
+                  ? "csv"
+                  : "bin";
+      const rel = `uploads/${i}.${ext}`;
+      await writeFile(join(ws, "public", rel), bytes);
+      if (ct.startsWith("image/")) {
+        imageCount += 1;
+        let lat: number | null = null;
+        let lng: number | null = null;
+        let takenAt: number | null = null;
+        try {
+          const gps = await exifr.gps(bytes);
+          if (gps && Number.isFinite(gps.latitude) && Number.isFinite(gps.longitude)) {
+            lat = gps.latitude;
+            lng = gps.longitude;
+          }
+        } catch {
+          /* not all photos carry GPS */
+        }
+        try {
+          const meta = (await exifr.parse(bytes, ["DateTimeOriginal"])) as
+            | { DateTimeOriginal?: Date }
+            | undefined;
+          if (meta?.DateTimeOriginal) takenAt = +new Date(meta.DateTimeOriginal);
+        } catch {
+          /* no timestamp */
+        }
+        photos.push({ file: rel, lat, lng, takenAt });
+      }
+    } catch {
+      /* skip a failed download */
+    }
+  }
+  if (photos.length) {
+    await writeFile(join(ws, "public", "photos.json"), JSON.stringify(photos, null, 2));
+  }
+  onStep(`prepared ${urls.length} upload(s) (${imageCount} photo(s))`);
+  return { imageCount };
+};
 
 /**
  * The model's toolset. The agent edits inside a SANDBOXED just-bash shell (`bash`)
@@ -235,15 +323,25 @@ export const runHarnessBuild = async (
 
   try {
     await report.status("setting up the workspace");
-    const base = generateApp(args.spec, {
+
+    // BUILD-TIME media: download the maker's uploads (the sandboxed agent can't) +
+    // bake EXIF → public/photos.json. imageCount routes specs with photos to a media kit.
+    const { imageCount } = await ingestMedia(ws, args.attachmentUrls, (s) => void report.status(s));
+
+    // A matched use-case kit overlays a near-complete starter (working app/page.tsx
+    // with `// TODO:` gaps) onto the generic skeleton — so a cheap model FILLS gaps
+    // instead of authoring (and coasting). No match ⇒ the generic skeleton + gate.
+    const kit = selectKit(args.spec, { imageCount });
+    // A kit can REQUIRE skills (e.g. "map") — merge them into the spec so generateApp
+    // seeds the per-skill scaffolding (the <TripMap> component) the kit's starter imports.
+    const genSpec = kit?.skills?.length
+      ? { ...args.spec, skills: [...new Set([...(args.spec.skills ?? []), ...kit.skills])] }
+      : args.spec;
+    const base = generateApp(genSpec, {
       buildId: args.buildId,
       appId: args.appId,
       jwksUrl: args.jwksUrl,
     });
-    // A matched use-case kit overlays a near-complete starter (working app/page.tsx
-    // with `// TODO:` gaps) onto the generic skeleton — so a cheap model FILLS gaps
-    // instead of authoring (and coasting). No match ⇒ the generic skeleton + gate.
-    const kit = selectKit(args.spec);
     const seedFiles = kit
       ? {
           ...base.files,
@@ -285,10 +383,15 @@ export const runHarnessBuild = async (
     const planSection = kit
       ? `\n\n## Build plan — complete EVERY step (a starter app/page.tsx exists; fill its // TODO gaps)\n${kit.plan(args.spec)}`
       : "";
+    // The harness ALREADY downloaded the maker's uploads (the sandbox has no network)
+    // → tell the agent where they are instead of the (broken) "curl these URLs".
+    const mediaSection = args.attachmentUrls?.length
+      ? `\n\n## Reference uploads (already in your workspace)\nThe maker's ${args.attachmentUrls.length} uploaded file(s) are in \`public/uploads/\` (web-served at \`/uploads/…\`). Geotagged photos also have a baked manifest at \`public/photos.json\` ([{file,lat,lng,takenAt}]); read it at runtime with \`fetch("/photos.json")\`. Build the app AROUND these files — they ship inside the deployed app.`
+      : "";
     const task = buildTaskPrompt(args.spec, {
       project,
-      attachmentUrls: args.attachmentUrls,
-      tail: `${planSection}\n\nWrite the code; the harness compiles it and sends back any build errors OR missing pieces to fix. You cannot run npm/next/vercel — the harness builds & deploys for you.`,
+      // NOT attachmentUrls — the agent can't curl them (no network). They're pre-downloaded.
+      tail: `${planSection}${mediaSection}\n\nWrite the code; the harness compiles it and sends back any build errors OR missing pieces to fix. You cannot run npm/next/vercel — the harness builds & deploys for you.`,
     });
     const tools = buildTools(sandbox, ws, deps.googleKey, (s) => void report.status(s));
 
@@ -374,6 +477,34 @@ export const runHarnessBuild = async (
       return;
     }
 
+    // Onchain games: the agent edited contracts/src/Game.sol in the SANDBOX, but it
+    // can't DEPLOY (no forge/network). The HARNESS deploys it on the host now (forge +
+    // ARC_DEPLOYER_KEY/ARC_OPERATOR_ADDRESS are in process.env), bakes lib/contract.ts,
+    // and reports the address+abi so the platform wires sdk.onchain to the contract.
+    let gameContract: { address: string; abi: readonly unknown[] } | undefined;
+    if (args.spec.skills?.includes("onchain")) {
+      await report.status("deploying the game contract to Arc");
+      const cd = await backend.exec("bash contracts/deploy.sh", { timeoutMs: DEPLOY_TIMEOUT_MS });
+      const jsonLine = cd.stdout.match(/\{[^\n]*"address"[^\n]*\}/)?.[0];
+      if (cd.code !== 0 || !jsonLine) {
+        await report.failed(`contract deploy failed (exit ${cd.code}): ${tail(cd.stderr || cd.stdout, 800)}`);
+        return;
+      }
+      try {
+        const parsed = JSON.parse(jsonLine) as { address?: string; abi?: unknown };
+        if (!parsed.address || !Array.isArray(parsed.abi)) throw new Error("no address/abi in output");
+        gameContract = { address: parsed.address, abi: parsed.abi };
+        // Reference for the app (it reaches the chain via the SDK, not viem). Shipped
+        // BEFORE `vercel deploy` so it's in the deployed source.
+        await backend.writeFiles({
+          "lib/contract.ts": `// Deployed by the harness — reference only (use sdk.onchain, not viem).\nexport const CONTRACT_ADDRESS = ${JSON.stringify(parsed.address)};\nexport const CONTRACT_ABI = ${JSON.stringify(parsed.abi)} as const;\n`,
+        });
+      } catch (e) {
+        await report.failed(`couldn't parse the deployed contract: ${e instanceof Error ? e.message : String(e)}`);
+        return;
+      }
+    }
+
     // Deploy the green app. v1: `vercel deploy --yes --prod` rebuilds remotely from
     // the verified source (the local build was the iteration gate). TODO optimization:
     // `vercel build` + `vercel deploy --prebuilt` to ship the exact artifact we built
@@ -404,6 +535,8 @@ export const runHarnessBuild = async (
       entryUrl: `https://${project}.vercel.app`,
       vercelProject: project,
       neonProjectId,
+      contractAddress: gameContract?.address,
+      contractAbi: gameContract?.abi,
     });
     console.log(`[harness] deployed ${project}${deploymentId ? ` (deployment ${deploymentId})` : ""}`);
   } catch (err) {
