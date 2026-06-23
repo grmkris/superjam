@@ -3,6 +3,7 @@ import type { AppSpec } from "@superjam/shared";
 import {
   projectNameFor,
   runDeploy,
+  sanitizeProjectName,
   specNeedsData,
   teardownApp,
 } from "./orchestrate.ts";
@@ -130,6 +131,15 @@ describe("projectNameFor", () => {
     expect(n).toBe("superjam-app-abc123");
     expect(n.length).toBeLessThanOrEqual(100);
     expect(n).toMatch(/^[a-z0-9-]+$/);
+  });
+});
+
+describe("sanitizeProjectName", () => {
+  test("maps _/. to -, collapses runs, trims boundaries, lowercases", () => {
+    expect(sanitizeProjectName("Superjam-App_1")).toBe("superjam-app-1"); // _ → -
+    expect(sanitizeProjectName("superjam---app")).toBe("superjam--app"); // 3+ → 2
+    expect(sanitizeProjectName("-x.y-")).toBe("x-y"); // . → -, boundary trim
+    expect(sanitizeProjectName("")).toBe("superjam-app"); // empty fallback
   });
 });
 

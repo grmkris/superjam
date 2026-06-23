@@ -196,6 +196,19 @@ export const teardownApp = async (
 export const specNeedsData = (spec: AppSpec): boolean =>
   spec.data.collections.length > 0;
 
-/** DNS-safe Vercel/Neon project name, ≤100 chars. */
-export const projectNameFor = (appId: string): string =>
-  `superjam-${appId}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 100);
+// DNS-safe Vercel project name — the SINGLE source of truth for every caller
+// (projectNameFor here, vercelProjectName in apps/builder/cli-deploy.ts). Vercel
+// rewrites `_`/`.`→`-` and disallows other punctuation on create, so we normalize
+// the same way: if we reported a name that differs from what Vercel actually made,
+// the entryUrl resolver (vercel-alias.ts) would look up a 404 project and record a
+// dead URL. Keeping ONE function means the two can never drift apart again.
+export const sanitizeProjectName = (raw: string): string =>
+  raw
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-{3,}/g, "--")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90) || "superjam-app";
+
+/** DNS-safe Vercel/Neon project name for an app. */
+export const projectNameFor = (appId: string): string => sanitizeProjectName(`superjam-${appId}`);
