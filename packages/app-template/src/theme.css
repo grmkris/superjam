@@ -66,8 +66,7 @@ body {
   border-radius: var(--radius) var(--radius) 0 0;
   border-bottom: 2px solid var(--text);
 }
-.tj-hero .tj-title, .tj-hero .tj-sub { color: #fff; }
-.tj-hero .tj-sub { opacity: .92; }
+.tj-hero .tj-sub { color: #fff; opacity: .92; }
 
 /* Header row — emoji chip + title/sub (+ optional right slot via .tj-spacer).
    Keep it COMPACT: the host shows the jam name in its title pill, so don't repeat
