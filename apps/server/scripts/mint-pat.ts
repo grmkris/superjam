@@ -24,7 +24,7 @@ const row = arg.includes("@")
   ? await db.query.user.findFirst({ where: eq(user.email, arg) })
   : await db.query.user.findFirst({ where: eq(user.id, arg as never) });
 if (!row) throw new Error(`no user for ${arg}`);
-console.log(`user: ${row.username} (${row.id}) · worldVerified=${row.worldVerified} · unlinkAddress=${row.unlinkAddress ?? "—"}`);
+console.log(`user: ${row.username} (${row.id}) · worldVerified=${row.worldVerified}`);
 
 const raw = `sjat_${randomBytes(32).toString("hex")}`;
 const hash = createHash("sha256").update(raw).digest("hex");

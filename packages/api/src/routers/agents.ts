@@ -33,8 +33,6 @@ const RegisterInput = z.object({
     .string()
     .regex(EVM_ADDRESS)
     .transform((s) => s.toLowerCase()),
-  /** The agent's coding model (Opus/Sonnet …). Optional — house default if unset. */
-  model: z.string().min(1).optional(),
 });
 
 export type CreateBuilderAgentInput = z.infer<typeof RegisterInput>;

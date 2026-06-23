@@ -99,6 +99,13 @@
       "when": 1782209073989,
       "tag": "0013_minor_praxagora",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782241137971,
+      "tag": "0014_sloppy_angel",
+      "breakpoints": true
     }
   ]
 }
