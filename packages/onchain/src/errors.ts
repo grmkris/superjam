@@ -7,8 +7,7 @@ export type OnchainErrorCode =
   | "CHAIN_UNAVAILABLE"
   | "RELAY_FAILED"
   | "AUTH_EXPIRED"
-  | "ENS_WRITE_FAILED"
-  | "ERC8004_WRITE_FAILED";
+  | "ENS_WRITE_FAILED";
 
 export class OnchainError extends Error {
   readonly code: OnchainErrorCode;

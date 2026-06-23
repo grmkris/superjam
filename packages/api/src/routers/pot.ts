@@ -8,11 +8,11 @@ import { z } from "zod";
 import type { ApiContext } from "../context.ts";
 import { requireApp } from "../lib/app-context.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
+import { TxHash } from "../lib/validators.ts";
 import { protectedProcedure } from "../orpc.ts";
 import { createPotService } from "../services/pot-service.ts";
 
 const PotId = typeIdValidator("pot");
-const TxHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid tx hash");
 
 const svc = (context: Pick<ApiContext, "db" | "onchain" | "oracle">) =>
   createPotService({

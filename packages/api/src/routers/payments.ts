@@ -23,13 +23,11 @@ import { z } from "zod";
 import type { ApiContext } from "../context.ts";
 import { requireApp } from "../lib/app-context.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
+import { Hex0x, TxHash, Uint } from "../lib/validators.ts";
 import { protectedProcedure } from "../orpc.ts";
 import { createChatService } from "../services/chat-service.ts";
 
 const { publishPayment, potStake, user } = schema;
-
-const Hex0x = z.string().regex(/^0x[0-9a-fA-F]+$/, "Invalid hex");
-const Uint = z.string().regex(/^\d+$/, "Expected a base-unit integer");
 
 const TX_CAP = parseUsdc(TX_CAP_USDC);
 
@@ -40,7 +38,7 @@ const AuthorizationInput = z.object({
   value: Uint, // USDC base units (6-dec)
   validAfter: Uint, // unix seconds
   validBefore: Uint, // unix seconds
-  nonce: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+  nonce: TxHash, // 32-byte hex
 });
 
 // Resolve a confirm-sheet recipient string → on-chain address. `to` is "appTreasury"
@@ -188,7 +186,7 @@ export const paymentsRouter = {
     )
     .handler(async ({ context, input }) => {
       if (!context.delegatedSigner) {
-        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+        throw new ORPCError("INTERNAL", {
           message: "Delegated signing is not configured on this server",
         });
       }

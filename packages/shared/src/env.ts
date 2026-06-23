@@ -8,8 +8,6 @@
 import { z } from "zod";
 import { ENVIRONMENTS } from "./service-urls.ts";
 
-export const BUILDER_MODES = ["remote", "agent", "oneshot"] as const;
-
 const optionalStr = z.string().min(1).optional();
 
 export const serverEnvSchema = z.object({
@@ -29,10 +27,9 @@ export const serverEnvSchema = z.object({
   // AI — platform is Gemini-only (refine + in-app sdk.ai). No Anthropic key:
   // builder codegen rides the subscription-authed `claude` CLI on the VPS (§18).
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
-  FAL_KEY: optionalStr,
 
-  // builder
-  BUILDER_MODE: z.enum(BUILDER_MODES).default("remote"),
+  // builder dispatch — the house builder's endpoint + token (builds.create POSTs
+  // the spec here). Absent ⇒ builds.create rejects ("no builder configured").
   BUILDER_URL: optionalStr,
   BUILDER_TOKEN: optionalStr,
 
