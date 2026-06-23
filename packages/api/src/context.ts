@@ -39,6 +39,10 @@ export interface ApiContext {
   oracle: PotOracle;
   /** Blob storage for uploads/bundles (§17, S3/Railway bucket). Degraded by default. */
   objectStore: ObjectStore;
+  /** The house builder's dispatch endpoint + token (§11) — builds.create POSTs the
+   *  spec here. Set from BUILDER_URL/BUILDER_TOKEN; absent ⇒ builds.create rejects. */
+  builderEndpoint?: string;
+  builderToken?: string;
   /** Platform treasury — recipient of the publish fee (§15). */
   treasuryAddress?: Address;
   /** Server-signs-as-user (Dynamic Delegated Access). Absent ⇒ delegated paths reject. */
@@ -59,6 +63,9 @@ export interface CreateContextDeps {
   oracle?: PotOracle;
   /** Optional — defaults to the degraded object store (uploads/presign reject). */
   objectStore?: ObjectStore;
+  /** The house builder dispatch creds (BUILDER_URL/BUILDER_TOKEN). Absent ⇒ builds reject. */
+  builderEndpoint?: string;
+  builderToken?: string;
   treasuryAddress?: Address;
   /** Optional — absent ⇒ delegated-pay paths reject with "delegate first". */
   delegatedSigner?: DelegatedSigner;
@@ -76,6 +83,8 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     onchain,
     oracle: deps.oracle ?? nullOracle,
     objectStore: deps.objectStore ?? nullObjectStore,
+    builderEndpoint: deps.builderEndpoint,
+    builderToken: deps.builderToken,
     treasuryAddress: deps.treasuryAddress,
     delegatedSigner: deps.delegatedSigner,
     headers: deps.headers,

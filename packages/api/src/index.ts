@@ -25,10 +25,6 @@ export {
   nullAppTokenIssuer,
 } from "./auth/app-token.ts";
 export {
-  selectEligibleBuilder,
-  type SelectedBuilder,
-} from "./routers/agents.ts";
-export {
   allocateExternalApp,
   type AllocateExternalAppInput,
   finalizeExternalApp,

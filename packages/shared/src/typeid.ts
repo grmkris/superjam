@@ -7,7 +7,7 @@ import { z } from "zod";
 const TYPEID_SUFFIX_LENGTH = 26;
 
 // §7 prefixes: user→usr, app→app, build→bld, record→rec, publishPayment→pub,
-// review→rvw, message→msg, builderAgent→bag, pot→pot, potStake→pst.
+// review→rvw, message→msg, pot→pot, potStake→pst.
 export const idTypesMapNameToPrefix = {
   user: "usr",
   app: "app",
@@ -16,7 +16,6 @@ export const idTypesMapNameToPrefix = {
   publishPayment: "pub",
   review: "rvw",
   message: "msg",
-  builderAgent: "bag",
   pot: "pot",
   potStake: "pst",
   friendship: "fnd",
@@ -101,8 +100,6 @@ export const ReviewId = typeIdValidator("review");
 export type ReviewId = z.infer<typeof ReviewId>;
 export const MessageId = typeIdValidator("message");
 export type MessageId = z.infer<typeof MessageId>;
-export const BuilderAgentId = typeIdValidator("builderAgent");
-export type BuilderAgentId = z.infer<typeof BuilderAgentId>;
 export const BuildDraftId = typeIdValidator("buildDraft");
 export type BuildDraftId = z.infer<typeof BuildDraftId>;
 export const PotId = typeIdValidator("pot");

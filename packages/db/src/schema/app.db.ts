@@ -18,7 +18,6 @@ import {
   buildStatusEnum,
   categoryEnum,
 } from "./enums.db.ts";
-import { builderAgent } from "./agent.db.ts";
 import { user } from "./user.db.ts";
 
 // A jam. Mints under its owner's user node (appslug.username.superjam.eth, §11);
@@ -60,9 +59,6 @@ export const app = pgTable("app", {
   /** @deprecated pivot §2 — IPFS pinning dropped; left nullable, stop writing. */
   ipfsCid: text("ipfs_cid"),
   currentBuildId: typeId("build", "current_build_id"),
-  builtByAgentId: typeId("builderAgent", "built_by_agent_id").references(
-    () => builderAgent.id
-  ),
   ...baseEntityFields,
 });
 
@@ -74,7 +70,6 @@ export const build = pgTable("build", {
   userId: typeId("user", "user_id")
     .notNull()
     .references(() => user.id),
-  agentId: typeId("builderAgent", "agent_id").references(() => builderAgent.id),
   prompt: text("prompt").notNull(),
   spec: jsonb("spec").$type<AppSpec>(),
   status: buildStatusEnum("status").notNull().default("queued"),

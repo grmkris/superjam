@@ -27,7 +27,6 @@ import {
   BuildDraftId,
   BuildId,
   BuildStepSchema,
-  BuilderAgentId,
   DraftStateSchema,
   LIST_MAX,
   REFINE_CALLS_PER_USER_DAY,
@@ -45,12 +44,11 @@ import {
 import { modelMimeOf, presignAll } from "../lib/attachments.ts";
 import { isUniqueViolation } from "../lib/db-errors.ts";
 import { protectedProcedure } from "../orpc.ts";
-import { type SelectedBuilder, selectEligibleBuilder } from "./agents.ts";
 import { allocateExternalApp, finalizeExternalApp } from "./apps.ts";
 import type { RefineCatalogApp, RefineInput } from "@superjam/builder";
 import { refine as defaultRefine } from "@superjam/builder";
 
-const { app, build, builderAgent, buildDraft } = schema;
+const { app, build, buildDraft } = schema;
 
 type BuildRow = typeof build.$inferSelect;
 type UserRow = typeof schema.user.$inferSelect;
@@ -130,9 +128,6 @@ export const runBuild = async (
     buildId: BuildRow["id"];
     appId: AppId;
     spec: AppSpec;
-    /** The marketplace agent this build was routed to (§14) — credited a build
-     *  on success. Always set from create(); optional only for direct unit tests. */
-    routedAgentId?: BuilderAgentId | null;
     /** Presigned GET URLs for the user's reference attachments (§17) — forwarded
      *  to the builder agent's prompt so it can fetch images/CSV/Excel/PDF. */
     attachmentUrls?: string[];
@@ -140,7 +135,7 @@ export const runBuild = async (
   /** Passed to finalize for the best-effort ENS mint (§16). Omitted in tests. */
   onchain?: Onchain
 ): Promise<void> => {
-  const { buildId, appId, spec, routedAgentId, attachmentUrls } = args;
+  const { buildId, appId, spec, attachmentUrls } = args;
   try {
     await db.update(build).set({ status: "generating" }).where(eq(build.id, buildId));
     const result = await deploy({
@@ -180,20 +175,6 @@ export const runBuild = async (
           gameContractAddress: result.gameContract.address,
           gameContractAbi: result.gameContract.abi,
         })
-        .where(eq(app.id, appId));
-    }
-
-    // Credit the marketplace agent a build + link the minted app to it
-    // (§14/§16) on successful dispatch. builtByAgentId is the basis for
-    // review→reputation; written independently of the best-effort finalize.
-    if (routedAgentId) {
-      await db
-        .update(builderAgent)
-        .set({ buildsCount: sql`${builderAgent.buildsCount} + 1` })
-        .where(eq(builderAgent.id, routedAgentId));
-      await db
-        .update(app)
-        .set({ builtByAgentId: routedAgentId })
         .where(eq(app.id, appId));
     }
 
@@ -292,9 +273,6 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
           /** The original idea, for the build feed. Defaults to the description. */
           prompt: z.string().min(1).max(2000).optional(),
           remixOfAppId: AppId.optional(),
-          /** The marketplace agent the wizard picked (§14). Absent ⇒ auto-route to
-           *  a registered eligible agent. Builds are free; the agent just builds. */
-          agentId: BuilderAgentId.optional(),
           /** Object-store keys of the user's reference attachments (§17) — all of
            *  them (images + docs) are presigned and handed to the builder agent. */
           attachmentKeys: z.array(z.string()).max(BUILD_ATTACH_MAX).optional(),
@@ -304,24 +282,12 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
         })
       )
       .handler(async ({ context, input }) => {
-        // Pick the marketplace builder up front (pure read). Builds are free —
-        // there's no payment gate; we just route to a registered agent. There is no
-        // house fallback — a build with no eligible agent is rejected below.
-        const selected: SelectedBuilder | null = await selectEligibleBuilder(
-          context.db,
-          input.spec,
-          { agentId: input.agentId }
-        );
-
-        // No house fallback: every build must route to a registered agent. With
-        // the fleet present this only fires for an explicit pick that's unknown or
-        // disabled, or an empty registry — reject clearly instead of silently
-        // free-building. (Dispatch is not capability-gated; see selectEligibleBuilder.)
-        if (!selected) {
+        // Single house builder — dispatch creds come from env (BUILDER_URL /
+        // BUILDER_TOKEN via context). Builds are free; no payment gate. Tests
+        // inject `deployerFor` so they don't need creds.
+        if (!deps.deployerFor && !(context.builderEndpoint && context.builderToken)) {
           throw new ORPCError("BAD_REQUEST", {
-            message: input.agentId
-              ? "That builder isn't available."
-              : "No builder is available to build this right now.",
+            message: "No builder is available to build this right now.",
           });
         }
 
@@ -334,7 +300,6 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
               prompt: input.prompt ?? input.spec.description,
               spec: input.spec,
               status: "queued",
-              agentId: selected.agent.id,
               // Builds are free — no settlement to record.
               paymentTxHash: null,
             })
@@ -378,7 +343,10 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             .catch(() => {});
         }
 
-        const buildDeployer = deployerFor(selected);
+        const buildDeployer = deployerFor({
+          endpointUrl: context.builderEndpoint ?? "",
+          token: context.builderToken ?? "",
+        });
 
         // Fire-and-forget; the driver never throws (it records failures on the
         // build row). The web feed polls build.events / status.
@@ -396,7 +364,6 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             buildId,
             appId: allocated.id,
             spec: input.spec,
-            routedAgentId: selected.agent.id,
             attachmentUrls: attachmentUrls.length ? attachmentUrls : undefined,
           },
           context.onchain

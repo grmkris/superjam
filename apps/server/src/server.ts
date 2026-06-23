@@ -300,6 +300,8 @@ const makeContext = (headers: Headers): ApiContext =>
     onchain,
     oracle,
     objectStore,
+    builderEndpoint: env.BUILDER_URL,
+    builderToken: env.BUILDER_TOKEN,
     treasuryAddress,
     delegatedSigner,
     headers,

@@ -22,40 +22,12 @@ import {
   type DeployerFor,
   type RefineFn,
 } from "./builds.ts";
-import type { BuilderCapability, UserId } from "@superjam/shared";
-
-// Seed an active marketplace agent that can deliver the SPEC (payments →
-// contracts:evm). Returns the inserted row.
-const seedAgent = async (
-  db: Awaited<ReturnType<typeof harness>>["db"],
-  ownerUserId: UserId,
-  over: Partial<typeof schema.builderAgent.$inferInsert> = {}
-) => {
-  const [a] = await db
-    .insert(schema.builderAgent)
-    .values({
-      ownerUserId,
-      name: "House Builder",
-      slug: "house",
-      endpointUrl: "https://builder.superjam.fun/dispatch",
-      token: "house-token",
-      priceUsdc: "1",
-      capabilities: [
-        "frontend",
-        "hosting:vercel",
-        "contracts:evm",
-        "database:neon",
-        "ai",
-      ] as BuilderCapability[],
-      walletAddress: "0x" + "a".repeat(40),
-      status: "active",
-      ...over,
-    })
-    .returning();
-  return a!;
-};
 
 const logger = createLogger({ level: "silent" });
+
+// The house builder dispatch creds (env-driven) the context carries.
+const BUILDER_ENDPOINT = "https://builder.superjam.fun/dispatch";
+const BUILDER_TOKEN = "house-token";
 
 const SPEC: AppSpec = {
   name: "Tip Jar",
@@ -83,6 +55,8 @@ const harness = async () => {
       auth: auth.verifier,
       rateLimiter,
       onchain,
+      builderEndpoint: BUILDER_ENDPOINT,
+      builderToken: BUILDER_TOKEN,
       headers: new Headers(token ? { authorization: `Bearer ${token}` } : {}),
     });
   return { db, auth, ctxFor };
@@ -228,10 +202,8 @@ const deployResult: DeployResult = {
 const parkedDeploy: BuildDeployer = () => new Promise<DeployResult>(() => {});
 
 describe("builds.create — free builds", () => {
-  test("a build inserts + returns ids and routes to an agent", async () => {
+  test("a build inserts + returns ids and dispatches", async () => {
     const { db, auth, ctxFor } = await harness();
-    const aOwner = await createTestUser(db, { username: "afree_f" });
-    await seedAgent(db, aOwner.id, { priceUsdc: "0" });
     const router = createBuildsRouter({ deployerFor: () => parkedDeploy });
     const token = await auth.sign({ dynamicUserId: "dyn_f", email: "f@test.io" });
 
@@ -259,8 +231,6 @@ describe("builds.create — free builds", () => {
       .insert(schema.build)
       .values({ userId: u.id, prompt: "prior", spec: SPEC, status: "done" });
 
-    const aOwner = await createTestUser(db, { username: "afree_g" });
-    await seedAgent(db, aOwner.id, { priceUsdc: "0" });
     const router = createBuildsRouter({ deployerFor: () => parkedDeploy });
     const token = await auth.sign({ dynamicUserId: "dyn_g", email: "g@test.io" });
     const res = await call(
@@ -399,46 +369,9 @@ describe("builds.status", () => {
   });
 });
 
-describe("builds — marketplace routing (§14)", () => {
-  test("runBuild credits the routed agent a build on success", async () => {
-    const { db } = await harness();
-    const owner = await createTestUser(db);
-    const agent = await seedAgent(db, owner.id);
-    const [b] = await db
-      .insert(schema.build)
-      .values({ userId: owner.id, prompt: "idea", spec: SPEC, status: "queued" })
-      .returning();
-    const allocated = await allocateExternalApp(db, {
-      manifest: deployResult.manifest,
-      ownerUserId: owner.id,
-      buildId: b!.id,
-    });
-    const deploy: BuildDeployer = async () => deployResult;
-
-    await runBuild(db, logger, deploy, {
-      buildId: b!.id,
-      appId: allocated.id,
-      spec: SPEC,
-      routedAgentId: agent.id,
-    });
-
-    const after = await db.query.builderAgent.findFirst({
-      where: eq(schema.builderAgent.id, agent.id),
-    });
-    expect(after?.buildsCount).toBe(1);
-
-    // §16: the minted app is linked to the agent that built it (review→reputation).
-    const builtApp = await db.query.app.findFirst({
-      where: eq(schema.app.id, allocated.id),
-    });
-    expect(builtApp?.builtByAgentId).toBe(agent.id);
-  });
-
-  test("create routes to the chosen eligible agent's endpoint + token", async () => {
-    const { db, auth, ctxFor } = await harness();
-    const aOwner = await createTestUser(db, { username: "houseowner" });
-    // Free agent → routing is exercised without tripping the paid-to-agent gate.
-    const agent = await seedAgent(db, aOwner.id, { priceUsdc: "0" });
+describe("builds — env dispatch", () => {
+  test("create dispatches to the env builder endpoint + token", async () => {
+    const { auth, ctxFor } = await harness();
     const calls: Array<{ endpointUrl: string; token: string }> = [];
     const deployerFor: DeployerFor = (b) => {
       calls.push({ endpointUrl: b.endpointUrl, token: b.token });
@@ -447,32 +380,30 @@ describe("builds — marketplace routing (§14)", () => {
     const router = createBuildsRouter({ deployerFor });
     const token = await auth.sign({ dynamicUserId: "dyn_r", email: "r@test.io" });
 
-    await call(
-      router.create,
-      { spec: SPEC, agentId: agent.id },
-      { context: ctxFor(token) }
-    );
-    // Selection happens synchronously in the handler before runBuild is spawned.
+    await call(router.create, { spec: SPEC }, { context: ctxFor(token) });
+    // The deployer is built from the context's BUILDER_URL/BUILDER_TOKEN.
     expect(calls).toEqual([
-      { endpointUrl: agent.endpointUrl, token: agent.token },
+      { endpointUrl: BUILDER_ENDPOINT, token: BUILDER_TOKEN },
     ]);
   });
 
-  test("create rejects when no agent can deliver (no house fallback)", async () => {
-    const { auth, ctxFor } = await harness();
-    let routed = false;
-    const deployerFor: DeployerFor = () => {
-      routed = true;
-      return parkedDeploy;
-    };
-    const router = createBuildsRouter({ deployerFor });
+  test("create rejects when no builder is configured", async () => {
+    const { db, auth } = await harness();
+    const rateLimiter = createRateLimiter();
+    // A context with NO builder creds + no deployerFor override ⇒ reject.
+    const ctxNoBuilder = (token: string) =>
+      createContext({
+        db,
+        logger,
+        auth: auth.verifier,
+        rateLimiter,
+        headers: new Headers({ authorization: `Bearer ${token}` }),
+      });
+    const router = createBuildsRouter();
     const token = await auth.sign({ dynamicUserId: "dyn_s", email: "s@test.io" });
 
-    // No agents seeded ⇒ selectEligibleBuilder returns null ⇒ the build is rejected
-    // (there is no env "house" builder to silently free-build on).
     await expect(
-      call(router.create, { spec: SPEC }, { context: ctxFor(token) })
+      call(router.create, { spec: SPEC }, { context: ctxNoBuilder(token) })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    expect(routed).toBe(false);
   });
 });
