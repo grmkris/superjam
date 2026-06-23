@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { ToyboxSheet } from "../ui/sheet";
 import { Skeleton } from "../ui/skeleton";
-import { EmojiToken, StickerButton, StickerCard } from "../ui/sticker";
+import { actionRowButton, EmojiToken, StickerButton, StickerCard } from "../ui/sticker";
 import { usePlatformClient } from "../use-platform-client";
 
 interface Friend {
@@ -73,10 +73,7 @@ export function FriendPicker({
         {title ?? (challenge ? "⚔ Challenge a friend" : "Send to a friend")}
       </div>
       {shareUrl && (
-        <button
-          onClick={copyLink}
-          className="focus-ring sticker-press flex w-full items-center gap-3 rounded-toy border-2 border-ink bg-card p-3 text-left shadow-sticker-sm"
-        >
+        <button onClick={copyLink} className={actionRowButton}>
           <EmojiToken emoji="🔗" color="blue" size={36} />
           <span className="font-extrabold">{copied ? "link copied ✓" : "Copy link"}</span>
         </button>

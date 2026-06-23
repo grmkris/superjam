@@ -14,7 +14,7 @@ import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { Input, Textarea } from "../../components/ui/field";
 import { MicButton } from "../../components/ui/mic-button";
-import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
+import { actionRow, EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { useBuildDraft } from "../../lib/use-build-draft";
@@ -645,10 +645,7 @@ function HomeBeat({
           </div>
           <div className="stagger flex max-h-64 flex-col gap-2 overflow-y-auto">
             {drafts.map((d) => (
-              <div
-                key={d.id}
-                className="flex items-center gap-3 rounded-toy border-2 border-ink bg-card p-3 shadow-sticker-sm"
-              >
+              <div key={d.id} className={actionRow}>
                 <EmojiToken
                   emoji={d.iconEmoji ?? "⚡"}
                   color="yellow"

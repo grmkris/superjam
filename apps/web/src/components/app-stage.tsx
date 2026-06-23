@@ -11,9 +11,9 @@
 // overflow above it.
 //
 // The bar is a superapp-style capsule: tap the identity chip OR ⋯ to open an
-// actions sheet (Creator, Jam page, Remix, Share) that overlays the LIVE jam
-// without tearing it down; 📣 shares in one tap; ✕ closes. Only navigating away
-// (a sheet link) unmounts the running jam — by deliberate user choice.
+// actions sheet (Creator, Jam page, Remix) that overlays the LIVE jam without
+// tearing it down; 📣 shares in one tap; ✕ closes. Only navigating away (a sheet
+// link) unmounts the running jam — by deliberate user choice.
 //
 // CRITICAL: the single <AppHost key="app-host"> mounts ONCE for the stage's
 // lifetime. The framed app does a one-time host.hello handshake and caches it;
@@ -25,7 +25,7 @@ import { AppHost } from "./app-host";
 import type { ViewerApp } from "./app-frame";
 import { FriendPicker } from "./chat/friend-picker";
 import { ToyboxSheet } from "./ui/sheet";
-import { EmojiToken, StickerButton } from "./ui/sticker";
+import { actionRowButton, EmojiToken, StickerButton } from "./ui/sticker";
 import { cx } from "./ui/cx";
 
 const PILL =
@@ -70,11 +70,6 @@ export function AppStage({
 
   if (!mounted) return null;
 
-  const openShare = () => {
-    setMenuOpen(false);
-    setPicking(true);
-  };
-
   return createPortal(
     <>
       <div className="fixed inset-0 z-[100] flex flex-col bg-ink motion-safe:animate-[fadein_0.18s_ease-out]">
@@ -97,7 +92,7 @@ export function AppStage({
 
           {/* right action cluster */}
           <div className="ml-auto flex items-center gap-1.5">
-            <button onClick={openShare} aria-label="Share jam" className={ICON_PILL}>
+            <button onClick={() => setPicking(true)} aria-label="Share jam" className={ICON_PILL}>
               📣
             </button>
             <button
@@ -123,13 +118,7 @@ export function AppStage({
         </div>
       </div>
 
-      <AppMenuSheet
-        app={app}
-        maker={maker}
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onShare={openShare}
-      />
+      <AppMenuSheet app={app} maker={maker} open={menuOpen} onOpenChange={setMenuOpen} />
 
       {picking && (
         <FriendPicker
@@ -145,23 +134,18 @@ export function AppStage({
 
 // AppMenuSheet — the ⋯ actions sheet, overlaid on the LIVE jam. Each row is
 // derived from `app`/`maker`; the link rows DO navigate away (unmounting the
-// running jam) by deliberate user choice. Share opens the FriendPicker instead.
+// running jam) by deliberate user choice.
 function AppMenuSheet({
   app,
   maker,
   open,
   onOpenChange,
-  onShare,
 }: {
   app: ViewerApp;
   maker?: { username: string } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onShare: () => void;
 }) {
-  const rowClass =
-    "focus-ring sticker-press flex w-full items-center gap-3 rounded-toy border-2 border-ink bg-card p-3 text-left shadow-sticker-sm";
-
   return (
     <ToyboxSheet open={open} onOpenChange={onOpenChange} title={`${app.name} menu`}>
       <div className="flex items-center gap-3">
@@ -174,23 +158,19 @@ function AppMenuSheet({
 
       <div className="flex flex-col gap-2.5">
         {maker && (
-          <Link href={`/u/${maker.username}`} className={rowClass}>
+          <Link href={`/u/${maker.username}`} className={actionRowButton}>
             <EmojiToken emoji="👤" color="green" size={36} />
             <span className="font-extrabold">@{maker.username}</span>
           </Link>
         )}
-        <Link href={`/j/${app.slug}`} className={rowClass}>
+        <Link href={`/j/${app.slug}`} className={actionRowButton}>
           <EmojiToken emoji="💬" color="yellow" size={36} />
           <span className="font-extrabold">Jam page &amp; reviews</span>
         </Link>
-        <Link href={`/build?remix=${app.slug}`} className={rowClass}>
+        <Link href={`/build?remix=${app.slug}`} className={actionRowButton}>
           <EmojiToken emoji="🔁" color="lavender" size={36} />
           <span className="font-extrabold">Remix this jam</span>
         </Link>
-        <button onClick={onShare} className={rowClass}>
-          <EmojiToken emoji="📣" color="pink" size={36} />
-          <span className="font-extrabold">Send / Challenge a friend</span>
-        </button>
       </div>
 
       <StickerButton color="white" size="md" block onClick={() => onOpenChange(false)}>

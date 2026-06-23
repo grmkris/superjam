@@ -25,6 +25,12 @@ export const FILL: Record<StickerColor, string> = {
   ink: "bg-ink text-cream",
 };
 
+// A sticker list/menu row: emoji + label on a bordered card.
+export const actionRow =
+  "flex items-center gap-3 rounded-toy border-2 border-ink bg-card p-3 shadow-sticker-sm";
+// Interactive variant — button/link rows that press down on tap.
+export const actionRowButton = cx(actionRow, "focus-ring sticker-press w-full text-left");
+
 export interface StickerButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement> {
   color?: StickerColor;
