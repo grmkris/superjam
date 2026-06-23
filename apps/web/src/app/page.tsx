@@ -5,7 +5,7 @@
 // more. The differentiator vs TikTok: tap Play and the jam runs LIVE in the
 // feed (real app, not a video). Tab pills For you · Friends · New float on top.
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { JamFeedCard } from "../components/feed/jam-feed-card";
 import { type FeedJam, type FeedTab, loadFeed } from "../components/feed/jam";
 import { cx } from "../components/ui/cx";
@@ -24,7 +24,10 @@ export default function DiscoverPage() {
   const client = usePlatformClient();
   const [tab, setTab] = useState<FeedTab>("foryou");
   const [jams, setJams] = useState<FeedJam[] | null>(null);
-  const [playing, setPlaying] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  // The jam snapped into view — only it plays live, and the URL reflects it.
+  const [activeSlug, setActiveSlug] = useState<string | null>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,11 +40,47 @@ export default function DiscoverPage() {
     };
   }, [client, tab]);
 
+  // Mark the ≥60%-visible cell active (it plays; others are cheap posters).
+  useEffect(() => {
+    const root = feedRef.current;
+    if (!root || !jams || jams.length === 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && e.intersectionRatio >= 0.6) {
+            setActiveSlug((e.target as HTMLElement).dataset.slug ?? null);
+          }
+        }
+      },
+      { root, threshold: [0.6] }
+    );
+    root.querySelectorAll<HTMLElement>("[data-slug]").forEach((c) => io.observe(c));
+    return () => io.disconnect();
+  }, [jams]);
+
+  // Reflect the open jam in the URL (shallow — keeps the feed mounted + scrolled).
+  useEffect(() => {
+    if (activeSlug) window.history.replaceState(null, "", `/?j=${activeSlug}`);
+  }, [activeSlug]);
+
+  // Deep-link in: on first load, scroll to ?j=<slug> if present.
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (deepLinked.current || !jams || jams.length === 0) return;
+    deepLinked.current = true;
+    const want = new URLSearchParams(window.location.search).get("j");
+    if (want) {
+      feedRef.current
+        ?.querySelector<HTMLElement>(`[data-slug="${CSS.escape(want)}"]`)
+        ?.scrollIntoView();
+    }
+  }, [jams]);
+
   return (
     <div className="relative h-full bg-blue">
       {/* tab pills — left-clustered so the floating profile avatar (top-right) has
           room; hidden while a jam plays so they don't overlap its header */}
-      {!playing && (
+      {!fullscreen && (
         <div className="absolute top-5 left-0 z-20 flex gap-2 px-4">
           {TABS.map((t) => (
             <button
@@ -69,13 +108,14 @@ export default function DiscoverPage() {
         // Full-screen vertical snap on every size — one jam locks into place, the
         // next peeks then snaps in (TikTok-style on mobile AND desktop). Cards are
         // h-full snap-start targets; snap-always keeps the wheel from over-scrolling.
-        <div className="h-full overflow-y-auto snap-y snap-mandatory snap-always">
+        <div ref={feedRef} className="h-full overflow-y-auto snap-y snap-mandatory snap-always">
           {jams.map((jam, i) => (
             <JamFeedCard
               key={jam.id}
               jam={jam}
               next={jams[i + 1] ?? null}
-              onPlayingChange={setPlaying}
+              active={jam.slug === activeSlug}
+              onFullscreenChange={setFullscreen}
               onComments={(j) => router.push(`/j/${j.slug}`)}
               onRemix={(j) => router.push(`/build?remix=${j.slug}`)}
             />
