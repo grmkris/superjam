@@ -437,7 +437,6 @@ body {
   color: #fff;
   text-align: center;
   background: linear-gradient(135deg, var(--accent), var(--blue));
-  border-bottom: 2px solid var(--text);
   box-shadow: 0 4px 0 var(--text);
 }
 .tj-hero .tj-title, .tj-hero .tj-sub { color: #fff; }

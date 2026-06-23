@@ -19,12 +19,6 @@ import { avatarEmoji } from "../ui/identity";
 import { FeedActionRail } from "./feed-action-rail";
 import { type FeedJam, toViewerApp } from "./jam";
 
-const ACCENT_BG: Record<FeedJam["accent"], string> = {
-  blue: "bg-blue",
-  pink: "bg-pink",
-  green: "bg-green",
-  yellow: "bg-yellow",
-};
 // diagonal candy gradient per accent — the accent stays dominant (via-) so the
 // ACCENT_TITLE contrast choice below still holds; the corner just shifts hue.
 const ACCENT_GRADIENT: Record<FeedJam["accent"], string> = {
@@ -105,21 +99,17 @@ export function JamFeedCard({
       className={cx(
         // pr reserves a gutter for the absolute action rail so the centered
         // poster (name/tagline/Play) never sits under it (content-left, rail-right).
-        "relative h-full snap-start flex flex-col items-center justify-center gap-4 pl-6 pr-[4.5rem] pt-24 pb-28 overflow-hidden",
-        ACCENT_BG[jam.accent]
+        "relative h-full snap-start flex flex-col items-center justify-center gap-4 pl-6 pr-[4.5rem] pt-24 pb-28 overflow-hidden bg-gradient-to-br",
+        ACCENT_GRADIENT[jam.accent]
       )}
     >
-      {/* decorative backdrop (behind the poster via -z-10): a diagonal candy
-          gradient, the faint Toybox dot-grid, and a giant faded copy of the jam's
-          own emoji — so each card reads distinct instead of a flat accent slab. */}
+      {/* decorative backdrop (behind the poster via -z-10): the faint Toybox
+          dot-grid and a giant faded copy of the jam's own emoji over the accent
+          gradient — so each card reads distinct instead of a flat accent slab. */}
       <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
-        <div className={cx("absolute inset-0 bg-gradient-to-br", ACCENT_GRADIENT[jam.accent])} />
         <div
           className="absolute inset-0"
-          style={{
-            backgroundImage: "radial-gradient(rgba(34,26,51,0.06) 1.4px, transparent 1.4px)",
-            backgroundSize: "22px 22px",
-          }}
+          style={{ backgroundImage: "var(--dots)", backgroundSize: "var(--dots-size)" }}
         />
         <span className="absolute -right-10 -top-8 rotate-12 select-none text-[12rem] leading-none opacity-10">
           {jam.iconEmoji}
