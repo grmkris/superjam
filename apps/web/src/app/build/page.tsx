@@ -514,6 +514,33 @@ function MakeFlow() {
 }
 
 
+// Clickable idea scaffolds under the input. All phrased to hit a build KIT
+// (poll/quiz/guestbook/tap-arcade/travel) so they build fast + reliably — and they
+// double as a "what can I make?" showcase. ~4 freshly shuffled show each visit.
+const IDEA_EXAMPLES = [
+  "a live poll: pineapple on pizza, yes or no",
+  "this or that: cats vs dogs with a live tally",
+  "a 5-question trivia quiz with a leaderboard",
+  "a flag-guessing quiz with a global high score",
+  "an anonymous hot-takes wall",
+  "a birthday wall for a friend",
+  "a clicker where you boop a capybara",
+  "a reaction-time game with a global best",
+  "a 3-day tokyo food crawl on a map",
+  "a road-trip guide down the california coast",
+  "a tip jar with a leaderboard",
+  "a doodle guessing duel",
+];
+
+const shuffledExamples = (n: number): string[] => {
+  const a = [...IDEA_EXAMPLES];
+  for (let i = a.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a.slice(0, n);
+};
+
 function HomeBeat({
   idea,
   setIdea,
@@ -550,6 +577,10 @@ function HomeBeat({
   onDiscardDraft: (id: string) => void;
 }) {
   const atCap = attachments.length >= BUILD_ATTACH_MAX;
+  // Hydration-safe: render a fixed slice on the server, reshuffle on mount so the
+  // set varies per visit without an SSR/client Math.random mismatch.
+  const [picks, setPicks] = useState<string[]>(() => IDEA_EXAMPLES.slice(0, 4));
+  useEffect(() => setPicks(shuffledExamples(4)), []);
   return (
     <div className="flex flex-1 flex-col gap-4">
       {remix && (
@@ -586,20 +617,26 @@ function HomeBeat({
         />
       </div>
 
-      {/* lightweight idea scaffolds, right under the box */}
+      {/* lightweight idea scaffolds, right under the box — click to prefill */}
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-tiny font-bold text-muted">try:</span>
-        {["a tip jar with a leaderboard", "a daily trivia game", "a doodle guessing duel"].map(
-          (ex) => (
-            <button
-              key={ex}
-              onClick={() => setIdea(ex)}
-              className="focus-ring rounded-full border-2 border-ink bg-cream px-2.5 py-1 text-tiny font-semibold text-muted sticker-press"
-            >
-              {ex}
-            </button>
-          )
-        )}
+        {picks.map((ex) => (
+          <button
+            key={ex}
+            onClick={() => setIdea(ex)}
+            className="focus-ring rounded-full border-2 border-ink bg-cream px-2.5 py-1 text-tiny font-semibold text-muted sticker-press"
+          >
+            {ex}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setPicks(shuffledExamples(4))}
+          aria-label="Shuffle suggestions"
+          className="focus-ring rounded-full border-2 border-ink bg-card px-2 py-1 text-tiny font-bold sticker-press"
+        >
+          🔀
+        </button>
       </div>
 
       {/* Reference attachments — images (mockups/sketches) + docs (CSV/Excel/PDF). */}
