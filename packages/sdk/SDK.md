@@ -1,24 +1,35 @@
 # SuperJam SDK — how your mini app talks to the platform
 
-You are building ONE screen: a React component that gets `{ sdk, ctx }` as
-props. `sdk` is the bridge to SuperJam; `ctx` is the signed-in player + launch
-context. Everything is async (a `postMessage` round-trip to the host). The SDK
-works identically in the real host and in **standalone mode** (opened outside
-SuperJam — methods fall back to an in-browser mock so the app still runs).
+You are building ONE screen: a `"use client"` Next.js page. It obtains the `sdk`
+by calling `await SuperJam.connect()` (the bridge to SuperJam); `sdk.app.context()`
+returns the signed-in player + launch context. Everything is async (a
+`postMessage` round-trip to the host). The SDK works identically in the real host
+and in **standalone mode** (opened outside SuperJam — methods fall back to an
+in-browser mock so the app still runs).
 
 ```tsx
-import type { SuperJamSdk, AppContext } from "@superjam/sdk";
+"use client";
+import { useEffect, useState } from "react";
+import SuperJam, { type SuperJamSdk, type AppContext } from "@superjam/sdk";
 
-export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext }) {
+export default function Page() {
+  const [sdk, setSdk] = useState<SuperJamSdk | null>(null);
+  const [ctx, setCtx] = useState<AppContext | null>(null);
+  useEffect(() => {
+    // Connect once on mount; ctx comes from the connected sdk.
+    SuperJam.connect().then((s) => { setSdk(s); setCtx(s.app.context()); });
+  }, []);
+  if (!sdk || !ctx) return <main>Loading…</main>;
   // ctx.user.username      — the signed-in player ("kris")
   // ctx.user.walletAddress — their address ("0x…")
   // ctx.user.worldVerified — true if World-ID verified (gate pots on this)
   // ctx.launch             — UNTRUSTED payload from a share link (validate it!)
+  // … your app …
 }
 ```
 
-Allowed imports: `react`, `@superjam/sdk` (types only — the instance comes via
-props), and the curated extras documented in your loaded `skills/*.md`
+Allowed imports: `react`, `@superjam/sdk` (the **default export** `SuperJam` +
+its types), and the curated extras documented in your loaded `skills/*.md`
 (`@react-three/fiber`, `@react-three/drei`, `recharts`, `motion`,
 `canvas-confetti`, `react-qr-code`, `./lib/sfx`, `./lib/game`). **Nothing else
 exists** — never import another package, never `fetch`, never `localStorage`.

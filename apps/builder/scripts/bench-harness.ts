@@ -99,10 +99,82 @@ const reaction: AppSpec = {
   ],
 };
 
-const SPECS: { key: string; spec: AppSpec }[] = [
+const poll: AppSpec = {
+  name: "Pizza Topping Showdown",
+  slug: "pizza-poll-bench",
+  description: "Vote for the best pizza topping and watch the live results.",
+  iconEmoji: "🍕",
+  category: "social",
+  capabilities: [],
+  features: [
+    "A poll question with 4 topping options as big tappable buttons",
+    "On vote, the shared tally updates and live result bars show each option's %",
+    "Your pick is remembered and highlighted on return",
+    "Playful Toybox styling",
+  ],
+  data: {
+    collections: [],
+    counters: [{ name: "votes", keyedBy: "option", meaning: "tally per topping" }],
+    storage: [{ key: "myVote", meaning: "this user's chosen topping" }],
+  },
+  ui: { layout: "single centered column", sections: ["question", "options", "results"] },
+  acceptance: ["Voting increments the shared tally and shows live % bars", "The user's pick is remembered", "No console errors"],
+};
+
+const quiz: AppSpec = {
+  name: "World Capitals Quiz",
+  slug: "capitals-quiz-bench",
+  description: "A timed trivia quiz on world capitals with a global leaderboard.",
+  iconEmoji: "🌍",
+  category: "game",
+  capabilities: [],
+  features: [
+    "Timed multiple-choice questions from a local question bank",
+    "Lock options after the first tap, reveal correct (green) / wrong (red)",
+    "Track score; show a verified-human leaderboard at the end",
+    "Persist the player's best score",
+  ],
+  data: {
+    collections: [],
+    counters: [{ name: "scores", keyedBy: "username", meaning: "quiz leaderboard" }],
+    storage: [{ key: "best", meaning: "this user's best score" }],
+  },
+  ui: { layout: "single centered column", sections: ["question", "score", "leaderboard"] },
+  acceptance: ["Answering shows correct/wrong and scores it", "Leaderboard shows top scores", "No console errors"],
+};
+
+const guestbook: AppSpec = {
+  name: "Birthday Wall",
+  slug: "birthday-wall-bench",
+  description: "A shared wall where friends leave birthday messages.",
+  iconEmoji: "🎂",
+  category: "social",
+  capabilities: [],
+  features: [
+    "A text input + post button to leave a message",
+    "A shared feed of everyone's messages, newest first",
+    "Render all message text as plain text",
+    "Playful Toybox styling",
+  ],
+  data: {
+    collections: [{ name: "messages", fields: [{ name: "text", type: "string" }], writtenWhen: "post" }],
+    counters: [],
+    storage: [],
+  },
+  ui: { layout: "single centered column", sections: ["compose", "feed"] },
+  acceptance: ["Posting adds to the shared feed", "Everyone sees all messages newest-first", "No console errors"],
+};
+
+const ALL_SPECS: { key: string; spec: AppSpec }[] = [
   { key: "clicker", spec: clicker },
   { key: "reaction", spec: reaction },
+  { key: "poll", spec: poll },
+  { key: "quiz", spec: quiz },
+  { key: "guestbook", spec: guestbook },
 ];
+// SPECS=poll,quiz filters which specs run (default: clicker + reaction).
+const wanted = (process.env.SPECS ?? "clicker,reaction").split(",").map((s) => s.trim());
+const SPECS = ALL_SPECS.filter((s) => wanted.includes(s.key));
 
 interface Ev { t: number; kind: string; label: string }
 interface Row {
