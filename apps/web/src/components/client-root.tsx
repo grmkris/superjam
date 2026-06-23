@@ -40,8 +40,11 @@ function WiredConfirm({ children }: { children: ReactNode }) {
 }
 
 function Splash() {
+  // Full-viewport (NOT .app-shell — that pins to the 460px phone column + side
+  // borders, which looks like a narrow mobile frame on desktop before AppChrome's
+  // desktop layout mounts). Just a centered branded sticker on cream, every width.
   return (
-    <div className="app-shell flex min-h-[100dvh] items-center justify-center bg-cream">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-cream">
       <span
         className="flex h-20 w-20 items-center justify-center rounded-[22px] border-[2.5px] border-ink bg-yellow text-4xl shadow-sticker-lg animate-pulse"
         style={{ transform: "rotate(-6deg)" }}
