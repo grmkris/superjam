@@ -31,12 +31,14 @@ export function ToyboxSheet({
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange} dismissible={dismissible}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-40 bg-ink/40 lg:bg-ink/55" />
+        {/* z above the fullscreen jam stage (z-[100]) so sheets opened from
+            inside a running jam (share / app menu) aren't hidden behind it. */}
+        <Drawer.Overlay className="fixed inset-0 z-[190] bg-ink/40 lg:bg-ink/55" />
         <Drawer.Content
           aria-describedby={undefined}
           className={cx(
             // mobile: full-width bottom sheet that slides up (unchanged).
-            "fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-[460px] flex-col gap-4 overflow-y-auto",
+            "fixed inset-x-0 bottom-0 z-[200] mx-auto flex max-h-[92dvh] w-full max-w-[460px] flex-col gap-4 overflow-y-auto",
             "rounded-t-toy-lg border-t-2 border-ink bg-cream px-5 pt-3 outline-none",
             "pb-[calc(2rem+env(safe-area-inset-bottom))]",
             // desktop (lg): lift off the bottom and float as a Toybox dialog
