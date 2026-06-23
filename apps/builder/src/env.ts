@@ -33,11 +33,15 @@ const builderEnvSchema = z.object({
   // Build BACKEND (harness only): "local" = run the toolchain on THIS host (the VPS
   // already has node/npm/vercel); "sandbox" = an isolated microVM (stub for now).
   BUILD_BACKEND: z.enum(["local", "sandbox"]).default("local"),
-  // Anthropic API key for the harness driver's coding model — OPTIONAL: only needed
-  // when BUILD_DRIVER=harness (the agent path uses subscription `claude` instead).
+  // Harness coding-model provider. "auto" (default) prefers an Anthropic key, else
+  // the Google (Gemini) key — whichever is configured. We currently only hold a
+  // Gemini key, so "auto" lights up the harness on Gemini.
+  HARNESS_PROVIDER: z.enum(["auto", "google", "anthropic"]).default("auto"),
+  // Anthropic API key for the harness coding model — OPTIONAL (we don't have one yet).
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
-  // Harness coding model id (Anthropic API id). Mirrors the agent path's default.
-  HARNESS_MODEL: z.string().min(1).default("claude-sonnet-4-6"),
+  // Override the harness coding-model id. Absent ⇒ a per-provider default
+  // (gemini-2.5-pro / claude-sonnet-4-6) chosen in server.ts.
+  HARNESS_MODEL: z.string().min(1).optional(),
   // Google key for the build-time asset tools (image/voice). OPTIONAL — absent, the
   // build degrades to emoji/CSS/procedural SFX. Read by BOTH drivers.
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),

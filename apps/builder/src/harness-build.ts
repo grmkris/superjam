@@ -12,8 +12,7 @@
 // Reporting reuses the SAME loopback /report protocol the agent path uses (so
 // queue.ts/app.ts are untouched) — but over `fetch`, not a shelled-out curl, since
 // this driver runs in-process.
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { generateText, stepCountIs, tool } from "ai";
+import { generateText, stepCountIs, tool, type LanguageModel } from "ai";
 import { Bash, ReadWriteFs } from "just-bash";
 import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -59,8 +58,6 @@ export interface HarnessBuildArgs {
   port: number;
   /** Platform JWKS baked into the app's source (identity). */
   jwksUrl: string;
-  /** Coding model id (Anthropic API id); falls back to deps.model. */
-  model?: string;
   /** Presigned GET URLs for user-attached reference files (§17). */
   attachmentUrls?: string[];
 }
@@ -68,16 +65,17 @@ export interface HarnessBuildArgs {
 export interface HarnessBuildDeps {
   /** Build-execution substrate factory (local host / sandbox), per BUILD_BACKEND. */
   backendFactory: BackendFactory;
-  /** Anthropic API key for the AI-SDK provider (required for this driver). */
-  apiKey: string;
-  /** Default coding model id when args.model is absent. */
-  model: string;
+  /** The coding model (any AI-SDK provider) — built in the composition root so the
+   *  harness is provider-agnostic (Gemini via @ai-sdk/google, Claude, …). */
+  model: LanguageModel;
   /** Vercel operator token; omit to use the box's logged-in CLI session. */
   vercelToken?: string;
   /** Neon client for data apps; absent ⇒ data apps fail fast. */
   neon?: NeonClient;
   /** Google key for the build-time asset tools; absent ⇒ they degrade to emoji/CSS. */
   googleKey?: string;
+  /** Skip the real `vercel deploy` after a green build (safe local trials). */
+  dryRun?: boolean;
 }
 
 // The model's deploy/report seams for the shared system preamble. Unlike the agent
@@ -264,8 +262,7 @@ export const runHarnessBuild = async (
     // can only manipulate files with built-in coreutils. The harness owns the toolchain.
     const sandbox = new Bash({ fs: new ReadWriteFs({ root: ws }), cwd: "/", env: {} });
 
-    const anthropic = createAnthropic({ apiKey: deps.apiKey });
-    const model = anthropic(args.model ?? deps.model);
+    const model = deps.model;
     const system = await buildSystemPrompt(args.spec, HARNESS_SEAMS);
     const task = buildTaskPrompt(args.spec, {
       project,
@@ -275,16 +272,24 @@ export const runHarnessBuild = async (
     const tools = buildTools(sandbox, ws, deps.googleKey, (s) => void report.status(s));
 
     // Install deps CONCURRENTLY with the model's first editing round — the agent's
-    // sandbox never touches node_modules, so the slow `npm install` overlaps the slow
-    // generation; we just await it before the first real `next build`.
-    const installing = backend.exec("npm install", { env: buildEnv, timeoutMs: BUILD_TIMEOUT_MS });
+    // sandbox never touches node_modules, so the install overlaps the slow generation;
+    // we await it before the first real `next build`. `bun install` (not npm) — much
+    // faster cold-start, and the dominant cost on a fresh app. The build itself stays
+    // `npx next build` (node-run: identical Next compile, no bun-runtime risk).
+    const installing = backend.exec("bun install", { env: buildEnv, timeoutMs: BUILD_TIMEOUT_MS });
     let installChecked = false;
+
+    // Token usage accumulated across rounds, surfaced for cost visibility/benchmarks.
+    let inTokens = 0;
+    let outTokens = 0;
 
     // Outer harness loop: the model implements/fixes, then WE run the authoritative
     // `next build`. Green → break out and deploy. Non-zero → feed the error tail back
     // for another round (the model never decides "done" — the build does).
     let buildResult: ExecResult | undefined;
+    let rounds = 0;
     for (let round = 0; round < MAX_BUILD_ROUNDS; round += 1) {
+      rounds = round + 1;
       const prompt =
         round === 0
           ? task
@@ -292,7 +297,11 @@ export const runHarnessBuild = async (
       await report.status(
         round === 0 ? "designing & building the jam" : `fixing build errors (round ${round + 1})`
       );
-      await generateText({ model, system, prompt, tools, stopWhen: stepCountIs(STEPS_PER_ROUND) });
+      const gen = await generateText({ model, system, prompt, tools, stopWhen: stepCountIs(STEPS_PER_ROUND) });
+      // totalUsage = aggregated across ALL tool-loop steps (write_file outputs live in
+      // earlier steps); `usage` alone is just the final step and undercounts badly.
+      inTokens += gen.totalUsage?.inputTokens ?? 0;
+      outTokens += gen.totalUsage?.outputTokens ?? 0;
 
       if (!installChecked) {
         const install = await installing;
@@ -310,10 +319,25 @@ export const runHarnessBuild = async (
       });
       if (buildResult.code === 0) break;
     }
+    // Surface model cost (rides build.events; parsed by the benchmark, handy in prod).
+    await report.status(`model usage — in:${inTokens} out:${outTokens} tokens, ${rounds} rounds`);
     if (!buildResult || buildResult.code !== 0) {
       await report.failed(
         `the build didn't pass after ${MAX_BUILD_ROUNDS} attempts:\n${tail(buildResult?.stderr ?? "", 1200)}`
       );
+      return;
+    }
+
+    // Dry run: the build is green — stop before touching Vercel (safe local trials).
+    // Report the PROSPECTIVE production URL (valid per /report's url() check) so the
+    // build completes cleanly; the status line flags that nothing was deployed.
+    if (deps.dryRun) {
+      await report.status(`build is green ✓ (dry run — NOT deployed; source at ${ws})`);
+      await report.done({
+        entryUrl: `https://${project}.vercel.app`,
+        vercelProject: project,
+        neonProjectId,
+      });
       return;
     }
 

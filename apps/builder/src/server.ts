@@ -2,11 +2,14 @@
 // subscription-authed. Parses operator env, wires the REAL Vercel + Neon clients
 // + the template generator, and serves. At M5 the `turbojam-builder` systemd
 // unit repoints WorkingDirectory/ExecStart here and restarts (SPEC §11 deploy).
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import {
   createNeonClient,
   teardownApp,
   type VercelTeardown,
 } from "@superjam/builder/deploy";
+import type { LanguageModel } from "ai";
 import { createLogger } from "@superjam/logger";
 import { serve } from "@hono/node-server";
 import { runAgentBuild } from "./agent-build.ts";
@@ -52,22 +55,51 @@ const claudeAuth = async (): Promise<boolean> => {
 //   agent   — the free-roaming Claude Agent SDK (subscription `claude` on the box).
 //   harness — an in-process AI-SDK tool loop over a pluggable backend (local host /
 //             sandbox), which loops `next build` to green then deploys deterministically.
-// harness needs an Anthropic API key; without one we fall back to the proven agent path.
-const harnessReady = env.BUILD_DRIVER === "harness" && !!env.ANTHROPIC_API_KEY;
-if (env.BUILD_DRIVER === "harness" && !harnessReady) {
-  logger.warn("BUILD_DRIVER=harness but ANTHROPIC_API_KEY is unset — using the agent driver");
+// The harness is provider-agnostic: pickModel() builds a coding model from whichever
+// API key is configured (Gemini today). NO silent fallback — BUILD_DRIVER=harness with
+// no key throws at boot (assume creds present); use BUILD_DRIVER=agent to pick the agent.
+const pickModel = (): LanguageModel | null => {
+  const provider =
+    env.HARNESS_PROVIDER !== "auto"
+      ? env.HARNESS_PROVIDER
+      : env.ANTHROPIC_API_KEY
+        ? "anthropic"
+        : env.GOOGLE_GENERATIVE_AI_API_KEY
+          ? "google"
+          : null;
+  if (provider === "anthropic" && env.ANTHROPIC_API_KEY) {
+    return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })(
+      env.HARNESS_MODEL ?? "claude-sonnet-4-6"
+    );
+  }
+  if (provider === "google" && env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    return createGoogleGenerativeAI({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY })(
+      // Flash is the default: filling a scaffolded template against the SDK reference
+      // with a build-error retry loop is templated coding (Flash's sweet spot) — far
+      // cheaper/faster than Pro. Override with HARNESS_MODEL for harder specs.
+      env.HARNESS_MODEL ?? "gemini-2.5-flash"
+    );
+  }
+  return null;
+};
+
+const harnessModel = env.BUILD_DRIVER === "harness" ? pickModel() : null;
+if (env.BUILD_DRIVER === "harness" && !harnessModel) {
+  // No fallback: fail loud rather than silently running the wrong (agent) driver.
+  throw new Error(
+    "BUILD_DRIVER=harness requires a model API key (GOOGLE_GENERATIVE_AI_API_KEY or ANTHROPIC_API_KEY). Set one, or use BUILD_DRIVER=agent."
+  );
 }
 const backendFactory =
   env.BUILD_BACKEND === "sandbox" ? makeSandboxBackend : makeLocalBackend;
 
-const runBuild: Parameters<typeof createBuildRunner>[0]["runBuild"] = harnessReady
+const runBuild: Parameters<typeof createBuildRunner>[0]["runBuild"] = harnessModel
   ? (a) =>
       runHarnessBuild(
         { ...a, port: env.PORT, jwksUrl: env.SUPERJAM_JWKS_URL },
         {
           backendFactory,
-          apiKey: env.ANTHROPIC_API_KEY as string,
-          model: env.HARNESS_MODEL,
+          model: harnessModel,
           vercelToken: env.VERCEL_TOKEN,
           neon,
           googleKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -83,7 +115,7 @@ const runner = createBuildRunner({
   resolveEntryUrl: makeVercelEntryUrlResolver(env.VERCEL_TOKEN),
 });
 logger.info(
-  { driver: harnessReady ? "harness" : "agent", backend: env.BUILD_BACKEND },
+  { driver: harnessModel ? "harness" : "agent", backend: env.BUILD_BACKEND },
   "build driver selected"
 );
 
