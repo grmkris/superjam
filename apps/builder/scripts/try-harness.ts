@@ -114,9 +114,28 @@ const pollSpec: AppSpec = {
   acceptance: ["Voting bumps the option's bar", "The pick survives a reload", "Bars reflect everyone's votes"],
 };
 
-const spec = data ? dataSpec : poll ? pollSpec : clickerSpec;
-const appId = data ? "app_trialreviews" : poll ? "app_trialpoll" : "app_trialclicker";
-const buildId = data ? "build_trialdata" : poll ? "build_trialpoll" : "build_trial1";
+// An ONCHAIN spec (skill "onchain" → the onchain kit fills a vetted contract
+// template + a sdk.onchain starter; no hand-written Solidity). `--onchain`. Dry-run
+// stops at the green build (skips the Arc deploy), so it verifies the page compiles
+// + the kit fills the template without needing ARC keys.
+const onchain = process.argv.includes("--onchain");
+const onchainSpec: AppSpec = {
+  name: "Coinflip Arc",
+  slug: "coinflip-arc-trial",
+  description: "Call heads or tails and flip an onchain coin on Arc — gasless.",
+  iconEmoji: "🪙",
+  category: "game",
+  capabilities: ["onchain"],
+  skills: ["onchain"],
+  features: ["Guess heads or tails", "Track your wins onchain", "A satisfying flip animation"],
+  data: { collections: [], counters: [], storage: [] },
+  ui: { layout: "single card", sections: ["flip", "stats"] },
+  acceptance: ["A flip calls sdk.onchain.write", "Wins persist onchain across reloads"],
+};
+
+const spec = data ? dataSpec : poll ? pollSpec : onchain ? onchainSpec : clickerSpec;
+const appId = data ? "app_trialreviews" : poll ? "app_trialpoll" : onchain ? "app_trialonchain" : "app_trialclicker";
+const buildId = data ? "build_trialdata" : poll ? "build_trialpoll" : onchain ? "build_trialonchain" : "build_trial1";
 // Neon client for data apps (reads NEON_API_KEY from .env). Zero-backend builds ignore it.
 const neon = process.env.NEON_API_KEY
   ? createNeonClient({ apiKey: process.env.NEON_API_KEY })

@@ -7,6 +7,7 @@
 // server.ts.
 import type { AppManifest, AppSpec } from "@superjam/shared";
 import { specNeedsData } from "@superjam/builder/deploy";
+import { selectOnchainTemplate } from "./contracts/templates.ts";
 import type {
   GenerateContext,
   GeneratedApp,
@@ -286,41 +287,10 @@ libs = ["lib"]
 solc = "0.8.24"
 `;
 
-// A minimal operator-gated coinflip — the base the agent adapts per the onchain
-// recipe. Mutators take \`address player\` FIRST (the platform stamps it) and are
-// onlyOperator; reads are open. Self-contained: no imports.
-const gameSol = (): string => `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
-
-/// SuperJam onchain game. The platform server wallet is the \`operator\`: it relays
-/// player moves (sdk.onchain.write) and stamps the real \`player\`. Reads are open
-/// (sdk.onchain.read). Adapt this contract to your game; keep it operator-gated.
-contract Game {
-    address public operator;
-    mapping(address => uint8) public lastFlip; // 0 none, 1 heads, 2 tails
-    mapping(address => uint256) public wins;
-    uint256 public totalFlips;
-
-    event Flipped(address indexed player, uint8 guess, uint8 result, bool won);
-
-    constructor(address operator_) { operator = operator_; }
-    modifier onlyOperator() { require(msg.sender == operator, "not operator"); _; }
-
-    /// guess: 1 = heads, 2 = tails. Block-based pseudo-random — fine for a toy.
-    function flip(address player, uint8 guess) external onlyOperator {
-        uint8 result = uint8(uint256(keccak256(abi.encodePacked(block.prevrandao, player, totalFlips))) % 2) + 1;
-        bool won = guess == result;
-        lastFlip[player] = result;
-        if (won) wins[player] += 1;
-        totalFlips += 1;
-        emit Flipped(player, guess, result, won);
-    }
-
-    function statsOf(address player) external view returns (uint8 last, uint256 won) {
-        return (lastFlip[player], wins[player]);
-    }
-}
-`;
+// The seeded Game.sol is a VETTED, parameterized template (chance / pvp / collectible)
+// filled from the spec by selectOnchainTemplate — NOT free-hand Solidity. The harness's
+// onchain kit overlays the matching template + a starter page; this seed is the same
+// contract for the agent path / no-kit builds, so neither path authors Solidity.
 
 // Compile + deploy to Arc, print {"address","abi"} as JSON (the agent reads this,
 // writes lib/contract.ts, and reports contractAddress/contractAbi). Operator =
@@ -623,7 +593,7 @@ export const generateApp = (spec: AppSpec, ctx?: GenerateContext): GeneratedApp 
   }
   if (isOnchain(spec)) {
     files["contracts/foundry.toml"] = foundryToml();
-    files["contracts/src/Game.sol"] = gameSol();
+    files["contracts/src/Game.sol"] = selectOnchainTemplate(spec).contract(spec);
     files["contracts/deploy.sh"] = deploySh();
     // Keep the Solidity project + forge artifacts out of the Vercel upload.
     files[".vercelignore"] = "contracts/\n";
