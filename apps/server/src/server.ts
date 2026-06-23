@@ -200,6 +200,7 @@ app.post("/api/webhooks/dynamic/delegation", async (c) => {
   let body: {
     eventName?: string;
     userId?: string;
+    environmentId?: string;
     data?: {
       userId?: string;
       walletId?: string;
@@ -213,6 +214,16 @@ app.post("/api/webhooks/dynamic/delegation", async (c) => {
     body = JSON.parse(raw);
   } catch {
     return c.json({ error: "bad json" }, 400);
+  }
+
+  // Defense-in-depth: the HMAC secret is already environment-scoped, but reject a
+  // misrouted webhook for a different Dynamic environment outright.
+  if (body.environmentId && body.environmentId !== env.DYNAMIC_ENVIRONMENT_ID) {
+    logger.warn(
+      { got: body.environmentId },
+      "delegation webhook for a different environment — ignoring",
+    );
+    return c.json({ error: "wrong environment" }, 400);
   }
 
   const { userDelegation } = schema;
