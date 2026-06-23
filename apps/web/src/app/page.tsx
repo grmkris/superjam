@@ -76,52 +76,69 @@ export default function DiscoverPage() {
     }
   }, [jams]);
 
+  // Preload window: the active cell ± 1 mount live (neighbours load off-screen so
+  // there's no spinner on swipe). Default to the first jam before the observer fires.
+  const mountWindow = new Set<string>();
+  if (jams && jams.length > 0) {
+    const ai = jams.findIndex((j) => j.slug === activeSlug);
+    const center = ai >= 0 ? ai : 0;
+    for (const k of [center - 1, center, center + 1]) {
+      const j = jams[k];
+      if (j) mountWindow.add(j.slug);
+    }
+  }
+
   return (
-    <div className="relative h-full bg-blue">
-      {/* tab pills — left-clustered so the floating profile avatar (top-right) has
-          room; hidden while a jam plays so they don't overlap its header */}
+    <div className="relative flex h-full flex-col bg-blue">
+      {/* Tier 1 — feed switcher as a centered segmented pill ABOVE the scroll, so
+          the active jam's top bar (and the app below it) never collide with it.
+          The profile avatar (TopBar overlay) keeps the top-right. */}
       {!fullscreen && (
-        <div className="absolute top-5 left-0 z-20 flex gap-2 px-4">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              aria-pressed={tab === t.key}
-              className={cx(
-                "focus-ring border-2 border-ink rounded-full px-4 py-1.5 text-small",
-                tab === t.key
-                  ? "bg-ink text-cream font-bold"
-                  : "bg-white/85 text-ink font-semibold"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="z-20 flex shrink-0 justify-center px-4 pt-4 pb-2">
+          <div
+            role="tablist"
+            aria-label="Feed"
+            className="inline-flex items-center gap-1 rounded-full border-2 border-ink bg-white/85 p-1 shadow-sticker-sm backdrop-blur"
+          >
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={tab === t.key}
+                onClick={() => setTab(t.key)}
+                className={cx(
+                  "focus-ring rounded-full px-4 py-1.5 text-small transition-colors",
+                  tab === t.key ? "bg-ink text-cream font-bold" : "text-ink font-semibold"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      {jams === null ? (
-        <FeedSkeleton />
-      ) : jams.length === 0 ? (
-        <EmptyFeed onMake={() => router.push("/build")} />
-      ) : (
-        // Full-screen vertical snap on every size — one jam locks into place, the
-        // next peeks then snaps in (TikTok-style on mobile AND desktop). Cards are
-        // h-full snap-start targets; snap-always keeps the wheel from over-scrolling.
-        <div ref={feedRef} className="h-full overflow-y-auto snap-y snap-mandatory snap-always">
-          {jams.map((jam, i) => (
-            <JamFeedCard
-              key={jam.id}
-              jam={jam}
-              next={jams[i + 1] ?? null}
-              active={jam.slug === activeSlug}
-              onFullscreenChange={setFullscreen}
-              onComments={(j) => router.push(`/j/${j.slug}`)}
-              onRemix={(j) => router.push(`/build?remix=${j.slug}`)}
-            />
-          ))}
-        </div>
-      )}
+      <div className="relative min-h-0 flex-1">
+        {jams === null ? (
+          <FeedSkeleton />
+        ) : jams.length === 0 ? (
+          <EmptyFeed onMake={() => router.push("/build")} />
+        ) : (
+          // Vertical snap feed — one jam locks in; only active ± 1 mount live.
+          <div ref={feedRef} className="h-full overflow-y-auto snap-y snap-mandatory snap-always">
+            {jams.map((jam) => (
+              <JamFeedCard
+                key={jam.id}
+                jam={jam}
+                active={jam.slug === activeSlug}
+                mounted={mountWindow.has(jam.slug)}
+                onFullscreenChange={setFullscreen}
+                onComments={(j) => router.push(`/j/${j.slug}`)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

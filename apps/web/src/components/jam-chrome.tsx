@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { ViewerApp } from "./app-frame";
 import { FriendPicker } from "./chat/friend-picker";
+import { compactCount } from "./feed/jam";
 import { ToyboxSheet } from "./ui/sheet";
 import { actionRowButton, EmojiToken, StickerButton } from "./ui/sticker";
 import { cx } from "./ui/cx";
@@ -17,6 +18,8 @@ import { cx } from "./ui/cx";
 const PILL =
   "inline-flex items-center bg-white/85 backdrop-blur border-2 border-ink rounded-full text-small font-bold shadow-sticker-sm sticker-press focus-ring";
 const ICON_PILL = cx(PILL, "size-8 shrink-0 justify-center text-body");
+// emoji + count pill (like / comment)
+const COUNT_PILL = cx(PILL, "shrink-0 gap-1 px-2.5 py-1 text-tiny");
 
 export function JamChrome({
   app,
@@ -24,6 +27,11 @@ export function JamChrome({
   fullscreen,
   onFullscreen,
   onClose,
+  likes,
+  liked,
+  onLike,
+  comments,
+  onComments,
 }: {
   app: ViewerApp;
   maker?: { username: string } | null;
@@ -32,6 +40,12 @@ export function JamChrome({
   onFullscreen?: () => void;
   /** close — shown as ✕ when fullscreen (exit fullscreen or leave the route) */
   onClose?: () => void;
+  /** like + comment pills render only when their handler is provided (feed only). */
+  likes?: number;
+  liked?: boolean;
+  onLike?: () => void;
+  comments?: number;
+  onComments?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -52,6 +66,23 @@ export function JamChrome({
         </button>
 
         <div className="ml-auto flex items-center gap-1.5">
+          {onLike && (
+            <button
+              onClick={onLike}
+              aria-label="Like"
+              aria-pressed={liked}
+              className={cx(COUNT_PILL, liked && "bg-pink text-white")}
+            >
+              <span>{liked ? "❤️" : "🤍"}</span>
+              {compactCount(likes ?? 0)}
+            </button>
+          )}
+          {onComments && (
+            <button onClick={onComments} aria-label="Comments" className={COUNT_PILL}>
+              <span>💬</span>
+              {compactCount(comments ?? 0)}
+            </button>
+          )}
           <button onClick={() => setPicking(true)} aria-label="Share jam" className={ICON_PILL}>
             📣
           </button>
