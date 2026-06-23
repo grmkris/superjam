@@ -13,6 +13,7 @@
 // New headless SDK: the EVM wallet account comes from useWalletAccounts(); a viem
 // WalletClient is built with createWalletClientForWalletAccount().
 import { authenticatePasskeyMFA, checkStepUpAuth } from "@dynamic-labs-sdk/client";
+import { hasDelegatedAccess } from "@dynamic-labs-sdk/client/waas";
 import type { EvmWalletAccount } from "@dynamic-labs-sdk/evm";
 import { createWalletClientForWalletAccount } from "@dynamic-labs-sdk/evm/viem";
 import { useWalletAccounts } from "@dynamic-labs-sdk/react-hooks";
@@ -47,6 +48,24 @@ export function useRelayExecutor(): PayExecutor {
       // recipient → sign in the browser → relay → real tx hash.
       if (!evmAccount) {
         throw new Error("Connect your wallet to pay");
+      }
+
+      // 0) Delegated path: if the user enabled "Let SuperJam act for you", the
+      // SERVER signs + relays via their delegated key share — no wallet popup.
+      // relayDelegated resolves the recipient + records the @friend tip itself.
+      // Any hiccup (e.g. the delegation row isn't stored yet) falls through to the
+      // browser-sign path below, so a payment never breaks because of delegation.
+      if (hasDelegatedAccess({ walletAccount: evmAccount })) {
+        try {
+          const { txHash } = await client.payments.relayDelegated({
+            to: intent.to,
+            appId: intent.appId as AppId | undefined,
+            amountUsdc: String(intent.amountUsdc),
+          });
+          return { txHash };
+        } catch {
+          // fall through to the browser-sign path
+        }
       }
 
       // 1) recipient string → on-chain address (server-side lookup)
