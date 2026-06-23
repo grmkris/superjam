@@ -1,0 +1,358 @@
+// harness-build — the AI-SDK build driver (BUILD_DRIVER=harness). The alternative
+// to the free-roaming Claude Agent SDK path (agent-build.ts): a tight, inspectable
+// loop built on the Vercel AI SDK's `generateText` tool loop. The model edits the
+// seeded skeleton through write_file / read_file + a SANDBOXED `bash` (just-bash:
+// built-in coreutils only, no host shell, no host env, no native binaries — scoped
+// to the workspace via a ReadWriteFs). The harness — not the model — owns the
+// control flow AND the real toolchain: it runs the AUTHORITATIVE `npm install` +
+// `next build` on the host, loops the error back until green, then DETERMINISTICALLY
+// deploys. So a build is "agent edits (sandboxed) → harness builds → (green?) deploy",
+// with the model only responsible for making the code compile against the spec.
+//
+// Reporting reuses the SAME loopback /report protocol the agent path uses (so
+// queue.ts/app.ts are untouched) — but over `fetch`, not a shelled-out curl, since
+// this driver runs in-process.
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { generateText, stepCountIs, tool } from "ai";
+import { Bash, ReadWriteFs } from "just-bash";
+import { mkdir, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { z } from "zod";
+import { specNeedsData, type NeonClient } from "@superjam/builder/deploy";
+import type { AppSpec } from "@superjam/shared";
+import { generateImage, generateVoice } from "./assets.ts";
+import type { BackendFactory, ExecResult } from "./backend/index.ts";
+import {
+  IMAGE_BUDGET,
+  VOICE_BUDGET,
+  buildSystemPrompt,
+  buildTaskPrompt,
+  type DriverSeams,
+} from "./build-prompt.ts";
+import { parseDeployOutput, vercelProjectName } from "./cli-deploy.ts";
+import { generateApp } from "./generate.ts";
+
+// Tool steps the model gets PER build round (one round = one `generateText` call
+// followed by the harness's authoritative `next build`).
+const STEPS_PER_ROUND = 30;
+// How many times we feed a failed build back before giving up.
+const MAX_BUILD_ROUNDS = 4;
+// `next build` can be slow for rich apps; deploy uploads + remote-builds.
+const BUILD_TIMEOUT_MS = 8 * 60 * 1000;
+const DEPLOY_TIMEOUT_MS = 12 * 60 * 1000;
+
+const workspaceRoot = (): string =>
+  process.env.BUILD_WORKSPACE_ROOT ?? join(homedir(), "superjam-builds");
+
+/** Keep tool/build output small in the model's context — only the tail matters. */
+const tail = (s: string, n = 4000): string => (s.length > n ? s.slice(-n) : s);
+
+export interface HarnessBuildArgs {
+  spec: AppSpec;
+  buildId: string;
+  /** Pre-generated app id (JWT aud), baked into the skeleton + the project name. */
+  appId: string;
+  /** Per-build secret used to authenticate the loopback /report calls. */
+  reportToken: string;
+  /** The builder's own listen port — we report to the loopback callback. */
+  port: number;
+  /** Platform JWKS baked into the app's source (identity). */
+  jwksUrl: string;
+  /** Coding model id (Anthropic API id); falls back to deps.model. */
+  model?: string;
+  /** Presigned GET URLs for user-attached reference files (§17). */
+  attachmentUrls?: string[];
+}
+
+export interface HarnessBuildDeps {
+  /** Build-execution substrate factory (local host / sandbox), per BUILD_BACKEND. */
+  backendFactory: BackendFactory;
+  /** Anthropic API key for the AI-SDK provider (required for this driver). */
+  apiKey: string;
+  /** Default coding model id when args.model is absent. */
+  model: string;
+  /** Vercel operator token; omit to use the box's logged-in CLI session. */
+  vercelToken?: string;
+  /** Neon client for data apps; absent ⇒ data apps fail fast. */
+  neon?: NeonClient;
+  /** Google key for the build-time asset tools; absent ⇒ they degrade to emoji/CSS. */
+  googleKey?: string;
+}
+
+// The model's deploy/report seams for the shared system preamble. Unlike the agent
+// path, the harness OWNS the toolchain + deploy + reporting — the model only EDITS
+// files in a sandbox; it cannot run npm/next/vercel. So the seam tells it the build
+// is run FOR it between rounds, and redirects it away from real commands entirely.
+const HARNESS_SEAMS: DriverSeams = {
+  toolsIntro: "(bash, write_file, and read_file)",
+  deploy: `## Your goal: code that compiles — the harness builds & deploys for you
+Edit files with write_file (whole files) and the bash tool (a SANDBOXED shell — ls, cat, sed, grep, find, etc., scoped to the app workspace). You CANNOT run \`npm\`, \`next\`, \`vercel\`, or any other real binary — bash only has built-in coreutils, and the harness runs the real toolchain for you. When you stop editing, the harness runs \`next build\`; if it fails you get the errors back to fix, and once it's green the harness deploys automatically. Do not try to install packages, build, or deploy yourself.`,
+  // No reporting seam: the harness streams progress to /report, not the model.
+};
+
+/** Loopback /report client — same protocol as the agent path, over fetch. */
+const reporter = (port: number, buildId: string, token: string) => {
+  const url = `http://127.0.0.1:${port}/builds/${buildId}/report`;
+  const headers = {
+    authorization: `Bearer ${token}`,
+    "content-type": "application/json",
+  };
+  const post = (body: unknown): Promise<unknown> =>
+    fetch(url, { method: "POST", headers, body: JSON.stringify(body) }).catch(
+      () => undefined
+    );
+  return {
+    status: (label: string) => post({ kind: "status", label }),
+    done: (r: { entryUrl: string; vercelProject: string; neonProjectId?: string }) =>
+      post({ kind: "done", ...r }),
+    failed: (error: string) => post({ kind: "failed", error }),
+  };
+};
+
+/** Normalize an agent-supplied path to an absolute path inside the sandbox FS. */
+const fsPath = (p: string): string => (p.startsWith("/") ? p : `/${p}`);
+
+/**
+ * The model's toolset. The agent edits inside a SANDBOXED just-bash shell (`bash`)
+ * + structured write_file/read_file — all bound to the same in-process FS, which is
+ * a ReadWriteFs rooted at the real workspace (so edits land on disk for the harness
+ * to build, but the agent has NO host shell, NO host env, and CANNOT run npm/next/
+ * vercel or any native binary). generate_image/generate_voice bake fixed art/audio
+ * into public/. `onStep` surfaces a human progress label.
+ *
+ * NOTE: the asset tools write BINARY straight to disk under workdir (== the sandbox
+ * root), since just-bash's writeFile is utf-8 only.
+ */
+const buildTools = (
+  sandbox: Bash,
+  workdir: string,
+  googleKey: string | undefined,
+  onStep: (label: string) => void
+) => {
+  let images = 0;
+  let voices = 0;
+  const writeBinary = async (rel: string, bytes: Uint8Array): Promise<string> => {
+    const clean = rel.replace(/^\/+/, "");
+    const p = clean.startsWith("public/") ? clean : join("public", clean);
+    const abs = resolve(workdir, p);
+    if (!abs.startsWith(resolve(workdir))) throw new Error("path escapes workspace");
+    await mkdir(dirname(abs), { recursive: true });
+    await writeFile(abs, bytes);
+    return p;
+  };
+  return {
+    write_file: tool({
+      description:
+        "Create or overwrite a file in the app workspace (path relative to the app root, e.g. app/page.tsx).",
+      inputSchema: z.object({ path: z.string().min(1), contents: z.string() }),
+      execute: async ({ path, contents }) => {
+        await sandbox.writeFile(fsPath(path), contents);
+        onStep(`editing ${path}`);
+        return `wrote ${path}`;
+      },
+    }),
+    read_file: tool({
+      description: "Read a file from the app workspace (utf-8).",
+      inputSchema: z.object({ path: z.string().min(1) }),
+      execute: async ({ path }) => {
+        try {
+          return tail(await sandbox.readFile(fsPath(path)), 8000);
+        } catch (e) {
+          return `error: ${e instanceof Error ? e.message : String(e)}`;
+        }
+      },
+    }),
+    bash: tool({
+      description:
+        "Run a command in a SANDBOXED shell scoped to the app workspace: built-in coreutils only (ls, cat, sed, grep, find, mkdir, mv, cp, jq, …). Use it to inspect and edit files. It CANNOT run npm, next, vercel, or any other real binary — the harness builds & deploys for you.",
+      inputSchema: z.object({ cmd: z.string().min(1) }),
+      execute: async ({ cmd }) => {
+        onStep(cmd.length > 64 ? `${cmd.slice(0, 64)}…` : cmd);
+        const r = await sandbox.exec(cmd);
+        return `exit ${r.exitCode}\n--- stdout ---\n${tail(r.stdout)}\n--- stderr ---\n${tail(r.stderr)}`;
+      },
+    }),
+    generate_image: tool({
+      description:
+        'Generate a PNG into public/ for FIXED art (sprite/background/logo), referenced as <img src="/<path>">. Not for per-user images.',
+      inputSchema: z.object({ prompt: z.string().min(1), path: z.string().min(1) }),
+      execute: async ({ prompt, path }) => {
+        if (!googleKey) return "image generation unavailable — use an emoji or a CSS gradient";
+        if (images >= IMAGE_BUDGET) return `image budget (${IMAGE_BUDGET}) exhausted — reuse an asset or use emoji/CSS`;
+        try {
+          const rel = await writeBinary(path, await generateImage(prompt, googleKey));
+          images += 1;
+          onStep("generating art");
+          return `wrote ${rel} (reference it at /${rel.replace(/^public\//, "")})`;
+        } catch (e) {
+          return `image generation failed (${e instanceof Error ? e.message : String(e)}) — fall back to emoji/CSS`;
+        }
+      },
+    }),
+    generate_voice: tool({
+      description:
+        "Synthesize a WAV into public/ for FIXED narration/jingles (not per-user speech). Play via an <audio> element.",
+      inputSchema: z.object({
+        text: z.string().min(1).max(2000),
+        path: z.string().min(1),
+        voice: z.string().optional(),
+      }),
+      execute: async ({ text, path, voice }) => {
+        if (!googleKey) return "voice generation unavailable — use procedural WebAudio SFX";
+        if (voices >= VOICE_BUDGET) return `voice budget (${VOICE_BUDGET}) exhausted`;
+        try {
+          const rel = await writeBinary(path, await generateVoice(text, googleKey, voice));
+          voices += 1;
+          onStep("generating audio");
+          return `wrote ${rel} (reference it at /${rel.replace(/^public\//, "")})`;
+        } catch (e) {
+          return `voice generation failed (${e instanceof Error ? e.message : String(e)}) — fall back to SFX`;
+        }
+      },
+    }),
+  };
+};
+
+/**
+ * Run one build to completion via the AI-SDK harness. Seeds the skeleton, lets the
+ * model implement it, loops the authoritative `next build` until green, then deploys
+ * and reports the result via /report. Resolves when terminal (done/failed reported);
+ * any thrown error is reported as `failed` (queue.ts also backstops a silent exit).
+ */
+export const runHarnessBuild = async (
+  args: HarnessBuildArgs,
+  deps: HarnessBuildDeps
+): Promise<void> => {
+  const report = reporter(args.port, args.buildId, args.reportToken);
+  // Stable workspace dir == the Vercel project name, so `vercel deploy` derives
+  // that project (a redeploy updates the same project instead of orphaning a new
+  // one — Vercel names a project after the deployed directory's basename).
+  const project = vercelProjectName(`superjam-${args.appId}`);
+  const root = workspaceRoot();
+  await mkdir(root, { recursive: true });
+  const ws = join(root, project);
+  const backend = deps.backendFactory(ws);
+
+  try {
+    await report.status("setting up the workspace");
+    const base = generateApp(args.spec, {
+      buildId: args.buildId,
+      appId: args.appId,
+      jwksUrl: args.jwksUrl,
+    });
+    await backend.writeFiles(base.files);
+
+    // Data app → provision its own Neon DB; the pooled DSN feeds build + deploy env.
+    let dsn: string | undefined;
+    let neonProjectId: string | undefined;
+    if (specNeedsData(args.spec)) {
+      if (!deps.neon) {
+        await report.failed("this jam needs a database but the builder has no Neon key configured");
+        return;
+      }
+      await report.status("provisioning the database");
+      const p = await deps.neon.createProject(project);
+      dsn = p.pooledDsn;
+      neonProjectId = p.projectId;
+    }
+    const buildEnv = dsn ? { DATABASE_URL: dsn } : undefined;
+
+    // The agent's editing sandbox: a just-bash shell over a ReadWriteFs rooted at the
+    // real workspace. Edits land on disk (so the harness can build them) but the agent
+    // gets NO host shell, NO host env (empty), and can't run any native binary — it
+    // can only manipulate files with built-in coreutils. The harness owns the toolchain.
+    const sandbox = new Bash({ fs: new ReadWriteFs({ root: ws }), cwd: "/", env: {} });
+
+    const anthropic = createAnthropic({ apiKey: deps.apiKey });
+    const model = anthropic(args.model ?? deps.model);
+    const system = await buildSystemPrompt(args.spec, HARNESS_SEAMS);
+    const task = buildTaskPrompt(args.spec, {
+      project,
+      attachmentUrls: args.attachmentUrls,
+      tail: "\n\nWrite the code; the harness compiles it and sends you any build errors to fix. You cannot run npm/next/vercel — the harness builds & deploys for you.",
+    });
+    const tools = buildTools(sandbox, ws, deps.googleKey, (s) => void report.status(s));
+
+    // Install deps CONCURRENTLY with the model's first editing round — the agent's
+    // sandbox never touches node_modules, so the slow `npm install` overlaps the slow
+    // generation; we just await it before the first real `next build`.
+    const installing = backend.exec("npm install", { env: buildEnv, timeoutMs: BUILD_TIMEOUT_MS });
+    let installChecked = false;
+
+    // Outer harness loop: the model implements/fixes, then WE run the authoritative
+    // `next build`. Green → break out and deploy. Non-zero → feed the error tail back
+    // for another round (the model never decides "done" — the build does).
+    let buildResult: ExecResult | undefined;
+    for (let round = 0; round < MAX_BUILD_ROUNDS; round += 1) {
+      const prompt =
+        round === 0
+          ? task
+          : `The build (\`next build\`, run by the harness) failed:\n\n${tail(buildResult?.stderr || buildResult?.stdout || "")}\n\nFix the code so the build passes.`;
+      await report.status(
+        round === 0 ? "designing & building the jam" : `fixing build errors (round ${round + 1})`
+      );
+      await generateText({ model, system, prompt, tools, stopWhen: stepCountIs(STEPS_PER_ROUND) });
+
+      if (!installChecked) {
+        const install = await installing;
+        installChecked = true;
+        if (install.code !== 0) {
+          await report.failed(`installing dependencies failed:\n${tail(install.stderr, 1000)}`);
+          return;
+        }
+      }
+
+      await report.status(`build check (attempt ${round + 1})`);
+      buildResult = await backend.exec("npx next build", {
+        env: buildEnv,
+        timeoutMs: BUILD_TIMEOUT_MS,
+      });
+      if (buildResult.code === 0) break;
+    }
+    if (!buildResult || buildResult.code !== 0) {
+      await report.failed(
+        `the build didn't pass after ${MAX_BUILD_ROUNDS} attempts:\n${tail(buildResult?.stderr ?? "", 1200)}`
+      );
+      return;
+    }
+
+    // Deploy the green app. v1: `vercel deploy --yes --prod` rebuilds remotely from
+    // the verified source (the local build was the iteration gate). TODO optimization:
+    // `vercel build` + `vercel deploy --prebuilt` to ship the exact artifact we built
+    // and skip Vercel's second build.
+    await report.status("deploying to the web");
+    const cmd = [
+      "vercel deploy --yes --prod",
+      deps.vercelToken ? `--token ${deps.vercelToken}` : "",
+      dsn ? `--env DATABASE_URL='${dsn}' --build-env DATABASE_URL='${dsn}'` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const dep = await backend.exec(cmd, { timeoutMs: DEPLOY_TIMEOUT_MS });
+    if (dep.code !== 0) {
+      await report.failed(`deploy failed (exit ${dep.code}): ${tail(dep.stderr, 800)}`);
+      return;
+    }
+    let deploymentId = "";
+    try {
+      deploymentId = parseDeployOutput(dep.stdout).deploymentId;
+    } catch {
+      // URL is derived from the stable project alias below; id is diagnostic only.
+    }
+
+    // The public production alias is stable from the project name; queue.ts resolves
+    // the REAL alias (Vercel truncates long auto-aliases) before recording it.
+    await report.done({
+      entryUrl: `https://${project}.vercel.app`,
+      vercelProject: project,
+      neonProjectId,
+    });
+    console.log(`[harness] deployed ${project}${deploymentId ? ` (deployment ${deploymentId})` : ""}`);
+  } catch (err) {
+    await report.failed(err instanceof Error ? err.message : String(err));
+  } finally {
+    // Keep the workspace source (redeployable); strip heavy regenerable dirs.
+    await backend.dispose().catch(() => {});
+  }
+};

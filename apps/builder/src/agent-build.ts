@@ -18,18 +18,20 @@ import {
   type HookCallback,
   type HookJSONOutput,
 } from "@anthropic-ai/claude-agent-sdk";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import type { AppSpec } from "@superjam/shared";
 import { generateImage, generateVoice } from "./assets.ts";
+import {
+  IMAGE_BUDGET,
+  VOICE_BUDGET,
+  buildSystemPrompt,
+  buildTaskPrompt,
+  type DriverSeams,
+} from "./build-prompt.ts";
 import { generateApp } from "./generate.ts";
-import { loadRecipes } from "./recipes.ts";
-
-// Per-build caps on generated assets (cost + deploy size guard).
-const IMAGE_BUDGET = 8;
-const VOICE_BUDGET = 4;
 
 // Where build workspaces live. PERSISTED (not tmp, not deleted) so a shipped
 // jam's source survives for fixing/redeploying — losing it under tmpdir is why
@@ -110,17 +112,6 @@ const assetsMcp = (ws: string, key: string | undefined) => {
   });
 };
 
-// The authoritative SDK reference (packages/sdk/SDK.md) — injected so the agent
-// programs against the REAL surface, not priors. Read once, cached; absent ⇒ the
-// preamble + recipes still teach the essentials.
-const SDK_DOC_PATH = join(import.meta.dir, "..", "..", "..", "packages", "sdk", "SDK.md");
-let sdkDocCache: string | undefined;
-const sdkDoc = async (): Promise<string> => {
-  if (sdkDocCache !== undefined) return sdkDocCache;
-  sdkDocCache = await readFile(SDK_DOC_PATH, "utf8").catch(() => "");
-  return sdkDocCache;
-};
-
 export interface AgentBuildArgs {
   spec: AppSpec;
   buildId: string;
@@ -152,95 +143,35 @@ const pathGate =
     return {};
   };
 
-const renderSpec = (spec: AppSpec): string =>
-  [
-    `# ${spec.iconEmoji} ${spec.name} (${spec.slug})`,
-    spec.description,
-    `Category: ${spec.category} · Capabilities: ${spec.capabilities.join(", ") || "none"}`,
-    spec.features.length ? `\n## Features\n${spec.features.map((f) => `- ${f}`).join("\n")}` : "",
-    spec.data.collections.length
-      ? `\n## Data collections (relational → needs the Neon DB)\n${spec.data.collections
-          .map((c) => `- ${c.name}: {${c.fields.map((f) => `${f.name}:${f.type}`).join(", ")}} — ${c.writtenWhen}`)
-          .join("\n")}`
-      : "\n(No relational data — zero-backend; do NOT provision a database.)",
-    `\n## Acceptance — implement until EVERY item holds\n${spec.acceptance.map((a) => `- ${a}`).join("\n")}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-const SYSTEM = `You are SuperJam's autonomous app builder. From a spec, you build a real, working "jam" — a single-screen Next.js 16 (app-router) mini-app — and DEPLOY it live YOURSELF using your tools (Bash, the \`vercel\` CLI, and the Neon MCP). A correct, identity-baked skeleton already exists in your working directory; you fill it in and ship it.
-
-## The workspace skeleton (already there)
-Next.js 16 (app-router) + React 19, TypeScript. \`@superjam/sdk\` is aliased to the published npm package. Files present:
-- app/page.tsx        — the app's single screen. REPLACE its stub with the real "use client" UI.
-- app/layout.tsx      — minimal root layout (editable, usually leave it).
-- lib/superjam-config.ts — BAKED SUPERJAM_APP_ID + JWKS url (identity). DO NOT EDIT.
-- lib/auth.ts         — jose JWKS verifyUser() for your API routes. DO NOT EDIT.
-- next.config.ts      — frame-ancestors CSP so the host can embed the jam. DO NOT EDIT.
-- package.json, tsconfig.json, superjam.json — pinned deps / config / manifest. DO NOT EDIT.
-- (data apps only) lib/db.ts — neon-http Drizzle client reading process.env.DATABASE_URL. DO NOT EDIT.
-- (data apps only) lib/schema.ts — Drizzle tables generated from the spec's collections. You MAY edit to match the collections; keep it consistent with the tables you create.
-
-EDIT ONLY: app/page.tsx, app/layout.tsx, lib/schema.ts, and any app/api/*/route.ts you add. Never touch the DO-NOT-EDIT files — they carry the app's identity + embedding contract.
-
-## Two data paths — pick the SIMPLEST that fits
-STRONGLY prefer zero-backend. Provisioning a Neon DB adds ~30–60s to the build and a slow runtime hop, so only do it when the spec genuinely needs relational queries the primitives can't express (joins, filters, ranked queries over many fields). Leaderboards, tallies, click counts, scores, walls, posts, picks, votes, simple per-user state — these are ALL zero-backend (sdk.data.counter / sdk.data.collection / sdk.storage). A clicker, arcade, quiz, poll, or guestbook should NEVER touch a database. If you find yourself reaching for the Neon MCP on a simple game, stop and use the SDK primitives instead.
-1. ZERO-BACKEND (default, no database): use the SuperJam SDK primitives — sdk.data.collection (shared docs: walls, posts, picks), sdk.data.counter (atomic leaderboards/tallies), sdk.storage (per-user private KV), sdk.pot (escrowed USDC wagers), sdk.payments (USDC), sdk.ai.chat (text/JSON/image judging), sdk.files.upload (photos), sdk.messages/share (notify/invite). Identity is server-stamped — never trust client-supplied user ids. The full SDK reference and worked examples are in the SDK reference + recipes below; follow them exactly.
-2. OWN NEON DB (only when the spec lists relational "Data collections" that the primitives can't express): use the Neon MCP to create a project, run the CREATE TABLE DDL matching the collections (an \`id\` text PK + the listed fields + a \`created_at\`), and take the POOLED connection string. Read/write via \`db\` from lib/db.ts in app/api/*/route.ts, and authenticate every route with verifyUser() from lib/auth.ts using the caller's \`Authorization: Bearer\` token (from sdk.auth.getToken()) — stamp identity from the token, never the request body.
-
-## Capabilities
-The manifest declares capabilities that gate SDK surface: "payments" → payUSDC/pot; "ai" → ai.chat (slow, ~25/user/day — always show a loading state); "social" → messages.send. Only use a gated API if the spec's capabilities include it.
-
-## Design — it's a toy, not a tool ("Toybox")
-- ONE screen, playable/usable instantly. No routing, no multi-page flows.
-- Playful and self-contained. NEVER show build logs, file names, terminals, code, or any "AI"/"agent"/"compiler" language in the UI.
-- Render ALL user-supplied text as plain text (never dangerouslySetInnerHTML).
-- Defensively parse sdk.ai.chat output (it can return junk) — always have a fallback.
-- Degrade gracefully when sdk.standalone is true (opened outside the host).
-- No external asset fetches (no CDN images/fonts/audio); emoji + inline SVG/canvas + user uploads only.
-
-## Generated assets (image + voice)
-You have build-time asset tools — generate_image (PNG) and generate_voice (WAV). They write into public/ (Next serves it at the site root, so public/hero.png is referenced as <img src="/hero.png">; audio via <audio src="/intro.wav">). Use them to BAKE FIXED art/audio that's the same for everyone — a mascot/sprite, a themed background, an app logo/icon, a short intro jingle or narration — so the jam looks crafted, not emoji-default. Budgets: ${IMAGE_BUDGET} images, ${VOICE_BUDGET} voice clips per build; each call costs real money, so generate only what the design needs and reuse assets. Do NOT use these for per-user content (that would need runtime generation, which jams don't have yet) — for per-user variety, dynamic SFX, or trivial decoration, prefer emoji, CSS gradients, and the procedural WebAudio SFX pattern. If a tool reports unavailable/over-budget, degrade gracefully (emoji/CSS/SFX) — never block the build on it.
-
-## Deploy (you do this yourself)
+// Agent-SDK-specific seams slotted into the shared system preamble. These name the
+// REAL tools this driver hands the agent (Bash + the Vercel CLI + the Neon MCP) and
+// spell out the Vercel-CLI deploy + the /report-callback reporting mechanics — none
+// of which the new AI-SDK harness shares, so they live HERE, not in build-prompt.ts.
+const AGENT_SEAMS: DriverSeams = {
+  toolsIntro: "(Bash, the `vercel` CLI, and the Neon MCP)",
+  deploy: `## Deploy (you do this yourself)
 From the working directory run the Vercel CLI. Use the project name given in the task (so the platform can manage/tear it down).
 - Zero-backend: \`vercel deploy --yes --prod\`
 - Data app: \`vercel deploy --yes --prod --env DATABASE_URL=<pooled-dsn> --build-env DATABASE_URL=<pooled-dsn>\`
-The public production URL is https://<project>.vercel.app. Verify the deploy succeeded before reporting done.
-
-## Onchain games (ONLY when the spec's skills include "onchain")
-The workspace has a \`contracts/\` Foundry project (self-contained — no OpenZeppelin / installs). The flow:
-1. Edit \`contracts/src/Game.sol\` (keep the contract name \`Game\`) to fit the game. RULES: keep it operator-gated — every state-changing fn is \`onlyOperator\` and takes \`address player\` as its FIRST argument (the platform stamps the real player; the app passes only the trailing args). \`constructor(address operator_)\` sets the operator. Reads are open \`view\` fns. Stay dependency-free (write any token/NFT logic inline; do NOT import). See the onchain recipe for worked coinflip/dice/tic-tac-toe/token/NFT contracts.
-2. Deploy: \`bash contracts/deploy.sh\` — it compiles + deploys to Arc and prints \`{"address":"0x…","abi":[…]}\` as one JSON line (env ARC_DEPLOYER_KEY + ARC_OPERATOR_ADDRESS are set on the box).
-3. Create \`lib/contract.ts\` exporting \`CONTRACT_ADDRESS\` + \`CONTRACT_ABI\` (handy reference; the app reaches the chain through the SDK, not viem).
-4. Play via the SDK — GASLESS, server-relayed: \`await sdk.onchain.write({ fn: "move", args: [...] })\` → \`{hash}\` (player auto-stamped; NEVER pass an address as the first arg) and \`await sdk.onchain.read({ fn: "stateOf", args: [addr] })\` (view; big numbers return as decimal strings — \`BigInt(x)\`). Gate value-ish actions on \`ctx.user.worldVerified\`.
-
-## Reporting
+The public production URL is https://<project>.vercel.app. Verify the deploy succeeded before reporting done.`,
+  reporting: `## Reporting
 You MUST stream progress and exactly ONE terminal result via the callback in the task. The build is only recorded when you POST \`done\` (with the live URL + the projects you created) or \`failed\`.
 Report OFTEN — the user is staring at a live status feed and silence reads as "stuck". POST a short, human, present-tense status \`label\` at EVERY meaningful step, and never go more than ~20s of work without one. Make labels specific to THIS game, not generic ("drawing the dragon sprite", "wiring the high-score board", "deploying to the web") — not "building the app" over and over. A typical build emits 6–12 status updates before the terminal report. Send one as soon as you start, before any slow tool call (asset generation, DB setup, vercel deploy), and after it finishes.
-For an onchain game, include the deployed \`contractAddress\` + \`contractAbi\` in the \`done\` payload (write the JSON body to a file and \`curl … -d @done.json\` — the ABI is too big for an inline \`-d\` string) so the platform wires sdk.onchain to your contract.
-
-Below: the authoritative SuperJam SDK reference, then the archetype recipes that match this spec — imitate the closest one.`;
-
-const renderAttachments = (urls?: string[]): string => {
-  if (!urls?.length) return "";
-  return `\n## Reference attachments (user-provided)
-The user attached ${urls.length} file(s) as context — fetch and inspect each before
-building (they're presigned, time-limited URLs; images are mockups/inspiration,
-CSV/Excel/PDF are data/specs to honor). Use \`curl -sL "<url>" -o <file>\` then read:
-${urls.map((u, i) => `  ${i + 1}. ${u}`).join("\n")}
-`;
+For an onchain game, include the deployed \`contractAddress\` + \`contractAbi\` in the \`done\` payload (write the JSON body to a file and \`curl … -d @done.json\` — the ABI is too big for an inline \`-d\` string) so the platform wires sdk.onchain to your contract.`,
 };
 
-const buildPrompt = (args: AgentBuildArgs): string => {
-  const project = `superjam-${args.appId}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 90);
+/** Deterministic Vercel project name from the appId (so the platform can manage it). */
+const projectName = (appId: string): string =>
+  `superjam-${appId}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 90);
+
+// The Agent-SDK-specific tail appended to the shared task body: the /report curl
+// callback instructions (progress + terminal done/failed), keyed by THIS build's
+// loopback url + per-build report token. The shared body says WHAT to build; this
+// says HOW this harness reports it. Leads with a blank line so it joins the body
+// exactly as the original single template did.
+const reportTail = (args: AgentBuildArgs, project: string): string => {
   const url = `http://127.0.0.1:${args.port}/builds/${args.buildId}/report`;
-  return `Build and deploy this jam, then report the result.
-
-Use the Vercel project name "${project}" (so the platform can manage it).
-
-${renderSpec(args.spec)}
-${renderAttachments(args.attachmentUrls)}
+  return `
 
 ## Reporting (REQUIRED) — POST to the callback as you go, and once at the end:
 Progress (call OFTEN — at every step, never >~20s of silence; use a specific, present-tense label for THIS game, e.g. "designing the screen", "drawing the sprite", "wiring the leaderboard", "deploying to the web"):
@@ -285,19 +216,20 @@ export const runAgentBuild = async (args: AgentBuildArgs): Promise<void> => {
       })
     );
 
-    // Ground the agent in the repo's source-of-truth: the curated preamble, the
-    // real SDK reference, and the archetype recipes matched to this spec.
-    const [doc, recipes] = await Promise.all([sdkDoc(), loadRecipes(args.spec)]);
-    const append = [
-      SYSTEM,
-      doc && `\n\n# SuperJam SDK reference (authoritative)\n\n${doc}`,
-      recipes && `\n\n# Archetype recipes — imitate the closest match\n\n${recipes}`,
-    ]
-      .filter(Boolean)
-      .join("");
+    // Ground the agent in the repo's source-of-truth via the shared build-prompt
+    // helper (curated preamble + the real SDK reference + spec-matched recipes),
+    // with THIS driver's Vercel-CLI deploy + /report mechanics slotted into the
+    // seams. The shared helper is the single source of truth; only the harness-
+    // specific tail differs from the AI-SDK driver.
+    const project = projectName(args.appId);
+    const append = await buildSystemPrompt(args.spec, AGENT_SEAMS);
 
     const run = query({
-      prompt: buildPrompt(args),
+      prompt: buildTaskPrompt(args.spec, {
+        project,
+        attachmentUrls: args.attachmentUrls,
+        tail: reportTail(args, project),
+      }),
       options: {
         cwd: ws,
         systemPrompt: { type: "preset", preset: "claude_code", append },

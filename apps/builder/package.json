@@ -7,13 +7,16 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "catalog:",
     "@anthropic-ai/claude-agent-sdk": "0.3.179",
     "@superjam/builder": "workspace:*",
     "@superjam/logger": "workspace:*",
     "@superjam/onchain": "workspace:*",
     "@superjam/shared": "workspace:*",
     "@hono/node-server": "catalog:",
+    "ai": "catalog:",
     "hono": "catalog:",
+    "just-bash": "^3.0.2",
     "zod": "catalog:"
   },
   "devDependencies": {

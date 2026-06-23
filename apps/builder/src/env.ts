@@ -25,6 +25,22 @@ const builderEnvSchema = z.object({
     .url()
     .default("https://superjam.fun/.well-known/jwks.json"),
   MAX_CONCURRENT_BUILDS: z.coerce.number().int().positive().default(2),
+  // Build DRIVER: "agent" = the free-roaming Claude Agent SDK (subscription `claude`
+  // CLI on the box); "harness" = the in-process AI-SDK tool loop (harness-build.ts).
+  // Default "agent" so the live box keeps its proven path until the harness is flipped
+  // on. The harness needs ANTHROPIC_API_KEY — absent, server.ts falls back to "agent".
+  BUILD_DRIVER: z.enum(["agent", "harness"]).default("agent"),
+  // Build BACKEND (harness only): "local" = run the toolchain on THIS host (the VPS
+  // already has node/npm/vercel); "sandbox" = an isolated microVM (stub for now).
+  BUILD_BACKEND: z.enum(["local", "sandbox"]).default("local"),
+  // Anthropic API key for the harness driver's coding model — OPTIONAL: only needed
+  // when BUILD_DRIVER=harness (the agent path uses subscription `claude` instead).
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  // Harness coding model id (Anthropic API id). Mirrors the agent path's default.
+  HARNESS_MODEL: z.string().min(1).default("claude-sonnet-4-6"),
+  // Google key for the build-time asset tools (image/voice). OPTIONAL — absent, the
+  // build degrades to emoji/CSS/procedural SFX. Read by BOTH drivers.
+  GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
   // Onchain games (§ builder-deploys-contracts) — read by contracts/deploy.sh in
   // the build workspace (the agent's Bash inherits this process env). All
   // OPTIONAL: absent ⇒ only non-onchain jams build; an onchain build fails at the

@@ -11,8 +11,10 @@ import { createLogger } from "@superjam/logger";
 import { serve } from "@hono/node-server";
 import { runAgentBuild } from "./agent-build.ts";
 import { createBuilderApp } from "./app.ts";
+import { makeLocalBackend, makeSandboxBackend } from "./backend/index.ts";
 import { vercelRemove } from "./cli-deploy.ts";
 import { parseBuilderEnv } from "./env.ts";
+import { runHarnessBuild } from "./harness-build.ts";
 import { createBuildRunner } from "./queue.ts";
 import { makeVercelEntryUrlResolver } from "./vercel-alias.ts";
 
@@ -45,17 +47,45 @@ const claudeAuth = async (): Promise<boolean> => {
   return authCache.ok;
 };
 
-// Pure-agentic build: the runner launches the autonomous agent (Bash + the box's
-// inherited Neon/Vercel MCPs), which implements + provisions + deploys the app
-// itself and POSTs progress/result to the loopback /report callback (port below).
+// Pick the build DRIVER. Both seed the same skeleton and report to the same loopback
+// /report callback; they differ only in HOW they fill + ship the app:
+//   agent   — the free-roaming Claude Agent SDK (subscription `claude` on the box).
+//   harness — an in-process AI-SDK tool loop over a pluggable backend (local host /
+//             sandbox), which loops `next build` to green then deploys deterministically.
+// harness needs an Anthropic API key; without one we fall back to the proven agent path.
+const harnessReady = env.BUILD_DRIVER === "harness" && !!env.ANTHROPIC_API_KEY;
+if (env.BUILD_DRIVER === "harness" && !harnessReady) {
+  logger.warn("BUILD_DRIVER=harness but ANTHROPIC_API_KEY is unset — using the agent driver");
+}
+const backendFactory =
+  env.BUILD_BACKEND === "sandbox" ? makeSandboxBackend : makeLocalBackend;
+
+const runBuild: Parameters<typeof createBuildRunner>[0]["runBuild"] = harnessReady
+  ? (a) =>
+      runHarnessBuild(
+        { ...a, port: env.PORT, jwksUrl: env.SUPERJAM_JWKS_URL },
+        {
+          backendFactory,
+          apiKey: env.ANTHROPIC_API_KEY as string,
+          model: env.HARNESS_MODEL,
+          vercelToken: env.VERCEL_TOKEN,
+          neon,
+          googleKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
+        }
+      )
+  : (a) => runAgentBuild({ ...a, port: env.PORT, jwksUrl: env.SUPERJAM_JWKS_URL });
+
 const runner = createBuildRunner({
-  runBuild: (a) =>
-    runAgentBuild({ ...a, port: env.PORT, jwksUrl: env.SUPERJAM_JWKS_URL }),
+  runBuild,
   maxConcurrent: env.MAX_CONCURRENT_BUILDS,
-  // Record the REAL Vercel production alias — the agent reports a guessed URL
-  // that 404s for long project names (Vercel truncates the auto-alias).
+  // Record the REAL Vercel production alias — the reported URL is a guess that
+  // 404s for long project names (Vercel truncates the auto-alias).
   resolveEntryUrl: makeVercelEntryUrlResolver(env.VERCEL_TOKEN),
 });
+logger.info(
+  { driver: harnessReady ? "harness" : "agent", backend: env.BUILD_BACKEND },
+  "build driver selected"
+);
 
 const app = createBuilderApp({
   token: env.BUILDER_TOKEN,
