@@ -12,13 +12,13 @@ import { z } from "zod";
 import { requireApp } from "../lib/app-context.ts";
 import { isUniqueViolation } from "../lib/db-errors.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
-import { worldVerifiedProcedure } from "../orpc.ts";
+import { protectedProcedure } from "../orpc.ts";
 
 const { app, publishPayment } = schema;
 const TxHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid tx hash");
 
 export const publishRouter = {
-  submit: worldVerifiedProcedure
+  submit: protectedProcedure
     .input(z.object({ appId: AppId, txHash: TxHash }))
     .handler(async ({ context, input }) => {
       const row = await requireApp(context.db, input.appId);

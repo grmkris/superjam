@@ -2,7 +2,7 @@
 
 // Profile (DESIGN_BRIEF §3f) — behind the @kris ▾ chip. Identity (@name), the
 // Dynamic wallet block (address + USDC balance as the hero number), and your
-// registered builders. USDC only — no gas / network / token lists.
+// jams. USDC only — no gas / network / token lists.
 import type { AppId, BuildDraftId } from "@superjam/shared";
 import { useLogout } from "@dynamic-labs-sdk/react-hooks";
 import { useRouter } from "next/navigation";
@@ -17,11 +17,6 @@ import { useHostAuth } from "../../lib/use-host-auth";
 interface Me {
   username: string;
   walletAddress: string | null;
-}
-interface Builder {
-  id: string;
-  name: string;
-  buildsCount: number;
 }
 /** A paused wizard draft (pending build) — resumable from where it stopped. */
 interface Draft {
@@ -53,7 +48,6 @@ export default function ProfilePage() {
   const { mutate: logOut } = useLogout();
 
   const [me, setMe] = useState<Me | null>(null);
-  const [builders, setBuilders] = useState<Builder[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [jams, setJams] = useState<Jam[]>([]);
 
@@ -78,14 +72,6 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!isLoggedIn) return;
     loadMe();
-    client.agents
-      .mine()
-      .then((rows) =>
-        setBuilders(
-          rows.map((a) => ({ id: a.id, name: a.name, buildsCount: a.buildsCount }))
-        )
-      )
-      .catch(() => {});
     client.builds
       .listDrafts()
       .then((d) =>
@@ -222,36 +208,6 @@ export default function ProfilePage() {
             })}
         </div>
       )}
-
-      {/* registered builders */}
-      <div className="flex flex-col gap-2 stagger">
-        <div className="flex items-baseline">
-          <div className="text-small font-extrabold uppercase tracking-wide text-muted">
-            your builders
-          </div>
-          <span className="ml-auto text-small font-bold text-muted">{builders.length}</span>
-        </div>
-        {builders.length === 0 ? (
-          <button
-            onClick={() => router.push("/agents/register")}
-            className="focus-ring self-start text-small font-bold text-blue"
-          >
-            register one →
-          </button>
-        ) : (
-          builders.map((b) => (
-            <StickerCard key={b.id} className="p-3.5 flex items-center gap-3">
-              <EmojiToken emoji="🛠️" color="blue" size={40} rounded="toy" />
-              <div className="flex flex-col min-w-0">
-                <div className="font-extrabold text-body truncate">{b.name}</div>
-                <div className="text-small font-semibold text-muted">
-                  {b.buildsCount.toLocaleString()} jams built
-                </div>
-              </div>
-            </StickerCard>
-          ))
-        )}
-      </div>
 
       <StickerButton
         color="cream"

@@ -1,15 +1,14 @@
 #!/usr/bin/env bun
-// Create builder agent(s) the SAME way the website register does — via the shared
-// `createBuilderAgent` (clash → insert row → provision ENS + ERC-8004 + StakeSlash
-// stake + AgentBook detect). DB-direct (the box has DB access), so no auth gate.
-// This is the platform's fleet seeder AND the engine a Claude Code skill wraps.
+// Seed the house builder row (DB-direct — the box has DB access, no auth gate) via
+// the shared `createBuilderAgent`. Builds auto-route to whatever active builder
+// exists (selectEligibleBuilder), so the platform just needs ONE active row. Onchain
+// identity provisioning (ENS / ERC-8004 / stake) is a no-op here — the agentIdentity
+// seam is the null impl, matching the runtime createContext default.
 //
-//   DEV_DB_URL=<url> bun packages/api/scripts/create-agent.ts            # seed the fleet
-//   (reads ENS_V2_* / STAKE_SLASH_ADDRESS / ERC8004_REGISTRY / SEPOLIA/ARC RPC from .env)
+//   DEV_DB_URL=<url> bun packages/api/scripts/create-agent.ts            # seed the house builder
 import { createDb, schema } from "@superjam/db";
-import { createOnchainFromConfig, nullOnchain } from "@superjam/onchain";
 import { eq } from "drizzle-orm";
-import { createAgentIdentity } from "../src/lib/agent-identity-impl.ts";
+import { nullAgentIdentity } from "../src/lib/agent-identity.ts";
 import { createBuilderAgent, refreshAgentIdentity } from "../src/routers/agents.ts";
 
 const DEV_DB_URL = process.env.DEV_DB_URL;
@@ -22,35 +21,18 @@ if (!DEV_DB_URL) {
 // stake) instead of skipping them. Idempotent — nothing double-mints.
 const REFRESH = process.argv.includes("--refresh");
 
-// The platform fleet — 3 differentiated human-backed builder agents. Each wallet
-// is a distinct Dynamic MPC wallet (provisioned separately). Capabilities gate
-// routing (selectEligibleBuilder); model is forwarded to the builder per build.
+// The single house builder. Dispatch isn't capability-gated and the coding model is
+// chosen on the builder box (not per-row), so one row is all the platform needs —
+// builds.create auto-routes to it. `model` is omitted (cosmetic, no longer surfaced).
 const BUILDER_URL = process.env.BUILDER_URL ?? "https://sjbuilder.37.60.232.68.sslip.io";
 const BUILDER_TOKEN = process.env.BUILDER_TOKEN ?? "house";
 const FLEET = [
   {
-    slug: "pro",
-    name: "SuperJam Pro",
-    model: "claude-opus-4-8",
-    priceUsdc: "0.05",
-    capabilities: ["frontend", "contracts:evm", "database:neon", "hosting:vercel", "ai"],
-    walletAddress: "0x04159e595fb7A0D93b387c76ABDDD49A29adfB0a",
-  },
-  {
-    slug: "standard",
-    name: "SuperJam Standard",
-    model: "claude-opus-4-8",
-    priceUsdc: "0.02",
-    capabilities: ["frontend", "database:neon", "hosting:vercel", "ai"],
-    walletAddress: "0x153a0B1fF2b885Bf11f55C7cAb6ca054D4A0a5fa",
-  },
-  {
-    slug: "lite",
-    name: "SuperJam Lite",
-    model: "claude-sonnet-4-6",
-    priceUsdc: "0.01",
-    capabilities: ["frontend", "hosting:vercel"],
-    walletAddress: "0x4e79f7c6b858a2753cA6D2402a0CDa68ACCb2Fc3",
+    slug: "superjam",
+    name: "SuperJam",
+    priceUsdc: "0",
+    capabilities: ["frontend", "database:neon", "hosting:vercel", "contracts:evm", "ai"],
+    walletAddress: "0x56592bA38D41370Fc0ebb43a02274709084c9904",
   },
 ] as const;
 
@@ -82,32 +64,15 @@ const fromEnv = () => {
   ];
 };
 
-// Either ONE agent from the env (skill mode) or the whole platform fleet.
+// Either ONE agent from the env (skill mode) or the house builder.
 const AGENTS: readonly {
   slug: string;
   name: string;
-  model: string;
+  model?: string;
   priceUsdc: string;
   capabilities: readonly string[];
   walletAddress: string;
 }[] = fromEnv() ?? FLEET;
-
-const onchain =
-  createOnchainFromConfig({
-    serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
-    arcRpcUrl: process.env.ARC_RPC_URL,
-    sepoliaRpcUrl: process.env.SEPOLIA_RPC_URL,
-    ensV2: process.env.ENS_V2_REGISTRY
-      ? { registry: process.env.ENS_V2_REGISTRY as `0x${string}` }
-      : undefined,
-    ensV2SignerKey: process.env.ENS_V2_SIGNER_KEY,
-    erc8004: process.env.ERC8004_REGISTRY
-      ? { identityRegistry: process.env.ERC8004_REGISTRY as `0x${string}` }
-      : undefined,
-    worldchainRpcUrl: process.env.WORLDCHAIN_RPC_URL,
-    agentBookAddress: process.env.AGENTBOOK_ADDRESS,
-  }) ?? nullOnchain;
-console.log(`onchain: ${onchain === nullOnchain ? "NULL (identity skipped)" : "live (ENS+8004)"}`);
 
 const logger = {
   warn: (o: unknown, m: string) => console.log("[warn]", m, o),
@@ -151,7 +116,7 @@ for (const a of AGENTS) {
     }
     console.log(`\n=== refresh ${a.name} (${a.slug}) ===`);
     const updated = await refreshAgentIdentity(
-      { db, agentIdentity: createAgentIdentity(onchain), logger },
+      { db, agentIdentity: nullAgentIdentity, logger },
       existing,
       { username: owner!.username, walletAddress: owner!.walletAddress }
     );
@@ -160,10 +125,10 @@ for (const a of AGENTS) {
     console.log(`  staked:  ${updated.stakedUsdc ?? "(skipped)"} USDC`);
     continue;
   }
-  console.log(`\n=== ${a.name} (${a.slug}, ${a.model}, ${a.priceUsdc} USDC) ===`);
+  console.log(`\n=== ${a.name} (${a.slug}, ${a.priceUsdc} USDC) ===`);
   try {
     const agent = await createBuilderAgent(
-      { db, agentIdentity: createAgentIdentity(onchain), logger },
+      { db, agentIdentity: nullAgentIdentity, logger },
       {
         name: a.name,
         slug: a.slug,

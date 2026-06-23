@@ -10,7 +10,6 @@ import { requireApp } from "../lib/app-context.ts";
 import {
   protectedProcedure,
   publicProcedure,
-  worldVerifiedProcedure,
 } from "../orpc.ts";
 import { createReviewService } from "../services/review-service.ts";
 
@@ -21,7 +20,7 @@ export const reviewsRouter = {
       createReviewService({ db: context.db }).list(input.appId, input.cursor)
     ),
 
-  upsert: worldVerifiedProcedure
+  upsert: protectedProcedure
     .input(
       z.object({
         appId: AppId,

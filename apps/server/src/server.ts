@@ -12,7 +12,6 @@ import {
   createDynamicVerifier,
   createOnchainFromConfig,
   createRateLimiter,
-  createWorldVerifier,
   nullOnchain,
   resolveUserFromPat,
 } from "@superjam/api";
@@ -112,16 +111,6 @@ const onchain =
     worldchainRpcUrl: env.WORLDCHAIN_RPC_URL,
     agentBookAddress: env.AGENTBOOK_ADDRESS,
   }) ?? nullOnchain;
-// World ID 4.0 backend verifier (§14) — the human gate behind publish/reviews/
-// register-builder. Keyless (rpContext/verify reject) unless app_id + rp_id +
-// signing key are all set. WORLD_ENVIRONMENT=staging runs against the simulator.
-const world = createWorldVerifier({
-  appId: env.WORLD_APP_ID,
-  rpId: env.WORLD_RP_ID,
-  signingKeyHex: env.WORLD_RP_SIGNING_KEY,
-  action: env.WORLD_ACTION,
-  environment: env.WORLD_ENVIRONMENT,
-});
 const treasuryAddress = env.TREASURY_ADDRESS as `0x${string}` | undefined;
 // AI pot-resolution oracle (§9) — only when a Gemini key is present; else
 // nullOracle (creators resolve with an explicit outcome).
@@ -319,7 +308,6 @@ const makeContext = (headers: Headers): ApiContext =>
     issuer,
     onchain,
     oracle,
-    world,
     objectStore,
     treasuryAddress,
     delegatedSigner,

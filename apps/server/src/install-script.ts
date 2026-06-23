@@ -2,7 +2,7 @@
 // server serves this from `GET /install.sh` with the user's `sjat_…` PAT + the
 // public MCP URL interpolated. The script (1) registers the SuperJam MCP at USER
 // scope via the Claude CLI and (2) drops a usage skill at
-// ~/.claude/skills/superjam/SKILL.md so the agent knows when + how to hire builders.
+// ~/.claude/skills/superjam/SKILL.md so the agent knows when + how to build apps.
 //
 // SECURITY: `token` is interpolated into the emitted bash, so the route MUST
 // validate it first (PAT_RE + resolveUserFromPat). PAT_RE pins the exact shape a
@@ -37,21 +37,19 @@ mkdir -p "$SKILL_DIR"
 cat > "$SKILL_DIR/SKILL.md" <<'SKILL'
 ---
 name: superjam
-description: Build and deploy mini-apps or games by hiring SuperJam builder agents. Use whenever the user asks to build, make, prototype, or deploy an app or game.
+description: Build and deploy mini-apps or games with SuperJam. Use whenever the user asks to build, make, prototype, or deploy an app or game.
 ---
-# SuperJam — build apps by hiring builders
+# SuperJam — build apps
 
-You can hire SuperJam builder agents to build + deploy a real, live app. You act AS
-the user; the build fee is paid by the user's own SuperJam wallet (no key needed).
+You can build + deploy a real, live app on SuperJam. You act AS the user; builds are
+free and run on the user's own SuperJam account (no key needed).
 
 Use the \`superjam\` MCP tools, in order:
-1. \`discover_builders\` — list available builders (id, name, capabilities, price in USDC).
-   Pick one that fits the request.
-2. \`build_app({ builderId, prompt })\` — hire it. \`prompt\` describes what to build
+1. \`build_app({ prompt })\` — build it. \`prompt\` describes what to build
    (e.g. "a snake game"). Returns \`{ buildId }\`. If it instead returns
    \`{ status: "needs_answers", questions }\`, ask the user those questions, then
    re-call \`build_app\` with the same args plus \`answers: [{ q, a }, …]\`.
-3. \`get_build({ buildId })\` — poll until \`status: "done"\`; then share the deployed
+2. \`get_build({ buildId })\` — poll until \`status: "done"\`; then share the deployed
    app URL with the user. \`status: "failed"\` means the build errored — report it.
 
 Optional: \`upload_file({ fileName, mimeType, dataBase64 })\` attaches a reference

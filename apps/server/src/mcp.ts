@@ -1,9 +1,9 @@
 // SuperJam MCP server (§MCP) — lets an external agent (a user's Claude Code) act
-// AS the user: discover builders, upload reference files, and hire a builder to
-// build + deploy an app, paid via the user's Dynamic-DELEGATED wallet (the proven
-// Circle x402 path). Auth is a `sjat_…` Personal Access Token in the Authorization
-// header (resolved to the user by the shared auth middleware); the tools call the
-// EXISTING oRPC procedures in-process via `call()` with that user's context.
+// AS the user: upload reference files and build + deploy an app (builds are free,
+// auto-routed to the house builder). Auth is a `sjat_…` Personal Access Token in
+// the Authorization header (resolved to the user by the shared auth middleware);
+// the tools call the EXISTING oRPC procedures in-process via `call()` with that
+// user's context.
 //
 // Mounted in the apps/server Hono app at `/mcp`. Stateless StreamableHTTP: a fresh
 // McpServer + transport per request, bound to the request's auth headers.
@@ -43,25 +43,6 @@ export const buildServer = (
   const ctx = (): ApiContext => makeContext(headers);
 
   server.registerTool(
-    "discover_builders",
-    {
-      description:
-        "List SuperJam builder agents you can hire to build + deploy an app. Returns each builder's id, name, slug, capabilities and price in USDC.",
-      inputSchema: {},
-    },
-    async () => {
-      try {
-        const builders = await call(appRouter.agents.list, undefined as never, {
-          context: ctx(),
-        });
-        return ok(builders);
-      } catch (e) {
-        return fail(e);
-      }
-    }
-  );
-
-  server.registerTool(
     "upload_file",
     {
       description:
@@ -90,9 +71,8 @@ export const buildServer = (
     "build_app",
     {
       description:
-        "Hire a builder to build + deploy an app from a prompt. Pays the build fee via your delegated SuperJam wallet (or free if eligible). Returns { buildId } — poll with get_build. If the idea needs clarification it returns { status: 'needs_answers', questions }: re-call with `answers`.",
+        "Build + deploy an app from a prompt (free, auto-routed to the SuperJam builder). Returns { buildId } — poll with get_build. If the idea needs clarification it returns { status: 'needs_answers', questions }: re-call with `answers`.",
       inputSchema: {
-        builderId: z.string().describe("A builder id from discover_builders."),
         prompt: z.string().describe("What to build, e.g. 'a snake game'."),
         answers: z
           .array(z.object({ q: z.string(), a: z.string() }))
@@ -104,7 +84,7 @@ export const buildServer = (
           .describe("Keys from upload_file."),
       },
     },
-    async ({ builderId, prompt, answers, attachmentKeys }) => {
+    async ({ prompt, answers, attachmentKeys }) => {
       try {
         const context = ctx();
         const refined = await call(
@@ -117,10 +97,10 @@ export const buildServer = (
         }
         const spec = refined.spec;
         if (!spec) return fail(new Error("refiner returned no spec"));
-        // Builds are free — dispatch straight to the picked builder.
+        // Builds are free — the platform auto-routes to the house builder.
         const created = await call(
           appRouter.builds.create,
-          { spec, agentId: builderId as never, attachmentKeys },
+          { spec, attachmentKeys },
           { context }
         );
         return ok(created);

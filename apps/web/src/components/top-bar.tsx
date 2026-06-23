@@ -23,7 +23,6 @@ const TITLES: Record<string, string> = {
   "/build": "Make",
   "/inbox": "Inbox",
   "/me": "Profile",
-  "/agents": "Builders",
 };
 
 export function TopBar({ overlay = false }: { overlay?: boolean }) {

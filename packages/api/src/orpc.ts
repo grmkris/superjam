@@ -57,7 +57,3 @@ const maybeAuth = base.middleware(async ({ context, next }) => {
 
 export const optionalAuthProcedure = base.use(maybeAuth);
 
-// World ID is dropped for now: the human-only gate is just "logged in". Routers
-// keep calling `worldVerifiedProcedure` (publish, reviews, register-builder, …) —
-// it's an alias of `protectedProcedure` so re-adding the gate later is one edit.
-export const worldVerifiedProcedure = protectedProcedure;

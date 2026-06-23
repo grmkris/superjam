@@ -1,10 +1,11 @@
 "use client";
 
 // Make — idea → jam (DESIGN_BRIEF §3c). A sequence of beats, never a labelled
-// wizard: idea → follow-ups → plan → choose builder → workshop → reveal.
+// wizard: idea → follow-ups → plan → workshop → reveal. The platform auto-routes
+// the build to the house builder, so there's no builder-pick beat.
 // Machinery hidden throughout: no build logs, file names, terminals, or
 // "AI/agent" talk anywhere a user can see.
-import type { AppSpec, BuildDraftId, BuildId, BuilderAgentId, RefineResult, Similar } from "@superjam/shared";
+import type { AppSpec, BuildDraftId, BuildId, RefineResult, Similar } from "@superjam/shared";
 import { ATTACH_MAX_MB, BUILD_ATTACH_MAX } from "@superjam/shared";
 import { useLogin } from "../../components/login";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -14,17 +15,11 @@ import { Badge } from "../../components/ui/badge";
 import { Input, Textarea } from "../../components/ui/field";
 import { MicButton } from "../../components/ui/mic-button";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
-import {
-  CapChips,
-  MakerLine,
-  TierChip,
-  builderEmoji,
-} from "../../components/builder-bits";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { useBuildDraft } from "../../lib/use-build-draft";
 
-type Step = "home" | "followups" | "plan" | "builder" | "workshop" | "reveal";
+type Step = "home" | "followups" | "plan" | "workshop" | "reveal";
 
 /** An uploaded reference attachment (image or doc) for the build prompt. */
 interface Attachment {
@@ -56,22 +51,6 @@ const fileToDataUrl = (file: File): Promise<string> =>
     r.readAsDataURL(file);
   });
 
-interface Builder {
-  id: string;
-  name: string;
-  model: string | null;
-  capabilities: string[];
-  priceUsdc: string;
-  buildsCount: number;
-  /** The maker — every builder is an AI agent run by a person. */
-  owner: { username: string };
-}
-
-/** The picked builder, carried into builds.create. Builds are free. */
-interface Chosen {
-  agentId: string;
-}
-
 export default function MakePage() {
   return (
     <Suspense fallback={null}>
@@ -98,13 +77,8 @@ function MakeFlow() {
   const [comments, setComments] = useState<string[]>([]);
   const [spec, setSpec] = useState<AppSpec | null>(null);
   const [similar, setSimilar] = useState<Similar[]>([]);
-  const [builders, setBuilders] = useState<Builder[] | null>(null);
   const [exchange, setExchange] = useState<{ you: string; back: string }[]>([]);
   const [buildId, setBuildId] = useState<string | null>(null);
-  // The builder the user picked + the build-fee outcome (x402 settlement hash, or
-  // null for a free build) — threaded into builds.create so it routes to that
-  // builder and skips the legacy EIP-3009 receipt check.
-  const [chosen, setChosen] = useState<Chosen | null>(null);
   const [revealSlug, setRevealSlug] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -120,7 +94,10 @@ function MakeFlow() {
   // The current step is DERIVED from the URL — no state, no URL↔state sync effect
   // (react.dev "You Might Not Need an Effect"). Transitions navigate via go(), which
   // also carries the draft id + remix so a reload/back/forward resumes the right step.
-  const step = (search.get("step") as Step | null) ?? "home";
+  // Legacy drafts may carry the removed "builder" step — collapse it to the plan
+  // so resuming one lands on a real beat (the user re-taps "Make it!").
+  const urlStep = search.get("step");
+  const step: Step = urlStep === "builder" ? "plan" : ((urlStep as Step | null) ?? "home");
   const go = useCallback(
     (next: Step) => {
       const params = new URLSearchParams();
@@ -155,7 +132,6 @@ function MakeFlow() {
         if (s.comments?.length) setComments(s.comments);
         if (s.exchange?.length) setExchange(s.exchange);
         if (s.similar?.length) setSimilar(s.similar);
-        if (s.chosen) setChosen(s.chosen as Chosen);
         if (s.attachments?.length) setAttachments(s.attachments as Attachment[]);
         if (s.revealSlug) setRevealSlug(s.revealSlug);
         if (snap.buildId) setBuildId(snap.buildId);
@@ -194,13 +170,13 @@ function MakeFlow() {
       step,
       prompt: idea,
       spec,
-      state: { questions, picks, comments, exchange, similar, chosen, attachments, revealSlug },
+      state: { questions, picks, comments, exchange, similar, attachments, revealSlug },
       buildId,
     });
     // `persist` is included so the login transition (it captures isLoggedIn) re-fires
     // the save → a draft started signed-out is ADOPTED to the account after sign-in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persist, hydrated, step, idea, spec, questions, picks, comments, exchange, similar, chosen, attachments, buildId, revealSlug]);
+  }, [persist, hydrated, step, idea, spec, questions, picks, comments, exchange, similar, attachments, buildId, revealSlug]);
 
   // Other PENDING drafts (for the "pick up where you left off" banner on home).
   const [otherDrafts, setOtherDrafts] = useState<
@@ -375,55 +351,16 @@ function MakeFlow() {
     }
   };
 
-  // Fetch the marketplace builders. Stable so the effect below can depend on it.
-  const loadBuilders = useCallback(async () => {
-    try {
-      const rows = await client.agents.list();
-      setBuilders(
-        rows.map((a) => ({
-          id: a.id,
-          name: a.name,
-          model: a.model,
-          capabilities: a.capabilities ?? [],
-          priceUsdc: a.priceUsdc,
-          buildsCount: a.buildsCount,
-          owner: a.owner,
-        }))
-      );
-    } catch {
-      setBuilders([]);
-    }
-  }, [client]);
-
-  // The builder list is NOT persisted in the draft, so load it on EVERY arrival at
-  // the builder step — forward nav, a reload, resuming a paused draft, or coming
-  // back from a builder's /agents/[id] profile (which unmounts this page). Without
-  // this, those re-entries left `builders` null forever → the skeleton cards never
-  // resolve (the "empty / white" builder step). Self-limits: once non-null it stops.
-  useEffect(() => {
-    if (step === "builder" && builders === null) void loadBuilders();
-  }, [step, builders, loadBuilders]);
-
-  const goBuilders = () => go("builder");
-
-  const pickBuilder = async (b: Builder) => {
-    // Builds are free — pick the builder and go straight to the build.
-    const pick: Chosen = { agentId: b.id };
-    setChosen(pick);
-    startBuild(pick);
-  };
-
-  const startBuild = async (pick?: Chosen) => {
-    const c = pick ?? chosen;
+  const startBuild = async () => {
     go("workshop");
     try {
       // Fire the real build; the workshop then polls builds.status for progress.
+      // No builder pick — the platform auto-routes to the house builder.
       const res = await client.builds.create({
         spec: spec!,
         prompt: idea,
         attachmentKeys,
         draftId: draftId as BuildDraftId,
-        ...(c?.agentId ? { agentId: c.agentId as BuilderAgentId } : {}),
       });
       setBuildId(res.buildId);
     } catch {
@@ -477,15 +414,7 @@ function MakeFlow() {
           exchange={exchange}
           busy={busy}
           onAdjust={adjust}
-          onMake={goBuilders}
-        />
-      )}
-
-      {step === "builder" && (
-        <BuilderBeat
-          builders={builders}
-          onPick={pickBuilder}
-          onInfo={(id) => router.push(`/agents/${id}?from=build&d=${draftId}`)}
+          onMake={startBuild}
         />
       )}
 
@@ -1004,93 +933,6 @@ function PlanBeat({
   );
 }
 
-function BuilderBeat({
-  builders,
-  onPick,
-  onInfo,
-}: {
-  builders: Builder[] | null;
-  onPick: (b: Builder) => void;
-  onInfo: (id: string) => void;
-}) {
-  return (
-    <>
-      <div className="flex flex-col gap-0.5">
-        <div className="text-h2 font-extrabold">Who makes it?</div>
-        <div className="text-small font-medium text-muted">
-          each is a real AI builder — its own wallet, on-chain identity & a USDC stake on the line
-        </div>
-      </div>
-      {builders === null ? (
-        <div className="flex flex-col gap-3">
-          <div className="h-[150px] bg-card border-2 border-ink rounded-toy-lg animate-pulse" />
-          <div className="h-[150px] bg-card border-2 border-ink rounded-toy-lg animate-pulse" />
-        </div>
-      ) : builders.length === 0 ? (
-        <StickerCard className="p-5 flex flex-col items-center gap-2 text-center">
-          <EmojiToken emoji="🛠️" color="blue" size={48} rounded="toy" />
-          <div className="font-extrabold text-body">no builders around right now</div>
-          <div className="text-small font-semibold text-muted">give it a moment and try again</div>
-        </StickerCard>
-      ) : (
-        <div className="stagger flex flex-col gap-3.5">
-          {builders.map((b) => {
-            const free = Number(b.priceUsdc) === 0;
-            const tv = builderEmoji(b.priceUsdc);
-            return (
-              <StickerCard key={b.id} className="p-4 flex flex-col gap-3">
-                {/* header: identity token + name + tier + rate */}
-                <div className="flex items-start gap-3">
-                  <EmojiToken emoji={tv.emoji} color={tv.color} size={46} rounded="toy" tilt={-4} />
-                  <div className="flex flex-col min-w-0 flex-1 gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-body truncate">{b.name}</span>
-                      <TierChip model={b.model} />
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <MakerLine username={b.owner.username} />
-                      <span className="text-tiny font-semibold text-muted">
-                        · rate {free ? "free" : `${b.priceUsdc} USDC`}
-                      </span>
-                      <Badge color="green" className="border-[1.5px] px-2 text-tiny">
-                        free right now
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                {/* what it can build */}
-                <CapChips capabilities={b.capabilities} />
-                {/* actions */}
-                <div className="flex items-center gap-2 pt-2.5 border-t-2 border-dashed border-ink/15">
-                  <button
-                    onClick={() => onInfo(b.id)}
-                    className="focus-ring inline-flex items-center gap-1.5 text-small font-extrabold text-blue sticker-press"
-                  >
-                    <span className="inline-flex size-5 items-center justify-center rounded-full border-2 border-ink bg-card text-tiny">
-                      ⓘ
-                    </span>
-                    Profile
-                  </button>
-                  <button
-                    onClick={() => onPick(b)}
-                    className={cx(
-                      "focus-ring ml-auto inline-flex items-center gap-1.5 whitespace-nowrap border-2 border-ink rounded-toy px-4 py-2 text-small font-extrabold shadow-sticker-sm sticker-press",
-                      free ? "bg-green text-ink" : "bg-pink text-white"
-                    )}
-                  >
-                    Pick
-                    <span aria-hidden>→</span>
-                  </button>
-                </div>
-              </StickerCard>
-            );
-          })}
-        </div>
-      )}
-    </>
-  );
-}
-
 type StepEvent = { t: number; kind: "tool" | "text" | "error" | "status"; label: string };
 
 /** "+0.0s" / "+3.2s" / "+1m04s" — elapsed since the first step. */
@@ -1105,7 +947,6 @@ function fmtDelta(ms: number): string {
 const STEP_LABEL: Record<string, string> = {
   followups: "Questions",
   plan: "the Plan",
-  builder: "Builder",
   workshop: "Building",
   reveal: "Reveal",
 };

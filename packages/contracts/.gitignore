@@ -1,6 +1,0 @@
-# Foundry build + run artifacts (the committed source of truth is generated/*.abi.ts)
-out/
-cache/
-broadcast/
-# Soldeer deps are reinstalled from foundry.toml [dependencies] (soldeer.lock pins them)
-dependencies/

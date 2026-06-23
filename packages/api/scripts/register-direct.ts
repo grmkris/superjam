@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 // One-off: register a deployed external app directly against a live DB, the same
 // way registerExternal/builds do — createExternalApp(db, input, onchain, logger).
-// Bypasses the worldVerifiedProcedure gate (we have DB access) AND runs the ENS
-// mint locally from this box's .env creds (so it works even though ENS_* aren't
-// set on the Railway server service yet).
+// Bypasses the auth gate (we have DB access) AND runs the ENS mint locally from
+// this box's .env creds (so it works even though ENS_* aren't set on the Railway
+// server service yet).
 //
 //   recon (no writes):  DEV_DB_URL=<url> bun packages/api/scripts/register-direct.ts
 //   register + mint:     DEV_DB_URL=<url> OWNER=<username> RUN=1 bun packages/api/scripts/register-direct.ts

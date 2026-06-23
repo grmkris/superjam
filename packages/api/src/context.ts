@@ -11,7 +11,6 @@ import {
 import type { Address, Hex } from "viem";
 import { type AppTokenIssuer, nullAppTokenIssuer } from "./auth/app-token.ts";
 import type { AuthVerifier } from "./auth/verifier.ts";
-import { type WorldVerifier, nullWorldVerifier } from "./auth/world.ts";
 import { type AgentIdentity, nullAgentIdentity } from "./lib/agent-identity.ts";
 import {
   type AgentReputation,
@@ -43,8 +42,6 @@ export interface ApiContext {
   onchain: Onchain;
   /** AI pot-resolution oracle (§9). Disabled by default. */
   oracle: PotOracle;
-  /** World ID backend verifier (§14, the human gate). Keyless by default. */
-  world: WorldVerifier;
   /** Blob storage for uploads/bundles (§17, S3/Railway bucket). Degraded by default. */
   objectStore: ObjectStore;
   /** Builder-agent onchain identity (ENS subname + ERC-8004, §14/§16). No-op default. */
@@ -69,8 +66,6 @@ export interface CreateContextDeps {
   onchain?: Onchain;
   /** Optional — defaults to the null oracle (AI-resolve unavailable). */
   oracle?: PotOracle;
-  /** Optional — defaults to the keyless World verifier (verify rejects). */
-  world?: WorldVerifier;
   /** Optional — defaults to the degraded object store (uploads/presign reject). */
   objectStore?: ObjectStore;
   /** Optional — defaults to the no-op identity (register skips ENS/8004). */
@@ -93,7 +88,6 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     issuer: deps.issuer ?? nullAppTokenIssuer,
     onchain,
     oracle: deps.oracle ?? nullOracle,
-    world: deps.world ?? nullWorldVerifier,
     objectStore: deps.objectStore ?? nullObjectStore,
     // Onchain agent identity (ENS / ERC-8004) + reputation are dropped for now —
     // agents are plain marketplace rows. The no-op defaults make register/review

@@ -1,63 +1,25 @@
-// Agents router (§14, M8) — the open builder marketplace. Anyone World-verified
-// can register THEIR build agent (the AgentKit primitive: every marketplace
-// agent is bound to a verified human). An agent declares a capability checklist;
-// the platform routes a build only to agents that hold the required caps
-// (findEligibleBuilders, consumed by S's dispatch). On register the agent gets
-// an ENS subname under its owner + an ERC-8004 record via C's onchain seam
-// (best-effort). The builder's auth `token` is write-only — never returned.
+// Builder-agent provisioning + build-dispatch routing. The public marketplace
+// (register / list / profile UI) was removed — builds now auto-route to the
+// single house builder. What remains: the shared `createBuilderAgent` path the
+// fleet seeder script reuses (insert row + best-effort onchain identity), and
+// `selectEligibleBuilder`, the routing primitive the build dispatch calls.
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
 import type { Logger } from "@superjam/logger";
 import {
   type AppSpec,
-  type BuilderCapability,
   BuilderAgentId,
   BuilderCapabilityList,
-  eligibleAgents,
   SLUG_REGEX,
 } from "@superjam/shared";
-import { ORPCError, os } from "@orpc/server";
-import { desc, eq } from "drizzle-orm";
+import { ORPCError } from "@orpc/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
-import type { ApiContext } from "../context.ts";
-import { type AgentIdentity, nullAgentIdentity } from "../lib/agent-identity.ts";
-import { protectedProcedure, publicProcedure, worldVerifiedProcedure } from "../orpc.ts";
+import type { AgentIdentity } from "../lib/agent-identity.ts";
 
-const { builderAgent, user: userTable } = schema;
+const { builderAgent } = schema;
 type User = typeof schema.user.$inferSelect;
 type BuilderAgent = typeof schema.builderAgent.$inferSelect;
-
-// Public projection — everything but the secret `token`.
-export const toAgent = (a: BuilderAgent) => ({
-  id: a.id,
-  ownerUserId: a.ownerUserId,
-  name: a.name,
-  slug: a.slug,
-  endpointUrl: a.endpointUrl,
-  priceUsdc: a.priceUsdc,
-  capabilities: a.capabilities,
-  walletAddress: a.walletAddress,
-  model: a.model,
-  ensName: a.ensName,
-  erc8004Id: a.erc8004Id,
-  stakedUsdc: a.stakedUsdc,
-  stakeTxHash: a.stakeTxHash,
-  agentbookRegistered: a.agentbookRegistered,
-  buildsCount: a.buildsCount,
-  status: a.status,
-  createdAt: a.createdAt,
-});
-
-// Marketplace-card / profile projection: the agent + its human-backer
-// (@username + ✓-human) so the /agents cards + builder profile (§3c-v) can show
-// "backed by a real human ✓ · by @owner" without a second round-trip.
-export const toAgentCard = (
-  a: BuilderAgent,
-  owner: { username: string; worldVerified: boolean }
-) => ({
-  ...toAgent(a),
-  owner: { username: owner.username, worldVerified: owner.worldVerified },
-});
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const USDC_AMOUNT = /^\d+(\.\d{1,6})?$/;
@@ -235,163 +197,6 @@ export const refreshAgentIdentity = async (
     );
     return agent;
   }
-};
-
-// register mints the agent's onchain identity through C's seam. Rather than
-// widen the shared ApiContext, the dependency is declared locally (mirrors the
-// world router) and defaulted to the no-op so register works seam-less in tests.
-const withIdentity = os
-  .$context<ApiContext & { user: User; agentIdentity?: AgentIdentity }>()
-  .middleware(({ context, next }) =>
-    next({
-      context: { agentIdentity: context.agentIdentity ?? nullAgentIdentity },
-    })
-  );
-
-export const agentsRouter = {
-  // Human-backed registration (worldVerified-gated — the AgentKit story).
-  register: worldVerifiedProcedure
-    .use(withIdentity)
-    .input(RegisterInput)
-    .handler(async ({ context, input }) => {
-      const agent = await createBuilderAgent(
-        {
-          db: context.db,
-          agentIdentity: context.agentIdentity,
-          logger: context.logger,
-        },
-        input,
-        {
-          id: context.user.id,
-          username: context.user.username,
-          walletAddress: context.user.walletAddress,
-        }
-      );
-      return toAgent(agent);
-    }),
-
-  // Public marketplace listing — active agents, busiest first, with backer.
-  list: publicProcedure.handler(async ({ context }) => {
-    const rows = await context.db
-      .select({
-        agent: builderAgent,
-        username: userTable.username,
-        worldVerified: userTable.worldVerified,
-      })
-      .from(builderAgent)
-      .innerJoin(userTable, eq(builderAgent.ownerUserId, userTable.id))
-      .where(eq(builderAgent.status, "active"))
-      .orderBy(desc(builderAgent.buildsCount), desc(builderAgent.createdAt));
-    return rows.map((r) =>
-      toAgentCard(r.agent, {
-        username: r.username,
-        worldVerified: r.worldVerified,
-      })
-    );
-  }),
-
-  // Public builder profile (§3c-v) — one agent + its backer, any status.
-  get: publicProcedure
-    .input(z.object({ agentId: BuilderAgentId }))
-    .handler(async ({ context, input }) => {
-      const [r] = await context.db
-        .select({
-          agent: builderAgent,
-          username: userTable.username,
-          worldVerified: userTable.worldVerified,
-        })
-        .from(builderAgent)
-        .innerJoin(userTable, eq(builderAgent.ownerUserId, userTable.id))
-        .where(eq(builderAgent.id, input.agentId));
-      if (!r) {
-        throw new ORPCError("NOT_FOUND", { message: "Builder not found" });
-      }
-      return toAgentCard(r.agent, {
-        username: r.username,
-        worldVerified: r.worldVerified,
-      });
-    }),
-
-  // Owner re-provisions their agent's onchain identity — backfills a missing
-  // ERC-8004 id / ENS name / seed stake without re-registering. Idempotent.
-  refreshIdentity: protectedProcedure
-    .use(withIdentity)
-    .input(z.object({ agentId: BuilderAgentId }))
-    .handler(async ({ context, input }) => {
-      const [r] = await context.db
-        .select({
-          agent: builderAgent,
-          username: userTable.username,
-          worldVerified: userTable.worldVerified,
-          walletAddress: userTable.walletAddress,
-        })
-        .from(builderAgent)
-        .innerJoin(userTable, eq(builderAgent.ownerUserId, userTable.id))
-        .where(eq(builderAgent.id, input.agentId));
-      if (!r) {
-        throw new ORPCError("NOT_FOUND", { message: "Agent not found" });
-      }
-      if (r.agent.ownerUserId !== context.user.id) {
-        throw new ORPCError("FORBIDDEN", { message: "Not your agent" });
-      }
-      const updated = await refreshAgentIdentity(
-        {
-          db: context.db,
-          agentIdentity: context.agentIdentity,
-          logger: context.logger,
-        },
-        r.agent,
-        { username: r.username, walletAddress: r.walletAddress }
-      );
-      return toAgentCard(updated, {
-        username: r.username,
-        worldVerified: r.worldVerified,
-      });
-    }),
-
-  // The caller's own agents (any status).
-  mine: protectedProcedure.handler(async ({ context }) => {
-    const rows = await context.db.query.builderAgent.findMany({
-      where: eq(builderAgent.ownerUserId, context.user.id),
-      orderBy: [desc(builderAgent.createdAt)],
-    });
-    return rows.map(toAgent);
-  }),
-
-  // Owner disables their own agent (removes it from the marketplace + routing).
-  disable: protectedProcedure
-    .input(z.object({ agentId: BuilderAgentId }))
-    .handler(async ({ context, input }) => {
-      const row = await context.db.query.builderAgent.findFirst({
-        where: eq(builderAgent.id, input.agentId),
-      });
-      if (!row) {
-        throw new ORPCError("NOT_FOUND", { message: "Agent not found" });
-      }
-      if (row.ownerUserId !== context.user.id) {
-        throw new ORPCError("FORBIDDEN", { message: "Not your agent" });
-      }
-      await context.db
-        .update(builderAgent)
-        .set({ status: "disabled" })
-        .where(eq(builderAgent.id, row.id));
-      return toAgent({ ...row, status: "disabled" });
-    }),
-};
-
-/**
- * Active builders that can deliver `required` — the routing primitive S's build
- * dispatch calls to pick (or reject) a builder for a spec. Pure DB read; the
- * capability match is the shared `eligibleAgents` logic.
- */
-export const findEligibleBuilders = async (
-  db: Database,
-  required: readonly BuilderCapability[]
-): Promise<BuilderAgent[]> => {
-  const rows = await db.query.builderAgent.findMany({
-    where: eq(builderAgent.status, "active"),
-  });
-  return eligibleAgents(rows, required);
 };
 
 /** The builder S's dispatch should send a build to, + the dispatch creds. */

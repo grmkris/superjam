@@ -28,7 +28,6 @@ import {
   optionalAuthProcedure,
   protectedProcedure,
   publicProcedure,
-  worldVerifiedProcedure,
 } from "../orpc.ts";
 import { decodeCursor, encodeCursor } from "../lib/cursor.ts";
 
@@ -550,7 +549,7 @@ export const appsRouter = {
 
   // Register a developer-hosted app by URL. Human-gated (worldVerified) — one
   // human = one publisher (§14).
-  registerExternal: worldVerifiedProcedure
+  registerExternal: protectedProcedure
     .input(
       z.object({
         manifest: AppManifestSchema,

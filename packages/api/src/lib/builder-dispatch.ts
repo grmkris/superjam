@@ -17,9 +17,6 @@ export interface DeployRequest {
   buildId: string;
   /** Pre-generated app id → SUPERJAM_APP_ID (JWT aud), injected before deploy. */
   appId: string;
-  /** The routed agent's coding model (Opus vs Sonnet) — the builder forwards it to
-   *  its agent (`runAgentBuild` already accepts `model`). Absent ⇒ builder default. */
-  model?: string | null;
   /** Presigned GET URLs for user-attached reference files (images/CSV/Excel/PDF).
    *  Time-limited + public so the off-box builder agent can fetch them (§17). */
   attachmentUrls?: string[];
@@ -69,11 +66,11 @@ export const createRemoteDeployer = (
     "content-type": "application/json",
   };
 
-  return async ({ spec, buildId, appId, model, attachmentUrls, onProgress }) => {
+  return async ({ spec, buildId, appId, attachmentUrls, onProgress }) => {
     const accept = await doFetch(`${base}/builds`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ spec, buildId, appId, model, attachmentUrls }),
+      body: JSON.stringify({ spec, buildId, appId, attachmentUrls }),
     });
     if (accept.status === 429) {
       // Builder busy — surface so the platform FIFO holds + retries.

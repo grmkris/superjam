@@ -14,7 +14,6 @@ import { tryOnchain } from "../lib/onchain-errors.ts";
 import {
   optionalAuthProcedure,
   protectedProcedure,
-  worldVerifiedProcedure,
 } from "../orpc.ts";
 import { createFriendService } from "../services/friend-service.ts";
 
@@ -138,7 +137,7 @@ export const profileRouter = {
 
   // Testnet top-up (§15.1): the server wallet sends TOPUP_USDC public-rail USDC to
   // the caller's wallet, 1/day. Public rail only.
-  topup: worldVerifiedProcedure.handler(async ({ context }) => {
+  topup: protectedProcedure.handler(async ({ context }) => {
     const u = context.user;
     if (
       u.lastTopupAt &&

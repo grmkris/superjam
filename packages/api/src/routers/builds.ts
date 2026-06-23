@@ -133,8 +133,6 @@ export const runBuild = async (
     /** The marketplace agent this build was routed to (§14) — credited a build
      *  on success. Always set from create(); optional only for direct unit tests. */
     routedAgentId?: BuilderAgentId | null;
-    /** The routed agent's coding model — forwarded to the builder per build. */
-    model?: string | null;
     /** Presigned GET URLs for the user's reference attachments (§17) — forwarded
      *  to the builder agent's prompt so it can fetch images/CSV/Excel/PDF. */
     attachmentUrls?: string[];
@@ -142,14 +140,13 @@ export const runBuild = async (
   /** Passed to finalize for the best-effort ENS mint (§16). Omitted in tests. */
   onchain?: Onchain
 ): Promise<void> => {
-  const { buildId, appId, spec, routedAgentId, model, attachmentUrls } = args;
+  const { buildId, appId, spec, routedAgentId, attachmentUrls } = args;
   try {
     await db.update(build).set({ status: "generating" }).where(eq(build.id, buildId));
     const result = await deploy({
       spec,
       buildId,
       appId,
-      model,
       attachmentUrls,
       // Mirror the builder's live step timeline into build.events as it runs, so
       // the workshop + history read real progress from the DB. Best-effort: a
@@ -400,7 +397,6 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             appId: allocated.id,
             spec: input.spec,
             routedAgentId: selected.agent.id,
-            model: selected.agent.model ?? null,
             attachmentUrls: attachmentUrls.length ? attachmentUrls : undefined,
           },
           context.onchain

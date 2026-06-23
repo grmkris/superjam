@@ -25,23 +25,12 @@ export {
   nullAppTokenIssuer,
 } from "./auth/app-token.ts";
 export {
-  type WorldVerifier,
-  type WorldProofV4,
-  type WorldResponseItem,
-  type WorldRpContext,
-  type WorldVerifyResult,
-  createWorldVerifier,
-  nullWorldVerifier,
-  WorldNotConfiguredError,
-} from "./auth/world.ts";
-export {
   type AgentIdentity,
   type AgentIdentityInput,
   type AgentIdentityResult,
   nullAgentIdentity,
 } from "./lib/agent-identity.ts";
 export {
-  findEligibleBuilders,
   selectEligibleBuilder,
   type SelectedBuilder,
 } from "./routers/agents.ts";
@@ -75,6 +64,5 @@ export {
   base,
   publicProcedure,
   protectedProcedure,
-  worldVerifiedProcedure,
 } from "./orpc.ts";
 export type { AppRouterClient } from "./client.ts";
