@@ -94,9 +94,29 @@ const dataSpec: AppSpec = {
   acceptance: ["Submitting a review persists it to the DB", "The shared list shows all reviews", "No console errors"],
 };
 
-const spec = data ? dataSpec : clickerSpec;
-const appId = data ? "app_trialreviews" : "app_trialclicker";
-const buildId = data ? "build_trialdata" : "build_trial1";
+// A POLL spec (matches the poll kit → .tj-choice ballot + .tj-bar results) — the
+// case the Toybox-theme fix targets. `--poll`.
+const poll = process.argv.includes("--poll");
+const pollSpec: AppSpec = {
+  name: "Cats vs Dogs Poll",
+  slug: "cats-vs-dogs-trial",
+  description: "Who rules the internet? Cast your vote and watch the live tally.",
+  iconEmoji: "🐾",
+  category: "social",
+  capabilities: [],
+  features: ["Cats", "Dogs"],
+  data: {
+    collections: [],
+    counters: [{ name: "votes", keyedBy: "option", meaning: "tally per option" }],
+    storage: [{ key: "myVote", meaning: "this voter's pick" }],
+  },
+  ui: { layout: "single card", sections: ["question", "ballot", "results"] },
+  acceptance: ["Voting bumps the option's bar", "The pick survives a reload", "Bars reflect everyone's votes"],
+};
+
+const spec = data ? dataSpec : poll ? pollSpec : clickerSpec;
+const appId = data ? "app_trialreviews" : poll ? "app_trialpoll" : "app_trialclicker";
+const buildId = data ? "build_trialdata" : poll ? "build_trialpoll" : "build_trial1";
 // Neon client for data apps (reads NEON_API_KEY from .env). Zero-backend builds ignore it.
 const neon = process.env.NEON_API_KEY
   ? createNeonClient({ apiKey: process.env.NEON_API_KEY })
