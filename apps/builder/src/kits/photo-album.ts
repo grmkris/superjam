@@ -190,8 +190,13 @@ export default function Page() {
   return (
     <main className="tj-app">
       <div className="tj-card">
-        <h1 className="tj-title">${emoji} ${title}</h1>
-        <p className="tj-sub">Welcome, @{me} — {photos.length} photos from the trip.</p>
+        <div className="tj-header">
+          <span className="tj-emoji">${emoji}</span>
+          <div className="tj-htext">
+            <h1 className="tj-title">${title}</h1>
+            <p className="tj-sub">Welcome, @{me} — {photos.length} photos from the trip.</p>
+          </div>
+        </div>
       </div>
 
       {/* The map plots every geotagged photo in capture order. */}

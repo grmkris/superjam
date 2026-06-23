@@ -206,15 +206,24 @@ export default function Page() {
   return (
     <main className="tj-app">
       <div className="tj-card">
-        <h1 className="tj-title">${emoji} ${title}</h1>
+        <div className="tj-header">
+          <span className="tj-emoji">${emoji}</span>
+          <div className="tj-htext"><h1 className="tj-title">${title}</h1></div>
+        </div>
         {!done && current ? (
           <>
-            <div className="tj-row">
+            <div className="tj-row" style={{ justifyContent: "space-between" }}>
               <span className="tj-muted">Q{idx + 1}/{BANK.length}</span>
-              {/* TODO: turn this into a visual countdown bar that drains as timeLeft falls. */}
               <span className="tj-badge">⏱ {timeLeft}s</span>
             </div>
-            <p className="tj-sub">{current.q}</p>
+            {/* Countdown bar — drains as timeLeft falls, turns red in the last seconds. */}
+            <div className="tj-bar" style={{ height: 10, marginTop: 8 }}>
+              <div
+                className="tj-bar-fill"
+                style={{ width: \`\${(timeLeft / PER_QUESTION_SECONDS) * 100}%\`, background: timeLeft <= 3 ? "var(--danger)" : "var(--accent)" }}
+              />
+            </div>
+            <p className="tj-sub" style={{ marginTop: 10 }}>{current.q}</p>
             <ul className="tj-list">
               {current.options.map((opt, i) => {
                 const locked = picked != null;

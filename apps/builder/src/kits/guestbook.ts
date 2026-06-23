@@ -150,53 +150,62 @@ export default function Page() {
 
   if (loading) {
     return (
-      <main className="gb-app gb-center">
-        <div className="gb-card">
-          <div className="gb-spin" />
-          <p className="gb-sub">Loading ${title}…</p>
+      <main className="tj-app tj-center">
+        <div className="tj-card">
+          <div className="tj-spin" />
+          <p className="tj-sub">Loading ${title}…</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="gb-app">
-      <div className="gb-card">
-        <h1 className="gb-title">${emoji} ${title}</h1>
-        <p className="gb-sub">Leave a message for everyone to see.</p>
+    <main className="tj-app">
+      <div className="tj-card">
+        <div className="tj-header">
+          <span className="tj-emoji">${emoji}</span>
+          <div className="tj-htext">
+            <h1 className="tj-title">${title}</h1>
+            <p className="tj-sub">Leave a message for everyone to see.</p>
+          </div>
+        </div>
 
         <textarea
-          className="gb-input"
+          className="tj-input"
           value={draft}
           maxLength={280}
           placeholder="Say something…"
+          rows={3}
           onChange={(e) => setDraft(e.target.value)}
         />
-        {/* TODO: add a live character counter (draft.length / 280) under the box. */}
-        <button className="gb-btn" onClick={post} disabled={posting || !draft.trim()}>
-          {posting ? "Posting…" : "Post"}
-        </button>
+        <div className="tj-row" style={{ justifyContent: "space-between", marginTop: 10 }}>
+          {/* TODO: make the counter turn accent-colored as it nears the 280 cap. */}
+          <span className="tj-muted">{draft.length}/280</span>
+          <button className="tj-btn" onClick={post} disabled={posting || !draft.trim()}>
+            {posting ? "Posting…" : "Post"}
+          </button>
+        </div>
       </div>
 
-      <div className="gb-card">
-        <h2 className="gb-title" style={{ fontSize: 18 }}>The wall 📝</h2>
-        <ul className="gb-list">
+      <div className="tj-card">
+        <h2 className="tj-title" style={{ fontSize: 18, marginBottom: 4 }}>The wall 📝</h2>
+        <ul className="tj-list">
           {posts.map((p) => (
-            <li key={p.id} className="gb-post">
-              {/* TODO: give each post a little card style + an avatar/emoji bubble
-                  per author (e.g. derive from p.username). */}
-              <b>@{p.username}</b>
-              {p.worldVerified ? " ✅" : ""}
+            <li
+              key={p.id}
+              style={{ flexDirection: "column", alignItems: "stretch", gap: 2, border: "2px solid var(--text)", borderRadius: 12, padding: "10px 12px", background: "var(--bg)" }}
+            >
+              {/* TODO: add an avatar/emoji bubble per author (e.g. derive from p.username). */}
+              <span style={{ fontWeight: 800 }}>@{p.username}{p.worldVerified ? " ✅" : ""}</span>
               {/* Render user text as PLAIN text — never dangerouslySetInnerHTML. */}
-              <span className="gb-text"> {String(p.data.text)}</span>
+              <span>{String(p.data.text)}</span>
             </li>
           ))}
           {posts.length === 0 && (
-            <div className="gb-empty">No posts yet — be the first to write on the wall!</div>
+            <li className="tj-empty">No posts yet — be the first to write on the wall!</li>
           )}
         </ul>
-        {/* TODO: style the empty-state + relative timestamps (e.g. "2m ago" from
-            p.createdAt). */}
+        {/* TODO: relative timestamps (e.g. "2m ago" from p.createdAt). */}
       </div>
     </main>
   );

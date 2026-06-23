@@ -442,10 +442,18 @@ export const runHarnessBuild = async (
         continue;
       }
 
-      // Green build ≠ done: the seeded stub compiles. Gate on a real, SDK-using app
-      // (generic anti-coast checks + any kit-specific probes). Fail ⇒ re-prompt.
+      // Green build ≠ done: the seeded stub compiles. Gate on a real, SDK-using,
+      // ON-THEME app (generic anti-coast + look-quality checks + any kit probes).
+      // Re-read the theme + scratch sheet so the gate can catch a clobbered theme
+      // or a dark-on-dark page. Fail ⇒ re-prompt with the specific gaps.
       const page = await backend.readFile("app/page.tsx").catch(() => "");
-      const base = genericGate(page, seedPage);
+      const themeNow = await backend.readFile("app/theme.css").catch(() => "");
+      const globals = await backend.readFile("app/globals.css").catch(() => "");
+      const base = genericGate(page, seedPage, {
+        globals,
+        themeNow,
+        themeSeed: seedFiles["app/theme.css"],
+      });
       const extra = kit ? kit.gate({ "app/page.tsx": page }).missing : [];
       const missing = [...base.missing, ...extra];
       if (missing.length === 0) {

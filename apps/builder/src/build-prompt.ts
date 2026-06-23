@@ -77,7 +77,9 @@ const baseSystem = (seams: DriverSeams = {}): string => {
 ## The workspace skeleton (already there)
 Next.js 16 (app-router) + React 19, TypeScript. \`@superjam/sdk\` is aliased to the published npm package. Files present:
 - app/page.tsx        — the app's single screen. REPLACE its stub with the real "use client" UI.
-- app/layout.tsx      — minimal root layout (editable, usually leave it).
+- app/layout.tsx      — minimal root layout (loads the font + imports theme.css then globals.css). Leave it.
+- app/theme.css       — the LOCKED Toybox design system (cream bg, ink text, candy accents, all .tj-* classes). DO NOT EDIT — it's already loaded; just USE its classes.
+- app/globals.css     — your editable scratch stylesheet for app-specific CSS. Add NEW classes here; never restyle body/:root/.tj-* and never set a dark background.
 - lib/superjam-config.ts — BAKED SUPERJAM_APP_ID + JWKS url (identity). DO NOT EDIT.
 - lib/auth.ts         — jose JWKS verifyUser() for your API routes. DO NOT EDIT.
 - next.config.ts      — frame-ancestors CSP so the host can embed the jam. DO NOT EDIT.
@@ -85,7 +87,7 @@ Next.js 16 (app-router) + React 19, TypeScript. \`@superjam/sdk\` is aliased to 
 - (data apps only) lib/db.ts — neon-http Drizzle client reading process.env.DATABASE_URL. DO NOT EDIT.
 - (data apps only) lib/schema.ts — Drizzle tables generated from the spec's collections. You MAY edit to match the collections; keep it consistent with the tables you create.
 
-EDIT ONLY: app/page.tsx, app/layout.tsx, lib/schema.ts, and any app/api/*/route.ts you add. Never touch the DO-NOT-EDIT files — they carry the app's identity + embedding contract.
+EDIT ONLY: app/page.tsx, app/globals.css, lib/schema.ts, and any app/api/*/route.ts you add. NEVER touch the DO-NOT-EDIT files (theme.css, layout.tsx, and the identity/embedding files) — they carry the app's identity, embedding contract, and visual theme.
 
 ## Two data paths — pick the SIMPLEST that fits
 STRONGLY prefer zero-backend. Provisioning a Neon DB adds ~30–60s to the build and a slow runtime hop, so only do it when the spec genuinely needs relational queries the primitives can't express (joins, filters, ranked queries over many fields). Leaderboards, tallies, click counts, scores, walls, posts, picks, votes, simple per-user state — these are ALL zero-backend (sdk.data.counter / sdk.data.collection / sdk.storage). A clicker, arcade, quiz, poll, or guestbook should NEVER touch a database. If you find yourself reaching for the Neon MCP on a simple game, stop and use the SDK primitives instead.
@@ -96,7 +98,32 @@ STRONGLY prefer zero-backend. Provisioning a Neon DB adds ~30–60s to the build
 The manifest declares capabilities that gate SDK surface: "payments" → payUSDC/pot; "ai" → ai.chat (slow, ~25/user/day — always show a loading state); "social" → messages.send. Only use a gated API if the spec's capabilities include it.
 
 ## Design — it's a toy, not a tool ("Toybox")
+The Toybox theme is ALREADY loaded (theme.css): cream paper background, ink (#221A33) text, candy-pink \`--accent\`, the Baloo 2 font, 2px ink borders + sticker shadows, and a full set of \`.tj-*\` component classes. High contrast is built in — COMPOSE these classes; do NOT hand-roll raw HTML or restyle the page. The components:
+- \`.tj-app\` — wrap the whole screen in this (the centered, mobile-first column). Inside it, stack \`.tj-card\` surfaces.
+- \`.tj-card\` — a white card (ink border + sticker shadow). \`.tj-header\` (a row: \`.tj-emoji\` chip + \`.tj-htext\` with \`.tj-title\`/\`.tj-sub\`, optional \`.tj-spacer\` then a right slot).
+- \`.tj-btn\` (candy primary) + \`.tj-btn-ghost\` / \`.tj-btn-yellow\` / \`.tj-btn-green\` / \`.tj-btn-blue\` variants, \`.tj-btn-block\` (full width). \`.tj-input\` (text/textarea).
+- \`.tj-choices\` (+ \`.tj-cols-2\`) wrapping \`.tj-choice\` buttons — a segmented picker; set \`aria-pressed={selected}\` on the chosen one to fill it accent (use this for this-or-that / multiple-choice).
+- \`.tj-bar\` > \`.tj-bar-fill\` (style \`width:\${pct}%\`) + optional \`.tj-bar-label\` — an animated result/progress bar (poll tallies, quiz scores, meters). Use this instead of a hand-built div.
+- \`.tj-stat\` (big number), \`.tj-badge\` / \`.tj-pill\` (chips), \`.tj-list\`, \`.tj-row\`, \`.tj-grid2\`, \`.tj-center\`, \`.tj-empty\` (empty state), \`.tj-spin\` (loader), \`.tj-pop\`/\`.tj-shake\` (juice). Full-bleed games: \`.tj-stage\` + \`.tj-hud\`.
+- Need a one-off style? Add a NEW class in globals.css or use an inline style for layout only — but the page STAYS cream + ink. NEVER set a dark page/body background, never put dark text on a dark fill, never edit theme.css or its \`:root\` tokens. (A green build with an unreadable or off-theme UI is a FAILURE and will be rejected.)
+- Anatomy (imitate this shape):
+  \`\`\`tsx
+  <main className="tj-app">
+    <div className="tj-card">
+      <div className="tj-header">
+        <span className="tj-emoji">🐾</span>
+        <div className="tj-htext"><h1 className="tj-title">Cats vs Dogs</h1><p className="tj-sub">Cast your vote</p></div>
+      </div>
+      <div className="tj-choices tj-cols-2">
+        <button className="tj-choice" aria-pressed={pick==="cats"} onClick={() => vote("cats")}>Cats</button>
+        <button className="tj-choice" aria-pressed={pick==="dogs"} onClick={() => vote("dogs")}>Dogs</button>
+      </div>
+      <div className="tj-bar" style={{ marginTop: 12 }}><div className="tj-bar-fill" style={{ width: \`\${pct}%\` }} /><div className="tj-bar-label"><span>Cats</span><span>{pct}%</span></div></div>
+    </div>
+  </main>
+  \`\`\`
 - ONE screen, playable/usable instantly. No routing, no multi-page flows.
+- Do NOT repeat the jam's name as a giant page-topping \`<h1>\` — the host frame already shows it in a title pill above your app. A compact \`.tj-header\` is plenty.
 - Playful and self-contained. NEVER show build logs, file names, terminals, code, or any "AI"/"agent"/"compiler" language in the UI.
 - Render ALL user-supplied text as plain text (never dangerouslySetInnerHTML).
 - Defensively parse sdk.ai.chat output (it can return junk) — always have a fallback.

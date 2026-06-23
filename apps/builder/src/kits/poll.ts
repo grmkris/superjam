@@ -169,40 +169,51 @@ export default function Page() {
   return (
     <main className="tj-app">
       <div className="tj-card">
-        <h1 className="tj-title">${emoji} ${title}</h1>
-        <p className="tj-sub">{myVote ? "Thanks for voting! Live results:" : "Cast your vote 👇"}</p>
-
-        <div className="tj-list">
-          {OPTIONS.map((o, i) => {
-            const count = tally[o] ?? 0;
-            const pct = Math.round((count / total) * 100);
-            const picked = myVote === o;
-            return (
-              <button
-                key={o}
-                className="tj-btn"
-                onClick={() => vote(o)}
-                disabled={!!myVote}
-                style={{ display: "block", width: "100%", textAlign: "left", position: "relative", marginBottom: 8 }}
-                aria-pressed={picked}
-              >
-                {/* TODO: animate the bar growing in (transition on width) instead of a hard snap. */}
-                <div
-                  style={{
-                    position: "absolute", inset: 0, width: \`\${pct}%\`,
-                    background: COLORS[i % COLORS.length], opacity: 0.35, borderRadius: 8,
-                  }}
-                />
-                <span style={{ position: "relative", fontWeight: picked ? 800 : 600 }}>
-                  {/* TODO: give each option its own emoji prefix for personality. */}
-                  {o} {myVote && <span className="tj-muted">— {count} · {pct}%</span>}
-                  {/* TODO: style the winner (the highest bar) with a 👑 / accent border. */}
-                  {picked && " ✓"}
-                </span>
-              </button>
-            );
-          })}
+        <div className="tj-header">
+          <span className="tj-emoji">${emoji}</span>
+          <div className="tj-htext">
+            <h1 className="tj-title">${title}</h1>
+            <p className="tj-sub">{myVote ? "Thanks for voting! Live results:" : "Cast your vote 👇"}</p>
+          </div>
         </div>
+
+        {/* Ballot — a tap fills the picked option accent (aria-pressed) and locks it. */}
+        <div className="tj-choices">
+          {OPTIONS.map((o) => (
+            <button
+              key={o}
+              className="tj-choice"
+              onClick={() => vote(o)}
+              disabled={!!myVote}
+              aria-pressed={myVote === o}
+            >
+              {/* TODO: give each option its own emoji prefix for personality. */}
+              {o}{myVote === o ? " ✓" : ""}
+            </button>
+          ))}
+        </div>
+
+        {/* Live results — one ink-bordered bar per option; fill = share of votes. */}
+        {myVote && (
+          <ul className="tj-list" style={{ marginTop: 14 }}>
+            {OPTIONS.map((o, i) => {
+              const count = tally[o] ?? 0;
+              const pct = Math.round((count / total) * 100);
+              return (
+                <li key={o} style={{ display: "block" }}>
+                  <div className="tj-bar">
+                    {/* TODO: crown 👑 the leading option's label. */}
+                    <div className="tj-bar-fill" style={{ width: \`\${pct}%\`, background: COLORS[i % COLORS.length] }} />
+                    <div className="tj-bar-label">
+                      <span>{o}{myVote === o ? " ✓" : ""}</span>
+                      <span>{count} · {pct}%</span>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         <p className="tj-muted" style={{ marginTop: 12 }}>
           {OPTIONS.reduce((sum, o) => sum + (tally[o] ?? 0), 0)} votes

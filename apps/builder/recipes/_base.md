@@ -75,17 +75,24 @@ export default function Page() {
 > that only needs a counter should NOT force a Neon project.)
 
 ## Look & feel — the Toybox theme (use it, don't reinvent)
-The app already ships the SuperJam **Toybox** theme — `app/globals.css` (imported in
-`app/layout.tsx`) with the design tokens + the **Baloo 2** font, so a framed jam looks
-native in the host. **Use it instead of ad-hoc `system-ui` inline styles.**
-- Wrap your screen in `<div className="tj-app">` (a centered, mobile-first column).
-- Use the `.tj-*` classes: `tj-card` (white, ink border, sticker shadow), `tj-title`,
-  `tj-sub`, `tj-muted`, `tj-btn` (+ `tj-btn-ghost`), `tj-input`, `tj-row`, `tj-grid2`,
-  `tj-list`, `tj-badge`, `tj-stat`, `tj-spin`.
-- Colors come from CSS vars — `var(--accent)` (candy pink), `var(--text)` (ink),
-  `var(--bg)` (cream), `var(--card)`, `var(--muted)`. Candy siblings as inline hex when
-  you need variety: `#FF4D6D` pink · `#FFC940` yellow · `#2FD180` green · `#4D7CFF` blue.
-- Do NOT set `fontFamily: "system-ui"` or re-declare fonts — Baloo 2 is the body font.
+The app already ships the SuperJam **Toybox** theme — `app/theme.css` (the LOCKED design
+system, imported in `app/layout.tsx`) with the design tokens + the **Baloo 2** font, so a
+framed jam looks native in the host. **Use its classes instead of ad-hoc `system-ui`
+inline styles. DO NOT edit `theme.css`** — put any custom CSS in `app/globals.css`.
+- Wrap your screen in `<main className="tj-app">` (a mobile-first column).
+- Surfaces & layout: `tj-card` (white, ink border, sticker shadow), `tj-header` (a row:
+  `tj-emoji` chip + `tj-htext` holding `tj-title`/`tj-sub`, optional `tj-spacer`),
+  `tj-row`, `tj-grid2`, `tj-center`, `tj-list`, `tj-muted`.
+- Controls: `tj-btn` (+ `tj-btn-ghost`/`tj-btn-yellow`/`tj-btn-green`/`tj-btn-blue`/
+  `tj-btn-block`), `tj-input`. Pickers: `tj-choices` (+ `tj-cols-2`) of `tj-choice`
+  buttons with `aria-pressed={selected}`. Meters: `tj-bar` > `tj-bar-fill`
+  (`style={{ width: \`\${pct}%\` }}`) + optional `tj-bar-label`.
+- Bits: `tj-stat` (big number), `tj-badge`/`tj-pill` (chips), `tj-empty` (empty state),
+  `tj-spin` (loader), `tj-pop`/`tj-shake` (juice). Full-bleed games: `tj-stage`+`tj-hud`.
+- Colors come from CSS vars — `var(--accent)` pink, `var(--yellow)`, `var(--green)`,
+  `var(--blue)`, `var(--text)` ink, `var(--bg)` cream, `var(--card)`, `var(--muted)`.
+- NEVER set a dark page/body background or dark-on-dark text — the app stays cream + ink.
+  Do NOT set `fontFamily: "system-ui"` or re-declare fonts — Baloo 2 is the body font.
   Inline styles are fine for layout (flex/grid/spacing); pull color/font/buttons/cards
   from the theme so every jam shares the host's visual language.
 

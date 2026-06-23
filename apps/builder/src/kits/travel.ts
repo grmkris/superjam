@@ -172,10 +172,15 @@ export default function Page() {
   return (
     <main className="tj-app">
       <div className="tj-card">
-        <h1 className="tj-title">${emoji} ${title}</h1>
-        <p className="tj-sub">
-          {days} {days === 1 ? "day" : "days"} · {safeStops.length} stops · {safeStops[0]?.name} → {safeStops[safeStops.length - 1]?.name}
-        </p>
+        <div className="tj-header">
+          <span className="tj-emoji">${emoji}</span>
+          <div className="tj-htext">
+            <h1 className="tj-title">${title}</h1>
+            <p className="tj-sub">
+              {days} {days === 1 ? "day" : "days"} · {safeStops.length} stops · {safeStops[0]?.name} → {safeStops[safeStops.length - 1]?.name}
+            </p>
+          </div>
+        </div>
         <TripMap stops={safeStops} height={340} />
         {/* TODO: add a "regenerate plan" button that calls sdk.ai.chat(…, { json: true })
             for a fresh route, RE-VALIDATES every coord with validStops(), then
