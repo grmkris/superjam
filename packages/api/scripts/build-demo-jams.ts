@@ -239,13 +239,19 @@ try {
   });
   console.log(`owner → ${owner ? `${owner.username} (${owner.id})` : `NONE (looked for "${OWNER}")`}`);
 
-  const existing = await db.query.app.findMany({ columns: { slug: true } });
+  // FORCE=1 → REBUILD existing slugs in place: reuse the existing appId (so the
+  // SUPERJAM_APP_ID baked as the JWT audience stays stable) and re-point the row's
+  // entryUrl at the fresh deploy. Without FORCE, existing slugs are skipped.
+  const FORCE = process.env.FORCE === "1";
+  const existing = await db.query.app.findMany({ columns: { slug: true, id: true } });
+  const slugToId = new Map(existing.map((a) => [a.slug, a.id]));
   const have = new Set(existing.map((a) => a.slug));
 
   const todo = SPECS.filter((s) => (ONLY ? ONLY.includes(s.slug) : true));
-  console.log(`\nwould build (${todo.length}):`);
+  console.log(`\nwould build (${todo.length})${FORCE ? " [FORCE — rebuild existing in place]" : ""}:`);
   for (const s of todo) {
-    console.log(`  ${have.has(s.slug) ? "skip (exists)" : "BUILD       "} ${s.iconEmoji} ${s.slug.padEnd(16)} — ${s.name}`);
+    const tag = have.has(s.slug) ? (FORCE ? "REBUILD     " : "skip (exists)") : "BUILD       ";
+    console.log(`  ${tag} ${s.iconEmoji} ${s.slug.padEnd(16)} — ${s.name}`);
   }
 
   if (process.env.RUN !== "1") {
@@ -258,18 +264,27 @@ try {
   }
 
   for (const spec of todo) {
-    if (have.has(spec.slug)) {
-      console.log(`\n⏭  ${spec.slug} exists — skipping`);
+    const existingId = slugToId.get(spec.slug);
+    if (existingId && !FORCE) {
+      console.log(`\n⏭  ${spec.slug} exists — skipping (set FORCE=1 to rebuild in place)`);
       continue;
     }
     console.log(`\n▶ ${spec.iconEmoji} ${spec.name} (${spec.slug})`);
     // 1) allocate → appId baked into the app as SUPERJAM_APP_ID (the token aud).
-    const allocated = await allocateExternalApp(db, {
-      manifest: manifestOf(spec),
-      ownerUserId: owner.id,
-    });
-    const appId = allocated.id;
-    console.log(`   allocated appId=${appId} (status=building)`);
+    // FORCE: reuse the existing appId so the baked audience stays valid (rebuild
+    // in place); finalize then just re-points entryUrl at the new deploy.
+    let appId: typeof existingId;
+    if (existingId) {
+      appId = existingId;
+      console.log(`   rebuild in place — reusing appId=${appId}`);
+    } else {
+      const allocated = await allocateExternalApp(db, {
+        manifest: manifestOf(spec),
+        ownerUserId: owner.id,
+      });
+      appId = allocated.id;
+      console.log(`   allocated appId=${appId} (status=building)`);
+    }
     try {
       // 2+3) build via the agentic builder + poll to done.
       const entryUrl = await runBuild(spec, appId);
