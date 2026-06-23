@@ -180,7 +180,6 @@ export function JamFeedCard({
         <AppStage
           app={toViewerApp(jam)}
           maker={{ username: jam.maker.username }}
-          titleHref={`/j/${jam.slug}`}
           onClose={() => setPlay(false)}
         />
       )}

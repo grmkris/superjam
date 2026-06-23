@@ -18,16 +18,31 @@ export function FriendPicker({
   jamSlug,
   challenge,
   title,
+  shareUrl,
   onClose,
 }: {
   jamSlug: string;
   challenge?: boolean;
   title?: string;
+  /** if set, render a "Copy link" row that copies this public jam URL */
+  shareUrl?: string;
   onClose: () => void;
 }) {
   const client = usePlatformClient();
   const [friends, setFriends] = useState<Friend[] | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      /* clipboard blocked — no-op */
+    }
+  };
 
   useEffect(() => {
     client.friends
@@ -57,6 +72,15 @@ export function FriendPicker({
       <div className="text-h3 font-extrabold">
         {title ?? (challenge ? "⚔ Challenge a friend" : "Send to a friend")}
       </div>
+      {shareUrl && (
+        <button
+          onClick={copyLink}
+          className="focus-ring sticker-press flex w-full items-center gap-3 rounded-toy border-2 border-ink bg-card p-3 text-left shadow-sticker-sm"
+        >
+          <EmojiToken emoji="🔗" color="blue" size={36} />
+          <span className="font-extrabold">{copied ? "link copied ✓" : "Copy link"}</span>
+        </button>
+      )}
       {friends === null ? (
         <div className="flex flex-col gap-2.5 py-1">
           <Skeleton className="h-14" />
