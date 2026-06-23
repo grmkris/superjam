@@ -11,11 +11,6 @@ import {
 import type { Address, Hex } from "viem";
 import { type AppTokenIssuer, nullAppTokenIssuer } from "./auth/app-token.ts";
 import type { AuthVerifier } from "./auth/verifier.ts";
-import { type AgentIdentity, nullAgentIdentity } from "./lib/agent-identity.ts";
-import {
-  type AgentReputation,
-  nullAgentReputation,
-} from "./lib/agent-reputation.ts";
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
 import { type ObjectStore, nullObjectStore } from "./services/object-store.ts";
@@ -44,10 +39,6 @@ export interface ApiContext {
   oracle: PotOracle;
   /** Blob storage for uploads/bundles (§17, S3/Railway bucket). Degraded by default. */
   objectStore: ObjectStore;
-  /** Builder-agent onchain identity (ENS subname + ERC-8004, §14/§16). No-op default. */
-  agentIdentity: AgentIdentity;
-  /** Builder-agent ERC-8004 reputation (review→feedback, §14/§16). No-op default. */
-  agentReputation: AgentReputation;
   /** Platform treasury — recipient of the publish fee (§15). */
   treasuryAddress?: Address;
   /** Server-signs-as-user (Dynamic Delegated Access). Absent ⇒ delegated paths reject. */
@@ -68,10 +59,6 @@ export interface CreateContextDeps {
   oracle?: PotOracle;
   /** Optional — defaults to the degraded object store (uploads/presign reject). */
   objectStore?: ObjectStore;
-  /** Optional — defaults to the no-op identity (register skips ENS/8004). */
-  agentIdentity?: AgentIdentity;
-  /** Optional — defaults to the no-op reputation (reviews skip the 8004 write). */
-  agentReputation?: AgentReputation;
   treasuryAddress?: Address;
   /** Optional — absent ⇒ delegated-pay paths reject with "delegate first". */
   delegatedSigner?: DelegatedSigner;
@@ -89,11 +76,6 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     onchain,
     oracle: deps.oracle ?? nullOracle,
     objectStore: deps.objectStore ?? nullObjectStore,
-    // Onchain agent identity (ENS / ERC-8004) + reputation are dropped for now —
-    // agents are plain marketplace rows. The no-op defaults make register/review
-    // succeed with nothing attached on-chain.
-    agentIdentity: deps.agentIdentity ?? nullAgentIdentity,
-    agentReputation: deps.agentReputation ?? nullAgentReputation,
     treasuryAddress: deps.treasuryAddress,
     delegatedSigner: deps.delegatedSigner,
     headers: deps.headers,

@@ -14,12 +14,10 @@ import {
   http,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia, worldchain } from "viem/chains";
+import { sepolia } from "viem/chains";
 import { CHAINS, type ChainKey, PUBLIC_CHAIN, USDC } from "./chains.ts";
 import { type EnsV2, type EnsV2Config, createEnsV2 } from "./ens-v2.ts";
 import { createGameContract } from "./game.ts";
-import { type Erc8004Config, createErc8004 } from "./erc8004.ts";
-import { type AgentBook, createAgentBook, nullAgentBook } from "./agentbook/agent-book.ts";
 import { OnchainError } from "./errors.ts";
 import type { Usdc } from "./money.ts";
 import { createServerWallet } from "./viem-server-wallet.ts";
@@ -42,16 +40,10 @@ export interface OnchainDeps {
    *  publicClient/serverWallet when unset. */
   identityClient?: PublicClient;
   identityWallet?: ServerWallet;
-  /** ERC-8004 reference registries (§16). Absent ⇒ 8004 ops degrade (never fail
-   *  a register/review). Signs through the Sepolia identity client+wallet. */
-  erc8004?: Erc8004Config;
   /** ENSv2-native adapter — mints `<slug>.superjam.eth` resolvable in STANDARD
    *  ENS tooling (Sepolia L1). Pre-built in createOnchainFromConfig. Absent ⇒ the
    *  v2 mint degrades (build unaffected). */
   ensV2?: EnsV2;
-  /** World AgentBook reader (human-backed detection, World Chain). Read-only +
-   *  public; defaults to the null stub (always-callable, resolves null). */
-  agentBook?: AgentBook;
 }
 
 export interface RelayParams {
@@ -63,31 +55,12 @@ export interface RelayParams {
 export const createOnchain = ({
   publicClient,
   serverWallet,
-  identityClient,
-  identityWallet,
-  erc8004,
   ensV2,
-  agentBook = nullAgentBook,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
     // Arc is the only money chain — publicClient is built for PUBLIC_CHAIN.
     if (chain === PUBLIC_CHAIN) return publicClient;
     throw new OnchainError("CHAIN_UNAVAILABLE", `no client for ${chain}`);
-  };
-
-  // ERC-8004 lives on Sepolia L1 — the identity chain, co-located with ENSv2 (the
-  // canonical reference registries are the same CREATE2 address on every chain).
-  // Uses the dedicated Sepolia identity client+signer, not the Arc payment rail.
-  // Absent config ⇒ ops throw so callers degrade (a register/feedback failure
-  // never fails the agent register / the review).
-  const erc8004Adapter = erc8004
-    ? createErc8004(identityClient ?? publicClient, identityWallet ?? serverWallet, erc8004)
-    : null;
-  const requireErc8004 = () => {
-    if (!erc8004Adapter) {
-      throw new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 registry not configured");
-    }
-    return erc8004Adapter;
   };
 
   const requireEnsV2 = () => {
@@ -129,23 +102,6 @@ export const createOnchain = ({
      *  backfill idempotency check). */
     ensV2Addr: (label: string) => requireEnsV2().addr(label),
 
-    // --- ERC-8004 (§14/§16) — agent identity + reputation. Degrade-safe. ---
-    /** Mint the agent's ERC-8004 identity NFT (→ the builder's wallet). */
-    registerAgentIdentity: (
-      params: Parameters<NonNullable<typeof erc8004Adapter>["registerAgentIdentity"]>[0]
-    ) => requireErc8004().registerAgentIdentity(params),
-    /** Record a verified review as ERC-8004 feedback. */
-    writeReputation: (
-      params: Parameters<NonNullable<typeof erc8004Adapter>["writeReputation"]>[0]
-    ) => requireErc8004().writeReputation(params),
-    /** Aggregate the platform-written feedback for an agent (profile). */
-    readReputation: (erc8004Id: string) => requireErc8004().readReputation(erc8004Id),
-
-    // --- World AgentBook (§14, World prize) — read-only human-backed detection.
-    //     Always present (null stub when unconfigured), so callers can call
-    //     `onchain.agentBook.lookupHuman(addr)` without a guard. ---
-    agentBook,
-
     // --- Onchain games (§ builder-deploys-contracts) — read/write a jam's OWN
     //     deployed Arc contract. Reads via the Arc public client, writes via the
     //     server wallet (operator). The api bridge resolves the address+abi from
@@ -165,22 +121,15 @@ export interface OnchainConfig {
    *  the raw key when present (built async at boot in apps/server, §1). */
   serverWallet?: ServerWallet;
   arcRpcUrl?: string;
-  /** ERC-8004 reference registries (§16) — on the Sepolia L1 identity chain. Absent
-   *  ⇒ 8004 ops degrade. Signs via the shared Sepolia identity wallet (ensV2SignerKey). */
-  erc8004?: Erc8004Config;
   /** ENSv2-native config (SuperjamRegistry on Sepolia L1, §16). Absent ⇒ the v2
    *  mint degrades. Built into the live adapter with the shared Sepolia signer. */
   ensV2?: EnsV2Config;
-  /** Sepolia (L1) RPC — the identity chain (ENSv2 + ERC-8004). Required for both. */
+  /** Sepolia (L1) RPC — the identity chain (ENSv2). */
   sepoliaRpcUrl?: string;
-  /** Dedicated Sepolia identity signer key — MUST own the SuperjamRegistry; also
-   *  signs ERC-8004 writes. Distinct from the Dynamic payment wallet; the platform
-   *  identity admin key (funded with Sepolia ETH). */
+  /** Dedicated Sepolia identity signer key — MUST own the SuperjamRegistry. Distinct
+   *  from the Dynamic payment wallet; the platform identity admin key (funded with
+   *  Sepolia ETH). */
   ensV2SignerKey?: string;
-  /** World Chain (480) RPC for the AgentBook read. Absent ⇒ viem's public default. */
-  worldchainRpcUrl?: string;
-  /** AgentBook contract override. Absent ⇒ the canonical World Chain deployment. */
-  agentBookAddress?: string;
 }
 
 /** Compose a live Onchain from env-style config — the composition-root wiring
@@ -220,7 +169,7 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     ? privateKeyToAccount(cfg.ensV2SignerKey as Hex)
     : undefined;
   const identityClient =
-    cfg.sepoliaRpcUrl && identityAccount && (cfg.ensV2 || cfg.erc8004)
+    cfg.sepoliaRpcUrl && identityAccount && cfg.ensV2
       ? createPublicClient({ chain: sepolia, transport: http(cfg.sepoliaRpcUrl) })
       : undefined;
   const identityWallet =
@@ -239,23 +188,10 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
     cfg.ensV2 && identityClient && identityWallet
       ? createEnsV2(identityClient, identityWallet, cfg.ensV2)
       : undefined;
-  // AgentBook (human-backed detection) — a dedicated World Chain (480) read client.
-  // Read-only + public (no key), so always built; RPC falls back to viem's default.
-  const agentBookAdapter = createAgentBook({
-    publicClient: createPublicClient({
-      chain: worldchain,
-      transport: http(cfg.worldchainRpcUrl),
-    }) as PublicClient,
-    address: cfg.agentBookAddress as Address | undefined,
-  });
   return createOnchain({
     publicClient,
     serverWallet,
-    identityClient,
-    identityWallet,
-    erc8004: cfg.erc8004,
     ensV2: ensV2Adapter,
-    agentBook: agentBookAdapter,
   });
 };
 
@@ -277,19 +213,12 @@ export const nullOnchain: Onchain = {
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),
   ensV2Addr: () =>
     Promise.reject(new OnchainError("ENS_WRITE_FAILED", "ENSv2 not configured")),
-  agentBook: nullAgentBook,
   game: {
     read: () =>
       Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
     write: () =>
       Promise.reject(new OnchainError("CHAIN_UNAVAILABLE", "onchain not configured")),
   },
-  registerAgentIdentity: () =>
-    Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
-  writeReputation: () =>
-    Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
-  readReputation: () =>
-    Promise.reject(new OnchainError("ERC8004_WRITE_FAILED", "ERC-8004 not configured")),
 };
 
 // --- public surface (the cross-lane seams) ---
@@ -301,7 +230,5 @@ export * from "./transfer-auth.ts";
 export * from "./payment-intent.ts";
 export * from "./server-wallet.ts";
 export * from "./viem-server-wallet.ts";
-export * from "./erc8004.ts";
-export * from "./agentbook/agent-book.ts";
 export * from "./verify.ts";
 export * from "./errors.ts";

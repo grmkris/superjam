@@ -5,7 +5,6 @@
 // `selectEligibleBuilder`, the routing primitive the build dispatch calls.
 import type { Database } from "@superjam/db";
 import { schema } from "@superjam/db";
-import type { Logger } from "@superjam/logger";
 import {
   type AppSpec,
   BuilderAgentId,
@@ -15,7 +14,6 @@ import {
 import { ORPCError } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import type { AgentIdentity } from "../lib/agent-identity.ts";
 
 const { builderAgent } = schema;
 type User = typeof schema.user.$inferSelect;
@@ -41,18 +39,14 @@ const RegisterInput = z.object({
 
 export type CreateBuilderAgentInput = z.infer<typeof RegisterInput>;
 
-/** The SINGLE builder-agent registration path — shared by the worldVerified
- *  `register` endpoint (community, via the website), the platform `create-agent`
- *  script (the fleet), and the Claude Code skill. Inserts the row + provisions the
- *  agent's onchain identity (ENS + ERC-8004 + StakeSlash stake + AgentBook detect),
- *  all best-effort (a provision failure never fails registration). Throws CONFLICT
- *  on a duplicate slug. Returns the full agent row with the provisioned fields. */
+/** Insert a builder-agent row. Shared by the fleet seeder (`create-agent.ts`) and
+ *  the Claude Code skill. Throws CONFLICT on a duplicate slug. Returns the row. */
 export const createBuilderAgent = async (
-  deps: { db: Database; agentIdentity: AgentIdentity; logger: Logger },
+  deps: { db: Database },
   input: CreateBuilderAgentInput,
-  owner: { id: User["id"]; username: string; walletAddress: string | null }
+  owner: { id: User["id"] }
 ) => {
-  const { db, agentIdentity, logger } = deps;
+  const { db } = deps;
   const clash = await db.query.builderAgent.findFirst({
     where: eq(builderAgent.slug, input.slug),
   });
@@ -70,133 +64,12 @@ export const createBuilderAgent = async (
       endpointUrl: input.endpointUrl,
       token: input.token,
       priceUsdc: input.priceUsdc,
-      model: input.model ?? null,
       capabilities: input.capabilities,
       walletAddress: input.walletAddress,
       status: "active",
     })
     .returning();
-  const agent = row!;
-
-  // Best-effort onchain identity — ENS subname + ERC-8004 + StakeSlash stake +
-  // AgentBook detect. A failure here never fails registration.
-  let ensName = agent.ensName;
-  let erc8004Id = agent.erc8004Id;
-  let stakedUsdc = agent.stakedUsdc;
-  let stakeTxHash = agent.stakeTxHash;
-  let agentbookRegistered = agent.agentbookRegistered;
-  let agentbookHumanId = agent.agentbookHumanId;
-  try {
-    const identity = await agentIdentity.provision({
-      agentId: agent.id,
-      slug: agent.slug,
-      ownerUsername: owner.username,
-      ownerWallet: owner.walletAddress ?? undefined,
-      walletAddress: agent.walletAddress,
-    });
-    const patch: Partial<typeof builderAgent.$inferInsert> = {};
-    if (identity.ensName) {
-      ensName = identity.ensName;
-      patch.ensName = ensName;
-    }
-    if (identity.erc8004Id) {
-      erc8004Id = identity.erc8004Id;
-      patch.erc8004Id = erc8004Id;
-    }
-    if (identity.stakeTxHash) {
-      stakeTxHash = identity.stakeTxHash;
-      stakedUsdc = identity.stakedUsdc ?? null;
-      patch.stakeTxHash = stakeTxHash;
-      patch.stakedUsdc = stakedUsdc;
-    }
-    if (identity.agentbookRegistered) {
-      agentbookRegistered = true;
-      agentbookHumanId = identity.agentbookHumanId ?? null;
-      patch.agentbookRegistered = true;
-      patch.agentbookHumanId = agentbookHumanId;
-    }
-    if (Object.keys(patch).length > 0) {
-      await db
-        .update(builderAgent)
-        .set(patch)
-        .where(eq(builderAgent.id, agent.id));
-    }
-  } catch (err) {
-    logger.warn(
-      { err: String(err), agentId: agent.id },
-      "agent identity provision failed"
-    );
-  }
-  return {
-    ...agent,
-    ensName,
-    erc8004Id,
-    stakedUsdc,
-    stakeTxHash,
-    agentbookRegistered,
-    agentbookHumanId,
-  };
-};
-
-/** Re-provision an EXISTING agent's onchain identity, filling only the gaps —
- *  mint the ERC-8004 id / ENS name / seed stake if (and only if) it's still
- *  missing. Idempotent (provision is `current`-aware, so nothing double-mints) and
- *  best-effort (a provision failure leaves the row untouched). Shared by the
- *  `refreshIdentity` mutation and the fleet backfill script. Returns the patched row. */
-export const refreshAgentIdentity = async (
-  deps: { db: Database; agentIdentity: AgentIdentity; logger: Logger },
-  agent: BuilderAgent,
-  owner: { username: string; walletAddress: string | null }
-): Promise<BuilderAgent> => {
-  const { db, agentIdentity, logger } = deps;
-  try {
-    const identity = await agentIdentity.provision({
-      agentId: agent.id,
-      slug: agent.slug,
-      ownerUsername: owner.username,
-      ownerWallet: owner.walletAddress ?? undefined,
-      walletAddress: agent.walletAddress,
-      current: {
-        ensName: agent.ensName,
-        erc8004Id: agent.erc8004Id,
-        stakedUsdc: agent.stakedUsdc,
-      },
-    });
-    const patch: Partial<typeof builderAgent.$inferInsert> = {};
-    if (identity.ensName && identity.ensName !== agent.ensName) {
-      patch.ensName = identity.ensName;
-    }
-    if (identity.erc8004Id && identity.erc8004Id !== agent.erc8004Id) {
-      patch.erc8004Id = identity.erc8004Id;
-    }
-    if (identity.stakeTxHash && !agent.stakedUsdc) {
-      patch.stakeTxHash = identity.stakeTxHash;
-      patch.stakedUsdc = identity.stakedUsdc ?? null;
-    }
-    // AgentBook is a fresh read every refresh — persist it authoritatively (flips
-    // the badge true once the wallet is registered) when it actually changed.
-    if (
-      identity.agentbookRegistered !== undefined &&
-      (identity.agentbookRegistered !== agent.agentbookRegistered ||
-        (identity.agentbookHumanId ?? null) !== agent.agentbookHumanId)
-    ) {
-      patch.agentbookRegistered = identity.agentbookRegistered;
-      patch.agentbookHumanId = identity.agentbookHumanId ?? null;
-    }
-    if (Object.keys(patch).length === 0) return agent;
-    const [updated] = await db
-      .update(builderAgent)
-      .set(patch)
-      .where(eq(builderAgent.id, agent.id))
-      .returning();
-    return updated!;
-  } catch (err) {
-    logger.warn(
-      { err: String(err), agentId: agent.id },
-      "agent identity refresh failed"
-    );
-    return agent;
-  }
+  return row!;
 };
 
 /** The builder S's dispatch should send a build to, + the dispatch creds. */

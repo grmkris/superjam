@@ -92,11 +92,6 @@ const onchain =
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
     arcRpcUrl: env.ARC_RPC_URL,
     // ERC-8004 (§14/§16): the canonical reference IdentityRegistry, set via
-    // ERC8004_REGISTRY (Base Sepolia). ReputationRegistry defaults to the paired
-    // canonical address in the binding. Absent ⇒ 8004 ops degrade (never fail).
-    erc8004: env.ERC8004_REGISTRY
-      ? { identityRegistry: env.ERC8004_REGISTRY as `0x${string}` }
-      : undefined,
     // ENSv2-native (§16) — the SINGLE naming path: mints `<label>.superjam.eth`
     // resolvable in standard ENS tooling (Sepolia L1 SuperjamRegistry, agent-owned,
     // own dedicated signer). Absent ⇒ the v2 mint degrades (never fails a build).
@@ -106,10 +101,6 @@ const onchain =
         : undefined,
     sepoliaRpcUrl: env.SEPOLIA_RPC_URL,
     ensV2SignerKey: env.ENS_V2_SIGNER_KEY,
-    // World AgentBook (World prize) — read-only human-backed detection on World Chain.
-    // Both default (canonical contract + public RPC), so this works with no env set.
-    worldchainRpcUrl: env.WORLDCHAIN_RPC_URL,
-    agentBookAddress: env.AGENTBOOK_ADDRESS,
   }) ?? nullOnchain;
 const treasuryAddress = env.TREASURY_ADDRESS as `0x${string}` | undefined;
 // AI pot-resolution oracle (§9) — only when a Gemini key is present; else

@@ -25,12 +25,6 @@ export {
   nullAppTokenIssuer,
 } from "./auth/app-token.ts";
 export {
-  type AgentIdentity,
-  type AgentIdentityInput,
-  type AgentIdentityResult,
-  nullAgentIdentity,
-} from "./lib/agent-identity.ts";
-export {
   selectEligibleBuilder,
   type SelectedBuilder,
 } from "./routers/agents.ts";

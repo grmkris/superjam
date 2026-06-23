@@ -48,7 +48,6 @@ export const createMockOnchain = (
       opts.serverAddress ?? "0x000000000000000000000000000000000000eeee",
     sends,
     gameWrites,
-    agentBook: { lookupHuman: async () => null },
     game: {
       read: async () => gameRead(),
       write: async ({ address, functionName, args = [] }) => {
@@ -76,12 +75,6 @@ export const createMockOnchain = (
       txHash: fakeHash(),
     }),
     ensV2Addr: async () => `0x${"0".repeat(40)}` as `0x${string}`,
-    registerAgentIdentity: async (p) => ({
-      erc8004Id: `8004:${p.agentId}`,
-      txHash: fakeHash(),
-    }),
-    writeReputation: async () => fakeHash(),
-    readReputation: async () => ({ count: 0, average: 0 }),
   };
   return mock;
 };
