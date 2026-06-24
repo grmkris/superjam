@@ -378,10 +378,11 @@ export const runHarnessBuild = async (
 
     const model = deps.model;
     const system = await buildSystemPrompt(args.spec, HARNESS_SEAMS);
-    // A kit ships a FILLED, ordered checklist; a starter app/page.tsx already exists,
-    // so the model's job is to complete every step + fill the // TODO gaps.
+    // A kit ships a FILLED, ordered checklist; a WORKING starter app/page.tsx (and
+    // sometimes seeded components it imports) already exists, so the model's job is to
+    // EXTEND it, not rewrite it.
     const planSection = kit
-      ? `\n\n## Build plan — complete EVERY step (a starter app/page.tsx exists; fill its // TODO gaps)\n${kit.plan(args.spec)}`
+      ? `\n\n## Build plan — EXTEND the seeded starter (do NOT rewrite it from scratch)\nA working starter app/page.tsx is already in place. Build ON it: fill the // TODO gaps, theme it, and wire the spec. KEEP every seeded import (especially components like \`@/components/result-card\`) and KEEP the ending (the result + share button) — don't drop features the starter already has. Complete EVERY step:\n${kit.plan(args.spec)}`
       : "";
     // The harness ALREADY downloaded the maker's uploads (the sandbox has no network)
     // → tell the agent where they are instead of the (broken) "curl these URLs".

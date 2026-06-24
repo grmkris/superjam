@@ -101,6 +101,16 @@ inline styles. DO NOT edit `theme.css`** — put any custom CSS in `app/globals.
   Inline styles are fine for layout (flex/grid/spacing); pull color/font/buttons/cards
   from the theme so every jam shares the host's visual language.
 
+## Make it shareable (the viral loop)
+The best jams end in a personal RESULT the player wants to share. Where it fits (a
+score, a personality type, an AI verdict, a ranking, a streak):
+- Make a deep-link with `const { url } = await sdk.share.link({ data })` (data ≤2KiB) and
+  let the player copy it / send it (`sdk.messages.send` needs the "social" capability).
+- Whoever opens that link gets `data` back as `sdk.app.context().launch` — read it
+  (UNTRUSTED → validate + render as plain text) and frame it as "@x got <result> — beat
+  it?" to pull them in.
+- Keep the shared text SPOILER-FREE for puzzles (an emoji grid, not the answer).
+
 ## HARD RULES
 1. `app/page.tsx` starts with `"use client"`. One screen, playable instantly, no routing.
 2. NEVER trust a client-supplied user id — in API routes, take identity ONLY from

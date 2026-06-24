@@ -133,9 +133,20 @@ const onchainSpec: AppSpec = {
   acceptance: ["A flip calls sdk.onchain.write", "Wins persist onchain across reloads"],
 };
 
-const spec = data ? dataSpec : poll ? pollSpec : onchain ? onchainSpec : clickerSpec;
-const appId = data ? "app_trialreviews" : poll ? "app_trialpoll" : onchain ? "app_trialonchain" : "app_trialclicker";
-const buildId = data ? "build_trialdata" : poll ? "build_trialpoll" : onchain ? "build_trialonchain" : "build_trial1";
+// VIRAL kit specs (--viral=personality|roast|tier|guess) — each ends in a shareable
+// result. Dry-run verifies the seeded components/result-card.tsx + page compile.
+const viralArg = process.argv.find((a) => a.startsWith("--viral="))?.split("=")[1];
+const VIRAL: Record<string, AppSpec> = {
+  personality: { name: "Which Pizza Are You", slug: "which-pizza-trial", description: "Answer a few questions to find which pizza topping matches your personality.", iconEmoji: "🍕", category: "social", capabilities: [], features: ["fun personality questions", "a shareable result type"], data: { collections: [], counters: [], storage: [] }, ui: { layout: "card", sections: ["quiz", "result"] }, acceptance: ["shows a result type", "shareable result"] },
+  roast: { name: "Roast My Startup Idea", slug: "roast-idea-trial", description: "Paste your startup idea and let the AI roast and rate it out of 10.", iconEmoji: "🔥", category: "social", capabilities: ["ai"], features: ["paste your idea", "AI roast + score", "share the burn"], data: { collections: [], counters: [], storage: [] }, ui: { layout: "card", sections: ["input", "verdict"] }, acceptance: ["AI verdict with a local fallback", "shareable"] },
+  tier: { name: "Rank These Snacks", slug: "rank-snacks-trial", description: "Tap these snacks into a tier list from S to C and share your ranking.", iconEmoji: "🍿", category: "social", capabilities: [], features: ["Popcorn", "Chips", "Chocolate", "Gummies", "Pretzels"], data: { collections: [], counters: [], storage: [] }, ui: { layout: "card", sections: ["rank", "result"] }, acceptance: ["rank into tiers", "shareable ranking"] },
+  guess: { name: "Daily Word Wordle", slug: "daily-word-trial", description: "Guess the daily five letter word in six tries and keep your streak.", iconEmoji: "🟩", category: "game", capabilities: [], features: ["five letter word guess", "streak", "share the emoji grid"], data: { collections: [], counters: [], storage: [] }, ui: { layout: "card", sections: ["board", "share"] }, acceptance: ["letter feedback", "shareable spoiler-free grid"] },
+};
+const viralSpec = viralArg ? VIRAL[viralArg] : undefined;
+
+const spec = viralSpec ?? (data ? dataSpec : poll ? pollSpec : onchain ? onchainSpec : clickerSpec);
+const appId = viralSpec ? `app_trial${viralArg}` : data ? "app_trialreviews" : poll ? "app_trialpoll" : onchain ? "app_trialonchain" : "app_trialclicker";
+const buildId = viralSpec ? `build_trial${viralArg}` : data ? "build_trialdata" : poll ? "build_trialpoll" : onchain ? "build_trialonchain" : "build_trial1";
 // Neon client for data apps (reads NEON_API_KEY from .env). Zero-backend builds ignore it.
 const neon = process.env.NEON_API_KEY
   ? createNeonClient({ apiKey: process.env.NEON_API_KEY })
