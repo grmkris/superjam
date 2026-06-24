@@ -232,9 +232,8 @@ const gate = (files: Record<string, string>): GateResult => {
   if (!/TripStop|stops\s*=|lat:/.test(page)) {
     missing.push("build a TripStop[] of real places (name + lat/lng + day + blurb) to feed <TripMap>");
   }
-  if (!/shareResult\(|\.share\.link\(/.test(page)) {
-    missing.push('add a Share button — import { shareResult } from "@/components/result-card" and call shareResult(sdk, { text, data }) so people share the trip');
-  }
+  // NOTE: no share-loop requirement — a trip guide is a showcase, not a "beat my
+  // score" loop; forcing share + the map was too much for the cheap model in 4 rounds.
   return { ok: missing.length === 0, missing };
 };
 

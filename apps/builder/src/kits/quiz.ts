@@ -108,6 +108,7 @@ const starterFiles = (spec: AppSpec, _ctx: KitContext): Record<string, string> =
 
 import SuperJam, { type SuperJamSdk, type AppContext } from "@superjam/sdk";
 import { useEffect, useRef, useState } from "react";
+import { shareResult } from "@/components/result-card";
 
 // ${title} — a timed quiz. Personal best persists in sdk.storage("${store}");
 // the shared leaderboard is sdk.data.counter("${counter}").
@@ -260,6 +261,13 @@ export default function Page() {
         ) : (
           <>
             <p className="tj-sub">Done! You scored {score} (best {best}).</p>
+            <button
+              className="tj-btn tj-btn-block"
+              style={{ marginTop: 10 }}
+              onClick={() => { if (sdk) shareResult(sdk, { text: "I scored " + score + " on ${title} — can you beat it?", data: { score } }); }}
+            >
+              Share your score 🔗
+            </button>
             {/* TODO: a "play again" reset + a celebratory transition on a new best. */}
           </>
         )}

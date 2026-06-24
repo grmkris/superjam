@@ -266,7 +266,7 @@ const SPECS: AppSpec[] = [
       "A full-width hero image + a 'trip at a glance' line (10 days · 7 stops · Tokyo → Miyajima).",
       "The route renders on the seeded interactive map (components/trip-map.tsx, MapLibre): all 7 stops as day-coloured numbered markers joined by a route line across Japan, auto-fit.",
       "A beautiful baked photo for every stop (real scenes: Senso-ji, Mt Fuji/Hakone, Fushimi Inari, Nara deer, Dotonbori, Hiroshima Peace Dome, Miyajima torii) + a hero — generated at build time (≤8 images), each with an emoji/gradient fallback so an image is never broken.",
-      "An 'Ask the guide' box: sdk.ai.chat grounded in this exact itinerary answers trip questions (e.g. 'vegetarian food in Kyoto?') with a loading state and a graceful fallback.",
+      "An 'Ask the guide' box: sdk.ai.chat grounded in this exact itinerary answers anything about the trip (e.g. 'vegetarian food in Kyoto?') with a loading state and a graceful fallback.",
       "Polished read-first UI with plain CSS only (sticky day nav, smooth expand, image hover) — no extra dependencies. Bookmark favourite stops to per-user storage.",
     ],
     data: {
