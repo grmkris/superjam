@@ -61,7 +61,7 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
         <div key={score} className="tj-stat tj-pop" style={{ position: "absolute", top: 14, left: 18 }}>⚽ {score}</div>
         <div className="tj-stat" style={{ position: "absolute", top: 14, right: 18 }}>⏱ {Math.max(left, 0)}</div>
         {over && (
-          <div className="tj-card" style={{ position: "absolute", inset: "16% 8% auto", maxWidth: "unset" }}>
+          <div className="tj-card" style={{ position: "absolute", inset: "16% 0 auto", marginInline: "auto" }}>
             <h1 className="tj-title">Full time — {score} goals ⚽</h1>
             <ul className="tj-list">
               {top.map((e) => (
