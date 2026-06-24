@@ -13,18 +13,13 @@ import { Skeleton } from "../components/ui/skeleton";
 import { StickerButton } from "../components/ui/sticker";
 import { usePlatformClient } from "../components/use-platform-client";
 
-const TABS: { key: FeedTab; label: string }[] = [
-  { key: "foryou", label: "For you" },
-  { key: "friends", label: "Friends" },
-  { key: "new", label: "New" },
-];
-
 export default function DiscoverPage() {
   const router = useRouter();
   const client = usePlatformClient();
-  const [tab, setTab] = useState<FeedTab>("foryou");
+  // Feed source. The For you / Friends / New switcher is deferred to a later
+  // stage — for now the feed always loads "For you".
+  const [tab] = useState<FeedTab>("foryou");
   const [jams, setJams] = useState<FeedJam[] | null>(null);
-  const [fullscreen, setFullscreen] = useState(false);
   // The jam snapped into view — only it plays live, and the URL reflects it.
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
@@ -90,34 +85,8 @@ export default function DiscoverPage() {
 
   return (
     <div className="relative flex h-full flex-col bg-blue">
-      {/* Tier 1 — feed switcher as a centered segmented pill ABOVE the scroll, so
-          the active jam's top bar (and the app below it) never collide with it.
-          The profile avatar (TopBar overlay) keeps the top-right. */}
-      {!fullscreen && (
-        <div className="z-20 flex shrink-0 justify-center px-4 pt-4 pb-2">
-          <div
-            role="tablist"
-            aria-label="Feed"
-            className="inline-flex items-center gap-1 rounded-full border-2 border-ink bg-white/85 p-1 shadow-sticker-sm backdrop-blur"
-          >
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                role="tab"
-                aria-selected={tab === t.key}
-                onClick={() => setTab(t.key)}
-                className={cx(
-                  "focus-ring rounded-full px-4 py-1.5 text-small transition-colors",
-                  tab === t.key ? "bg-ink text-cream font-bold" : "text-ink font-semibold"
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* The unified top bar now lives inside each jam's JamChrome (identity +
+          actions + profile), so the feed is edge-to-edge with no page-level band. */}
       <div className="relative min-h-0 flex-1">
         {jams === null ? (
           <FeedSkeleton />
@@ -132,7 +101,6 @@ export default function DiscoverPage() {
                 jam={jam}
                 active={jam.slug === activeSlug}
                 mounted={mountWindow.has(jam.slug)}
-                onFullscreenChange={setFullscreen}
                 onComments={(j) => router.push(`/j/${j.slug}`)}
               />
             ))}

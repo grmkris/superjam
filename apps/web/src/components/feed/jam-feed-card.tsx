@@ -14,6 +14,7 @@ import { useHostAuth } from "../../lib/use-host-auth";
 import Link from "next/link";
 import { AppHost } from "../app-host";
 import { JamChrome } from "../jam-chrome";
+import { ProfileControl } from "../top-bar";
 import { cx } from "../ui/cx";
 import { EmojiToken, StickerButton } from "../ui/sticker";
 import { avatarEmoji } from "../ui/identity";
@@ -127,6 +128,7 @@ export function JamFeedCard({
               onLike={onLike}
               comments={jam.comments}
               onComments={() => onComments(jam)}
+              profile={active && !fullscreen ? <ProfileControl /> : undefined}
             />
           </div>
           <div className="relative min-h-0 flex-1">

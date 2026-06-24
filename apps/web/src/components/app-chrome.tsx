@@ -20,8 +20,8 @@ export function AppChrome({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  // The Discover feed is edge-to-edge immersive — the profile floats over it
-  // (transparent overlay) instead of sitting under a solid bar.
+  // The Discover feed is edge-to-edge immersive — no page-level bar. Its profile
+  // avatar + app actions live in the per-jam JamChrome bar (the feed's own bar).
   const immersive = pathname === "/";
 
   return (
@@ -32,12 +32,9 @@ export function AppChrome({ children }: { children: ReactNode }) {
       <SideNav />
       <main className="relative flex flex-1 min-h-0 flex-col">
         {immersive ? (
-          <>
-            <div key={pathname} className="flex-1 min-h-0 overflow-hidden">
-              {children}
-            </div>
-            <TopBar overlay />
-          </>
+          <div key={pathname} className="flex-1 min-h-0 overflow-hidden">
+            {children}
+          </div>
         ) : (
           <>
             <TopBar />

@@ -11,7 +11,9 @@
 // the provider server-render and throw.
 //
 // A brief branded splash covers the mount so there's no flash of empty page.
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { useHostAuth } from "../lib/use-host-auth";
 import { AppChrome } from "./app-chrome";
 import { ConfirmProvider } from "./confirm/confirm-provider";
 import { useRelayExecutor } from "./confirm/pay-executor";
@@ -25,11 +27,40 @@ export function ClientRoot({ children }: { children: ReactNode }) {
 
   return (
     <Providers>
-      <WiredConfirm>
-        <AppChrome>{children}</AppChrome>
-      </WiredConfirm>
+      <AuthGate>
+        <WiredConfirm>
+          <AppChrome>{children}</AppChrome>
+        </WiredConfirm>
+      </AuthGate>
     </Providers>
   );
+}
+
+// The only route a signed-out viewer may see — everything else requires login.
+const isPublic = (p: string): boolean => p === "/welcome";
+
+// AuthGate — the login wall. Signed-out viewers can't see or touch anything but
+// /welcome; we bounce them there with a ?next= so they return to where they were
+// headed after signing in. While Dynamic is still resolving auth (meStatus
+// "pending") we hold the splash rather than flash a redirect. An "error" viewer
+// still holds a token (isLoggedIn true) and passes through.
+function AuthGate({ children }: { children: ReactNode }) {
+  const { isLoggedIn, meStatus } = useHostAuth();
+  const pathname = usePathname() ?? "/";
+  const router = useRouter();
+
+  const resolving = meStatus === "pending";
+  const blocked = !resolving && !isLoggedIn && !isPublic(pathname);
+
+  useEffect(() => {
+    if (!blocked) return;
+    const here = window.location.pathname + window.location.search;
+    const q = here === "/" ? "" : `?next=${encodeURIComponent(here)}`;
+    router.replace(`/welcome${q}`);
+  }, [blocked, router]);
+
+  if (resolving || blocked) return <Splash />;
+  return <>{children}</>;
 }
 
 // Inside <Providers> so useRelayExecutor can reach the Dynamic wallet; injects

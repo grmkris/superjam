@@ -7,7 +7,7 @@
 // when inline, or ✕ close when fullscreen. The sheets render above the stage
 // (ToyboxSheet is z-[200]) so they're never hidden behind the running jam.
 import Link from "next/link";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import type { ViewerApp } from "./app-frame";
 import { FriendPicker } from "./chat/friend-picker";
 import { compactCount } from "./feed/jam";
@@ -32,13 +32,14 @@ export function JamChrome({
   onLike,
   comments,
   onComments,
+  profile,
 }: {
   app: ViewerApp;
   maker?: { username: string } | null;
   fullscreen: boolean;
-  /** enter fullscreen — shown as ⛶ when inline */
+  /** enter fullscreen — shown as ⛶ when inline (only when provided) */
   onFullscreen?: () => void;
-  /** close — shown as ✕ when fullscreen (exit fullscreen or leave the route) */
+  /** close — shown as ✕ when fullscreen (only when provided) */
   onClose?: () => void;
   /** like + comment pills render only when their handler is provided (feed only). */
   likes?: number;
@@ -46,6 +47,8 @@ export function JamChrome({
   onLike?: () => void;
   comments?: number;
   onComments?: () => void;
+  /** identity surface (avatar/menu) docked at the far right — feed bar only. */
+  profile?: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -56,7 +59,7 @@ export function JamChrome({
         <button
           onClick={() => setMenuOpen(true)}
           aria-label="App menu"
-          className={cx(PILL, "min-w-0 gap-2 px-3 py-1")}
+          className={cx(PILL, "min-w-0 max-w-[44vw] gap-2 px-3 py-1 sm:max-w-none")}
         >
           <span className="shrink-0">{app.iconEmoji}</span>
           <span className="truncate">{app.name}</span>
@@ -65,7 +68,7 @@ export function JamChrome({
           )}
         </button>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
           {onLike && (
             <button
               onClick={onLike}
@@ -74,13 +77,13 @@ export function JamChrome({
               className={cx(COUNT_PILL, liked && "bg-pink text-white")}
             >
               <span>{liked ? "❤️" : "🤍"}</span>
-              {compactCount(likes ?? 0)}
+              <span className="hidden sm:inline">{compactCount(likes ?? 0)}</span>
             </button>
           )}
           {onComments && (
             <button onClick={onComments} aria-label="Comments" className={COUNT_PILL}>
               <span>💬</span>
-              {compactCount(comments ?? 0)}
+              <span className="hidden sm:inline">{compactCount(comments ?? 0)}</span>
             </button>
           )}
           <button onClick={() => setPicking(true)} aria-label="Share jam" className={ICON_PILL}>
@@ -93,19 +96,26 @@ export function JamChrome({
           >
             ⋯
           </button>
-          {fullscreen ? (
-            <button onClick={onClose} aria-label="Close jam" className={cx(ICON_PILL, "font-extrabold")}>
-              ✕
-            </button>
-          ) : (
-            <button
-              onClick={onFullscreen}
-              aria-label="Fullscreen"
-              className={cx(ICON_PILL, "font-extrabold")}
-            >
-              ⛶
-            </button>
-          )}
+          {fullscreen
+            ? onClose && (
+                <button
+                  onClick={onClose}
+                  aria-label="Close jam"
+                  className={cx(ICON_PILL, "font-extrabold")}
+                >
+                  ✕
+                </button>
+              )
+            : onFullscreen && (
+                <button
+                  onClick={onFullscreen}
+                  aria-label="Fullscreen"
+                  className={cx(ICON_PILL, "font-extrabold")}
+                >
+                  ⛶
+                </button>
+              )}
+          {profile}
         </div>
       </div>
 

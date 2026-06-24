@@ -43,6 +43,16 @@ export default function WelcomePage() {
   // did the user drive a fresh login in THIS session? distinguishes a
   // first-timer (→ claim) from a returning user (→ straight to Discover).
   const droveLogin = useRef(false);
+  // Where to land after sign-in — the route the gate bounced them from
+  // (?next=). Internal paths only (no open-redirect, no /welcome loop).
+  const nextRef = useRef<string>("/");
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("next");
+    nextRef.current =
+      raw && raw.startsWith("/") && !raw.startsWith("//") && raw !== "/welcome"
+        ? raw
+        : "/";
+  }, []);
   const [name, setName] = useState("");
   const [claiming, setClaiming] = useState(false);
   // server-checked availability for the typed handle (format-gated, debounced).
@@ -56,7 +66,7 @@ export default function WelcomePage() {
     if (droveLogin.current) {
       setStep("claim");
     } else {
-      router.replace("/");
+      router.replace(nextRef.current);
     }
   }, [isLoggedIn, router]);
 
@@ -115,7 +125,7 @@ export default function WelcomePage() {
       await client.profile.claimUsername({
         username: name.trim().toLowerCase(),
       });
-      router.push("/");
+      router.push(nextRef.current);
     } catch {
       // taken / invalid — surface on the chip and let them pick another.
       setAvail("taken");

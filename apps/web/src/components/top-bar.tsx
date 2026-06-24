@@ -25,16 +25,22 @@ const TITLES: Record<string, string> = {
   "/me": "Profile",
 };
 
+// ProfileControl — the always-reachable identity surface: the avatar+menu when
+// signed in, a Log-in button when not. Reused by TopBar and by the feed's
+// JamChrome (so the Discover bar carries it inline instead of as an overlay).
+export function ProfileControl() {
+  const { isLoggedIn, hostUser } = useHostAuth();
+  return isLoggedIn && hostUser ? (
+    <ProfileMenu username={hostUser.username} />
+  ) : (
+    <LoginButton />
+  );
+}
+
 export function TopBar({ overlay = false }: { overlay?: boolean }) {
   const pathname = usePathname() ?? "/";
-  const { isLoggedIn, hostUser } = useHostAuth();
 
-  const profile =
-    isLoggedIn && hostUser ? (
-      <ProfileMenu username={hostUser.username} />
-    ) : (
-      <LoginButton />
-    );
+  const profile = <ProfileControl />;
 
   // Overlay: float ONLY the profile control over an immersive surface (the Discover
   // feed) — no cream strip, no wordmark — so the feed stays edge-to-edge.
