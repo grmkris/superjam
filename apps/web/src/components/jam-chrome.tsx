@@ -2,15 +2,17 @@
 
 // JamChrome — the shared top-bar + action sheets for a LIVE jam, used both by the
 // inline feed player (jam-feed-card) and the fullscreen AppStage (/app/[slug]).
-// A slim capsule bar: identity chip (→ actions sheet), 📣 share (→ FriendPicker),
-// ⋯ menu (→ actions sheet), and a right-most control that is ⛶ enter-fullscreen
-// when inline, or ✕ close when fullscreen. The sheets render above the stage
-// (ToyboxSheet is z-[200]) so they're never hidden behind the running jam.
+// A slim capsule bar kept deliberately uncluttered: identity chip (→ actions
+// sheet), ❤️ like, 💬 comments (→ reviews popup), ⋯ menu, and the profile avatar.
+// Secondary actions — 📣 share and ⛶ fullscreen — live inside the ⋯ sheet. The
+// only right-most control is ✕ (close) while fullscreen. All sheets render above
+// the stage (ToyboxSheet is z-[200]) so they're never hidden behind the jam.
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import type { ViewerApp } from "./app-frame";
 import { FriendPicker } from "./chat/friend-picker";
 import { compactCount } from "./feed/jam";
+import { JamReviews } from "./jam-reviews";
 import { ToyboxSheet } from "./ui/sheet";
 import { actionRowButton, EmojiToken, StickerButton } from "./ui/sticker";
 import { cx } from "./ui/cx";
@@ -31,27 +33,27 @@ export function JamChrome({
   liked,
   onLike,
   comments,
-  onComments,
   profile,
 }: {
   app: ViewerApp;
   maker?: { username: string } | null;
   fullscreen: boolean;
-  /** enter fullscreen — shown as ⛶ when inline (only when provided) */
+  /** enter fullscreen — offered in the ⋯ sheet when provided + inline */
   onFullscreen?: () => void;
   /** close — shown as ✕ when fullscreen (only when provided) */
   onClose?: () => void;
-  /** like + comment pills render only when their handler is provided (feed only). */
+  /** like pill renders only when its handler is provided (feed only). */
   likes?: number;
   liked?: boolean;
   onLike?: () => void;
+  /** comments pill renders when a count is provided (feed); opens the reviews popup. */
   comments?: number;
-  onComments?: () => void;
   /** identity surface (avatar/menu) docked at the far right — feed bar only. */
   profile?: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   return (
     <>
@@ -68,7 +70,7 @@ export function JamChrome({
           )}
         </button>
 
-        <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+        <div className="ml-auto flex items-center gap-1.5">
           {onLike && (
             <button
               onClick={onLike}
@@ -77,18 +79,19 @@ export function JamChrome({
               className={cx(COUNT_PILL, liked && "bg-pink text-white")}
             >
               <span>{liked ? "❤️" : "🤍"}</span>
-              <span className="hidden sm:inline">{compactCount(likes ?? 0)}</span>
+              {compactCount(likes ?? 0)}
             </button>
           )}
-          {onComments && (
-            <button onClick={onComments} aria-label="Comments" className={COUNT_PILL}>
+          {comments !== undefined && (
+            <button
+              onClick={() => setCommentsOpen(true)}
+              aria-label="Comments"
+              className={COUNT_PILL}
+            >
               <span>💬</span>
-              <span className="hidden sm:inline">{compactCount(comments ?? 0)}</span>
+              {compactCount(comments)}
             </button>
           )}
-          <button onClick={() => setPicking(true)} aria-label="Share jam" className={ICON_PILL}>
-            📣
-          </button>
           <button
             onClick={() => setMenuOpen(true)}
             aria-label="More"
@@ -96,30 +99,32 @@ export function JamChrome({
           >
             ⋯
           </button>
-          {fullscreen
-            ? onClose && (
-                <button
-                  onClick={onClose}
-                  aria-label="Close jam"
-                  className={cx(ICON_PILL, "font-extrabold")}
-                >
-                  ✕
-                </button>
-              )
-            : onFullscreen && (
-                <button
-                  onClick={onFullscreen}
-                  aria-label="Fullscreen"
-                  className={cx(ICON_PILL, "font-extrabold")}
-                >
-                  ⛶
-                </button>
-              )}
+          {fullscreen && onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Close jam"
+              className={cx(ICON_PILL, "font-extrabold")}
+            >
+              ✕
+            </button>
+          )}
           {profile}
         </div>
       </div>
 
-      <AppMenuSheet app={app} maker={maker} open={menuOpen} onOpenChange={setMenuOpen} />
+      <AppMenuSheet
+        app={app}
+        maker={maker}
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        onShare={() => setPicking(true)}
+        onFullscreen={onFullscreen}
+        fullscreen={fullscreen}
+      />
+
+      {comments !== undefined && (
+        <CommentsSheet app={app} open={commentsOpen} onOpenChange={setCommentsOpen} />
+      )}
 
       {picking && (
         <FriendPicker
@@ -132,18 +137,49 @@ export function JamChrome({
   );
 }
 
-// AppMenuSheet — the ⋯ actions sheet, overlaid on the LIVE jam. The link rows DO
-// navigate away (unmounting the running jam) by deliberate user choice.
+// CommentsSheet — the in-feed reviews popup. Reuses the shared <JamReviews> so the
+// feed and the /j/[slug] page show the exact same surface. Sits above the running
+// jam (z-[200]); the feed stays mounted behind it.
+function CommentsSheet({
+  app,
+  open,
+  onOpenChange,
+}: {
+  app: ViewerApp;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <ToyboxSheet open={open} onOpenChange={onOpenChange} title={`${app.name} — reviews`}>
+      <div className="flex items-center gap-3">
+        <EmojiToken emoji={app.iconEmoji} color="blue" size={40} rounded="toy" />
+        <div className="truncate text-h3 font-extrabold">{app.name}</div>
+      </div>
+      <JamReviews appId={app.id} />
+    </ToyboxSheet>
+  );
+}
+
+// AppMenuSheet — the ⋯ actions sheet, overlaid on the LIVE jam. Carries the
+// secondary actions kept off the bar (share, fullscreen) plus the navigation rows
+// (maker, jam page, remix). The link rows DO navigate away (unmounting the running
+// jam) by deliberate user choice.
 function AppMenuSheet({
   app,
   maker,
   open,
   onOpenChange,
+  onShare,
+  onFullscreen,
+  fullscreen,
 }: {
   app: ViewerApp;
   maker?: { username: string } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onShare: () => void;
+  onFullscreen?: () => void;
+  fullscreen: boolean;
 }) {
   return (
     <ToyboxSheet open={open} onOpenChange={onOpenChange} title={`${app.name} menu`}>
@@ -162,9 +198,33 @@ function AppMenuSheet({
             <span className="font-extrabold">@{maker.username}</span>
           </Link>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            onOpenChange(false);
+            onShare();
+          }}
+          className={actionRowButton}
+        >
+          <EmojiToken emoji="📣" color="pink" size={36} />
+          <span className="font-extrabold">Send to a friend</span>
+        </button>
+        {onFullscreen && !fullscreen && (
+          <button
+            type="button"
+            onClick={() => {
+              onOpenChange(false);
+              onFullscreen();
+            }}
+            className={actionRowButton}
+          >
+            <EmojiToken emoji="⛶" color="blue" size={36} />
+            <span className="font-extrabold">Fullscreen</span>
+          </button>
+        )}
         <Link href={`/j/${app.slug}`} className={actionRowButton}>
           <EmojiToken emoji="💬" color="yellow" size={36} />
-          <span className="font-extrabold">Jam page &amp; reviews</span>
+          <span className="font-extrabold">Jam page</span>
         </Link>
         <Link href={`/build?remix=${app.slug}`} className={actionRowButton}>
           <EmojiToken emoji="🔁" color="lavender" size={36} />

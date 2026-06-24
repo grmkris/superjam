@@ -39,7 +39,6 @@ export function JamFeedCard({
   active,
   mounted,
   onFullscreenChange,
-  onComments,
 }: {
   jam: FeedJam;
   /** the cell snapped into view — drives URL + is the only one that can fullscreen */
@@ -47,7 +46,6 @@ export function JamFeedCard({
   /** within the preload window (active ± 1) — mounts the live game off-screen */
   mounted: boolean;
   onFullscreenChange?: (fullscreen: boolean) => void;
-  onComments: (j: FeedJam) => void;
 }) {
   const { isLoggedIn } = useHostAuth();
   const { openLogin } = useLogin();
@@ -127,12 +125,13 @@ export function JamFeedCard({
               liked={liked}
               onLike={onLike}
               comments={jam.comments}
-              onComments={() => onComments(jam)}
               profile={active && !fullscreen ? <ProfileControl /> : undefined}
             />
           </div>
-          <div className="relative min-h-0 flex-1">
-            <AppHost key="app-host" app={viewerApp} />
+          <div className={cx("relative min-h-0 flex-1 bg-ink", !fullscreen && "flex justify-center")}>
+            <div className={cx("relative h-full w-full", !fullscreen && "max-w-[480px]")}>
+              <AppHost key="app-host" app={viewerApp} />
+            </div>
           </div>
         </div>
       ) : (

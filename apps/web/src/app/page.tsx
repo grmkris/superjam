@@ -101,7 +101,6 @@ export default function DiscoverPage() {
                 jam={jam}
                 active={jam.slug === activeSlug}
                 mounted={mountWindow.has(jam.slug)}
-                onComments={(j) => router.push(`/j/${j.slug}`)}
               />
             ))}
           </div>
