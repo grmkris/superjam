@@ -32,7 +32,7 @@ import {
 } from "./build-prompt.ts";
 import { parseDeployOutput, vercelProjectName } from "./cli-deploy.ts";
 import { generateApp } from "./generate.ts";
-import { genericGate, selectKit } from "./kits/index.ts";
+import { genericGate, resultCardComponent, selectKit } from "./kits/index.ts";
 
 // Tool steps the model gets PER build round (one round = one `generateText` call
 // followed by the harness's authoritative `next build`).
@@ -345,6 +345,10 @@ export const runHarnessBuild = async (
     const seedFiles = kit
       ? {
           ...base.files,
+          // The viral result-card/share helpers are available to EVERY kit build
+          // (poll/quiz/tap-arcade/travel import shareResult from it for the share
+          // loop); viral kits return their own identical copy, which just overrides.
+          "components/result-card.tsx": resultCardComponent(),
           ...kit.starterFiles(args.spec, {
             appId: args.appId,
             buildId: args.buildId,

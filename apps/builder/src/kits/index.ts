@@ -17,6 +17,7 @@ import { travelKit } from "./travel.ts";
 
 export type { GateResult, Kit, KitContext, MatchOpts } from "./types.ts";
 export { genericGate } from "./gate.ts";
+export { resultCardComponent } from "./_share.ts";
 
 // Order = priority (first match wins). onchain FIRST (explicit skill signal). Then the
 // VIRAL kits (specific "which-are-you / roast / tier / wordle" matches) ahead of the

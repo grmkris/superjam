@@ -240,6 +240,9 @@ const gate = (files: Record<string, string>): GateResult => {
   if (!/\.data\.counter\(/.test(page)) {
     missing.push("tally votes with data.counter(...).increment/top so results are SHARED across users");
   }
+  if (!/shareResult\(|\.share\.link\(/.test(page)) {
+    missing.push('add a Share button — import { shareResult } from "@/components/result-card" and call shareResult(sdk, { text, data }) so voters can share the poll');
+  }
   return { ok: missing.length === 0, missing };
 };
 

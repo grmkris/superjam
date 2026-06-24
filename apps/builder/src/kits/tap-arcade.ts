@@ -200,6 +200,9 @@ const gate = (files: Record<string, string>): GateResult => {
   if (!/\.data\.counter\(/.test(page)) {
     missing.push("use data.counter(...).increment/top for the SHARED score leaderboard");
   }
+  if (!/shareResult\(|\.share\.link\(/.test(page)) {
+    missing.push('end on a Share button — import { shareResult } from "@/components/result-card" and call shareResult(sdk, { text, data }) so players share "I scored X — beat me"');
+  }
   return { ok: missing.length === 0, missing };
 };
 
