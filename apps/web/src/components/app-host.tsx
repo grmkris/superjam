@@ -25,7 +25,7 @@ const GUEST: HostUser = {
 };
 
 export function AppHost({ app }: { app: ViewerApp }) {
-  const { authToken, hostUser, getAddress, meStatus } = useHostAuth();
+  const { getToken, hostUser, getAddress, meStatus } = useHostAuth();
 
   // Don't hand the app a context until the viewer's identity is authoritative.
   if (meStatus === "pending") {
@@ -51,7 +51,7 @@ export function AppHost({ app }: { app: ViewerApp }) {
       app={app}
       user={hostUser ?? GUEST}
       rpcUrl={browserRpcUrl()}
-      authToken={authToken}
+      getToken={getToken}
       getAddress={getAddress}
     />
   );

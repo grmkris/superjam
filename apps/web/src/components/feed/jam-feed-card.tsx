@@ -7,7 +7,7 @@
 // (like/comment/share/remix/menu) and a ⛶ that expands the SAME iframe to
 // fullscreen (CSS only — no reload). Signed-out viewers see a sign-in CTA.
 import type { AppId } from "@superjam/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLogin } from "../login";
 import { usePlatformClient } from "../use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
@@ -54,6 +54,10 @@ export function JamFeedCard({
   const [liked, setLiked] = useState(jam.likedByMe);
   const [likes, setLikes] = useState(jam.likes);
   const [fullscreen, setFullscreen] = useState(false);
+
+  // Stable ViewerApp identity so AppHost/AppFrame don't re-run their effects each
+  // render (jam is stable while the feed list is).
+  const viewerApp = useMemo(() => toViewerApp(jam), [jam]);
 
   // Preloaded cells (active or neighbour) play live; the jam's SDK needs a token.
   const live = mounted && isLoggedIn;
@@ -113,7 +117,7 @@ export function JamFeedCard({
         >
           <div className={fullscreen ? "border-b border-ink/60" : "border-b-2 border-ink bg-cream/95"}>
             <JamChrome
-              app={toViewerApp(jam)}
+              app={viewerApp}
               maker={{ username: jam.maker.username }}
               fullscreen={fullscreen}
               onFullscreen={() => setFullscreen(true)}
@@ -126,7 +130,7 @@ export function JamFeedCard({
             />
           </div>
           <div className="relative min-h-0 flex-1">
-            <AppHost key="app-host" app={toViewerApp(jam)} />
+            <AppHost key="app-host" app={viewerApp} />
           </div>
         </div>
       ) : (
