@@ -19,25 +19,29 @@ if (!DEV_DB_URL) {
 const RUN = process.env.RUN === "1";
 
 // EXACT allowlist (user-approved). The script NEVER deletes by status/query alone.
+// Curate Discover to a viral showcase: drop the utility/crypto/hackathon jams.
 const REMOVE_SLUGS = [
-  "reflex-rush-pre-toybox",
-  "what-if-calc-pre-toybox",
-  "locked-notes-pre-toybox",
-  "japan-itinerary-pre-toybox",
-  "trip-guide",
-  "nyc-clicker",
-  "3d-tic-tac-toe", // keep "3d-tic-tac-toe-champ"
-  "world-cup-final-predictor",
-  "cats-vs-dogs-poll",
-  "china-echoes",
-];
-// High-quality jams that must NEVER be deleted (defense-in-depth guard).
-const KEEP_SLUGS = [
-  "guestbook", "tip-jar", "world-cup-trivia", "final-pot-demo", "mascot-draw-off",
-  "spending-explainer", "gem-clicker", "roast-my-bags", "proof-of-human-poll",
-  "stablecoin-academy", "onchain-wrapped", "judges-whimsy", "what-if-calc",
-  "locked-notes", "reflex-rush", "japan-itinerary", "pineapple-pizza-poll",
+  "what-if-calc",
+  "spending-explainer",
+  "locked-notes",
+  "stablecoin-academy",
+  "tip-jar",
+  "final-pot-demo",
   "3d-tic-tac-toe-champ",
+  "guestbook",
+  "onchain-wrapped",
+  "judges-whimsy",
+];
+// The viral keepers that must NEVER be deleted (defense-in-depth guard).
+const KEEP_SLUGS = [
+  "roast-my-bags",
+  "world-cup-trivia",
+  "mascot-draw-off",
+  "pineapple-pizza-poll",
+  "proof-of-human-poll",
+  "gem-clicker",
+  "reflex-rush",
+  "japan-itinerary",
 ];
 
 // The two lists MUST be disjoint — a typo that lands a keeper in REMOVE would purge it.

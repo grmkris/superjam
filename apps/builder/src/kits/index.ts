@@ -22,15 +22,17 @@ export { genericGate } from "./gate.ts";
 // VIRAL kits (specific "which-are-you / roast / tier / wordle" matches) ahead of the
 // generic keyword kits — e.g. "personality quiz" → personality-quiz, not quiz.
 // photo-album BEFORE travel: more specific (requires uploaded images).
+// quiz + poll BEFORE tap-arcade: tap-arcade matches category==="game" broadly, so the
+// specific keyword kits (trivia → quiz, vote → poll) must win first for game-category jams.
 const KITS: Kit[] = [
   onchainKit,
   personalityQuizKit,
   aiRoastKit,
   tierListKit,
   dailyGuessKit,
-  tapArcadeKit,
   quizKit,
   pollKit,
+  tapArcadeKit,
   guestbookKit,
   photoAlbumKit,
   travelKit,
