@@ -11,8 +11,8 @@ import { useMemo } from "react";
 export type MapStop = { name: string; lat: number; lng: number; day?: number };
 
 // Refined Arcade palette — one hue per trip day (wraps after 6).
-const DAY_COLORS = ["#3E63F2", "#FF4767", "#FFC23D", "#18C480", "#9B7BFF", "#FF8A3D"];
-const INK = "#17131F";
+const DAY_COLORS = ["#3E63F2", "#FF4767", "#F5B53C", "#18B877", "#9B7BFF", "#FF8A3D"];
+const INK = "#18151D";
 
 const W = 600;
 const H = 360;
@@ -41,17 +41,17 @@ export function MiniMap({ stops, height = 260 }: { stops: MapStop[]; height?: nu
   return (
     <div
       style={{
-        borderRadius: 14,
+        borderRadius: 12,
         overflow: "hidden",
-        border: `1.5px solid ${INK}`,
-        background: "linear-gradient(165deg,#E7EDF5,#F1EFE7)",
-        boxShadow: "0 3px 0 " + INK + ", 0 12px 24px -10px rgba(23,19,31,0.24)",
+        border: "1px solid #EBE9E4",
+        background: "linear-gradient(165deg,#EEF1F6,#F4F2EC)",
+        boxShadow: "0 1px 2px rgba(24,21,29,0.05), 0 10px 26px -10px rgba(24,21,29,0.14)",
       }}
     >
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} preserveAspectRatio="xMidYMid slice">
         <defs>
           <filter id="mm-shadow" x="-40%" y="-40%" width="180%" height="180%">
-            <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor={INK} floodOpacity="0.3" />
+            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor={INK} floodOpacity="0.18" />
           </filter>
         </defs>
         {/* graticule — a whisper-quiet ink grid for map feel */}
@@ -77,8 +77,7 @@ export function MiniMap({ stops, height = 260 }: { stops: MapStop[]; height?: nu
           const color = DAY_COLORS[(n - 1) % DAY_COLORS.length];
           return (
             <g key={i} filter="url(#mm-shadow)">
-              <circle cx={p.x} cy={p.y} r={14} fill={color} stroke="#fff" strokeWidth={3} />
-              <circle cx={p.x} cy={p.y} r={15.5} fill="none" stroke={INK} strokeWidth={1.5} opacity={0.85} />
+              <circle cx={p.x} cy={p.y} r={13} fill={color} stroke="#fff" strokeWidth={3} />
               <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={13} fontWeight={700} fill="#fff">{n}</text>
             </g>
           );

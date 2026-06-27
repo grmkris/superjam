@@ -66,15 +66,15 @@ export function JamPicker({
               </div>
               <button
                 onClick={() => onPick(j.slug, false)}
-                className="focus-ring bg-green text-ink border-[1.5px] border-ink rounded-full px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                className="focus-ring bg-card text-ink border border-line rounded-full px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
               >
                 Share
               </button>
               <button
                 onClick={() => onPick(j.slug, true)}
-                className="focus-ring bg-pink text-white border-[1.5px] border-ink rounded-full px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                className="focus-ring bg-ink text-white border border-line rounded-full px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
               >
-                ⚔ Challenge
+                Challenge
               </button>
             </StickerCard>
           ))}

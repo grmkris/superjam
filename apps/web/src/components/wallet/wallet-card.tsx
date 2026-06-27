@@ -58,11 +58,10 @@ export function WalletCard({ walletAddress }: { walletAddress: string | null }) 
 
       <div className="mt-2 flex items-center gap-2">
         <StickerButton
-          color="green"
+          color="white"
           size="sm"
           disabled={busy}
           onClick={drop}
-          className="rounded-full"
         >
           {busy ? "Getting…" : `Get $${AIRDROP_USDC} testnet USDC ↓`}
         </StickerButton>

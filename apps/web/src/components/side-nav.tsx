@@ -15,7 +15,7 @@ export function SideNav() {
   const pathname = usePathname() ?? "/";
   const unread = useUnreadCount(pathname);
   return (
-    <nav className="hidden lg:flex w-[220px] shrink-0 flex-col gap-2 border-r-[1.5px] border-ink bg-cream px-4 pt-6 pb-6">
+    <nav className="hidden lg:flex w-[220px] shrink-0 flex-col gap-2 border-r border-line bg-cream px-4 pt-6 pb-6">
       {/* wordmark — anchors the rail */}
       <Link
         href="/"
@@ -32,10 +32,10 @@ export function SideNav() {
             key={tab.href}
             href={tab.href}
             className={cx(
-              "sticker-press focus-ring relative flex items-center gap-3 rounded-toy border-[1.5px] px-4 py-3 no-underline transition-colors",
+              "focus-ring relative flex items-center gap-3 rounded-toy px-3.5 py-2.5 no-underline transition-colors",
               active
-                ? "border-ink bg-pink shadow-sticker"
-                : "border-transparent bg-transparent hover:bg-ink/[0.06]"
+                ? "bg-pink/10 text-pink"
+                : "text-muted hover:bg-ink/[0.04]"
             )}
           >
             <Icon
@@ -43,25 +43,14 @@ export function SideNav() {
               aria-hidden
               className={cx(
                 "size-[22px] shrink-0 transition-colors",
-                active ? "text-white" : "text-faint"
+                active ? "text-pink" : "text-faint"
               )}
             />
-            <span
-              className={cx(
-                "text-body",
-                active ? "font-extrabold text-white" : "font-semibold text-muted"
-              )}
-            >
+            <span className={cx("text-body", active ? "font-bold" : "font-semibold")}>
               {tab.label}
             </span>
             {tab.label === "Inbox" && unread > 0 && (
-              <span
-                className={cx(
-                  "ml-auto flex h-[20px] min-w-[20px] items-center justify-center rounded-full border-[1.5px] border-ink px-1.5 text-[11px] font-extrabold",
-                  // on the active pink pill a pink badge vanishes — flip to ink
-                  active ? "bg-ink text-white" : "bg-pink text-white"
-                )}
-              >
+              <span className="ml-auto flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-pink px-1.5 text-[11px] font-bold text-white">
                 {unread > 9 ? "9+" : unread}
               </span>
             )}

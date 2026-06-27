@@ -35,7 +35,7 @@ A working Wordle-style starter is seeded (daily word from the date + feedback + 
 4. End on the seeded \`<ResultCard>\` with the SPOILER-FREE emoji grid + the streak, and a
    "Share" button: \`shareResult(sdk, { text:"Daily 3/6 🟩…", data:{ n, grid } })\` — never
    leak the answer in the shared text.
-5. Theme it (Toybox). Wire the spec's specifics:
+5. Theme it (Studio). Wire the spec's specifics:
 ${spec.features.length ? spec.features.map((f) => `   - ${f}`).join("\n") : "   - (a tight daily guess + streak loop)"}
 6. Acceptance: a guess shows colored feedback, winning bumps the streak (persisted), and
    the share button produces the emoji grid without revealing the word.`;

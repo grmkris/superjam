@@ -67,7 +67,7 @@ describe("genericGate — look quality", () => {
     expect(r.missing.some((m) => /DARK page background/.test(m))).toBe(false);
   });
 
-  it("fails an unstyled page that doesn't compose the Toybox classes", () => {
+  it("fails an unstyled page that doesn't compose the Studio classes", () => {
     const rawPage = `"use client";
 import SuperJam from "@superjam/sdk";
 import { useState } from "react";
@@ -77,7 +77,7 @@ export default function Page() {
 }`;
     const r = genericGate(rawPage, seedPage, { themeNow: themeSeed, themeSeed, globals: "" });
     expect(r.ok).toBe(false);
-    expect(r.missing.some((m) => /Toybox classes/.test(m))).toBe(true);
+    expect(r.missing.some((m) => /Studio classes/.test(m))).toBe(true);
   });
 
   it("still catches the untouched stub", () => {

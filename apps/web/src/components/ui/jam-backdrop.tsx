@@ -1,7 +1,6 @@
-// Landing backdrop — recreates slide 1 of the SuperJam pitch deck: a scatter of
-// chunky candy "jam" tiles (emoji on ink-outlined rounded squares) + ✦ sparkles,
-// gently bobbing behind the sign-in card. Re-laid-out for the phone-width column
-// so the tiles frame the corners/side-gutters instead of covering the card.
+// Landing backdrop — a few quiet "jam" tiles (emoji on hairline white cards)
+// drifting behind the sign-in card. Studio-calm: muted neutral tiles at very low
+// opacity that frame the side-gutters, never candy chaos. Kept the gentle float.
 //
 // Float vs tilt: a CSS animation's `transform` overrides an element's own
 // transform, so the bob (translateY-only, via the sjfloat/sjfloat2 keyframes in
@@ -26,16 +25,14 @@ type Tile = {
   delay: number;
 };
 
-// Emoji/color set mirrors the slide's title scatter (🎮 💸 🏷️ 🤖 🎨 🎲 🏆),
-// scaled down (~56–72px) to frame the ≤460px column rather than cover it.
+// A few quiet tiles on neutral (white/cream/lavender) hairline cards, kept small
+// and gently tilted so they read as soft furniture, not a candy scatter. The
+// whole layer rides at very low opacity (see the container) to stay near-invisible.
 const TILES: Tile[] = [
-  { emoji: "🎮", color: "yellow", size: 72, tilt: -10, pos: "top-16 left-3", anim: "motion-safe:animate-[sjfloat_5s_ease-in-out_infinite]", delay: 0 },
-  { emoji: "🎨", color: "lavender", size: 60, tilt: 8, pos: "top-10 right-4", anim: "motion-safe:animate-[sjfloat2_5.8s_ease-in-out_infinite]", delay: 0.4 },
-  { emoji: "🤖", color: "green", size: 64, tilt: -8, pos: "top-36 right-2", anim: "motion-safe:animate-[sjfloat2_6.2s_ease-in-out_infinite]", delay: 0.15 },
-  { emoji: "🎲", color: "pink", size: 56, tilt: 9, pos: "top-44 left-2", anim: "motion-safe:animate-[sjfloat_5.2s_ease-in-out_infinite]", delay: 0.5 },
-  { emoji: "🏷️", color: "blue", size: 60, tilt: -7, pos: "bottom-24 left-3", anim: "motion-safe:animate-[sjfloat_5.7s_ease-in-out_infinite]", delay: 0.2 },
-  { emoji: "🏆", color: "yellow", size: 64, tilt: 7, pos: "bottom-14 right-3", anim: "motion-safe:animate-[sjfloat2_5.3s_ease-in-out_infinite]", delay: 0.55 },
-  { emoji: "💸", color: "pink", size: 68, tilt: 10, pos: "bottom-40 right-4", anim: "motion-safe:animate-[sjfloat_6s_ease-in-out_infinite]", delay: 0.3 },
+  { emoji: "🎮", color: "white", size: 56, tilt: -4, pos: "top-16 left-3", anim: "motion-safe:animate-[sjfloat_5s_ease-in-out_infinite]", delay: 0 },
+  { emoji: "🎨", color: "lavender", size: 52, tilt: 3, pos: "top-10 right-4", anim: "motion-safe:animate-[sjfloat2_5.8s_ease-in-out_infinite]", delay: 0.4 },
+  { emoji: "🎲", color: "cream", size: 50, tilt: -3, pos: "bottom-24 left-3", anim: "motion-safe:animate-[sjfloat_5.7s_ease-in-out_infinite]", delay: 0.2 },
+  { emoji: "🏆", color: "white", size: 54, tilt: 4, pos: "bottom-14 right-3", anim: "motion-safe:animate-[sjfloat2_5.3s_ease-in-out_infinite]", delay: 0.55 },
 ];
 
 type Sparkle = {
@@ -46,16 +43,15 @@ type Sparkle = {
   delay: number;
 };
 
+// Two faint accents only — just enough motion, no glitter.
 const SPARKLES: Sparkle[] = [
-  { pos: "top-28 left-[28%]", size: "text-2xl", color: "text-ink", anim: "motion-safe:animate-[sjfloat_4.6s_ease-in-out_infinite]", delay: 0 },
-  { pos: "top-20 right-[30%]", size: "text-lg", color: "text-blue", anim: "motion-safe:animate-[sjfloat2_5s_ease-in-out_infinite]", delay: 0.35 },
-  { pos: "bottom-28 left-[24%]", size: "text-xl", color: "text-green", anim: "motion-safe:animate-[sjfloat2_4.8s_ease-in-out_infinite]", delay: 0.6 },
-  { pos: "bottom-44 right-[26%]", size: "text-base", color: "text-pink", anim: "motion-safe:animate-[sjfloat_5.4s_ease-in-out_infinite]", delay: 0.2 },
+  { pos: "top-24 right-[30%]", size: "text-base", color: "text-faint", anim: "motion-safe:animate-[sjfloat2_5s_ease-in-out_infinite]", delay: 0.35 },
+  { pos: "bottom-32 left-[26%]", size: "text-base", color: "text-faint", anim: "motion-safe:animate-[sjfloat_5.4s_ease-in-out_infinite]", delay: 0.2 },
 ];
 
 export function JamBackdrop() {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-40">
       {TILES.map((t, i) => (
         <span
           key={`t${i}`}

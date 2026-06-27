@@ -18,7 +18,7 @@ export function MessageCard({
   mine?: boolean;
 }) {
   return (
-    <div className="w-[230px] bg-card border-[1.5px] border-ink rounded-toy shadow-sticker overflow-hidden">
+    <div className="w-[230px] bg-card border border-line rounded-toy shadow-sticker overflow-hidden">
       <div className="flex items-center gap-2.5 p-3">
         <EmojiToken emoji={card.icon || via?.iconEmoji || "🎮"} color="yellow" size={40} rounded="toy" />
         <div className="flex flex-col min-w-0">
@@ -38,7 +38,7 @@ export function MessageCard({
       {onCta && (
         <button
           onClick={onCta}
-          className="focus-ring w-full bg-pink text-white border-t-[1.5px] border-ink py-2.5 text-small font-extrabold sticker-press"
+          className="focus-ring w-full bg-ink text-white border-t border-line py-2.5 text-small font-extrabold sticker-press"
         >
           {card.cta || (mine ? "Sent" : "Open")} ▸
         </button>

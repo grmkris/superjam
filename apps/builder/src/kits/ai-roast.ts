@@ -33,7 +33,7 @@ A working starter is seeded (input → AI verdict with a LOCAL fallback → shar
 4. End on the seeded \`<ResultCard>\` — the score (a .tj-bar) + the roast — and a "Share"
    button: \`shareResult(sdk, { text, data:{ score, roast } })\`. \`readChallenge\` shows a
    friend's verdict when opened from a share.
-5. Theme it (Toybox). Wire the spec's specifics:
+5. Theme it (Studio). Wire the spec's specifics:
 ${spec.features.length ? spec.features.map((f) => `   - ${f}`).join("\n") : "   - (pick a fun thing to roast on-theme)"}
 6. Acceptance: submitting gives a scored verdict (AI or fallback), and the share button
    produces a link. The build must compile with the local fallback even if AI is off.`;

@@ -78,8 +78,8 @@ export function JamReviews({ appId }: { appId: string }) {
   return (
     <div className="flex flex-col gap-3">
       {/* count / average header */}
-      <div className="flex bg-card border-[1.5px] border-ink rounded-full p-1">
-        <div className="flex-1 rounded-full py-2 text-center text-small font-extrabold bg-ink text-cream">
+      <div className="flex bg-card border border-line rounded-full p-1">
+        <div className="flex-1 rounded-full py-2 text-center text-small font-extrabold bg-ink text-cream tabular-nums">
           ★ {avg ? `${avg} · ` : ""}
           {list.length} {list.length === 1 ? "review" : "reviews"}
         </div>
@@ -127,7 +127,6 @@ export function JamReviews({ appId }: { appId: string }) {
           />
           <MicButton value={draftText} onChange={(t) => setDraftText(t.slice(0, 280))} />
           <StickerButton
-            color="yellow"
             size="md"
             onClick={submitReview}
             disabled={draftRating === 0}
@@ -157,7 +156,7 @@ function ReviewCard({ r }: { r: Review }) {
         <span className="ml-auto text-tiny font-semibold text-muted">{ago(r.createdAt)}</span>
       </div>
       {r.text && (
-        <div className="ml-[38px] bg-card border-[1.5px] border-ink rounded-toy rounded-tl-md shadow-sticker-sm px-3.5 py-2 text-small prose-body">
+        <div className="ml-[38px] bg-card border border-line rounded-toy rounded-tl-md shadow-sticker-sm px-3.5 py-2 text-small prose-body">
           {r.text}
         </div>
       )}

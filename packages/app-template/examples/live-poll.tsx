@@ -5,7 +5,7 @@ import { sfx } from "./lib/sfx";
 import type { SuperJamSdk, AppContext, Doc } from "@superjam/sdk";
 
 const TEAMS = ["Argentina", "France", "Brazil", "England"] as const;
-const COLORS = ["#3E63F2", "#FF4767", "#FFC23D", "#18C480"];
+const COLORS = ["#3E63F2", "#FF4767", "#F5B53C", "#18B877"];
 
 export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext }) {
   const me = ctx.user.username;

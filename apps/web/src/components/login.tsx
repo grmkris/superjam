@@ -211,7 +211,7 @@ function DeviceRegistrationGate({ email }: { email: string | null }) {
         backdropFilter: "blur(4px)",
       }}
     >
-      <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-toy border-[1.5px] border-ink bg-cream p-6 text-center">
+      <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-toy border border-line bg-card p-6 text-center shadow-sticker-lg">
         <EmojiToken emoji="📧" color="blue" size={64} tilt={-6} />
         <div className="text-h3 font-extrabold">Verify this device</div>
         <p className="text-small font-medium text-muted">
@@ -337,7 +337,7 @@ function LoginSheet({
         <div className="flex flex-col gap-3">
           <StickerButton
             type="button"
-            color="cream"
+            color="white"
             size="lg"
             block
             disabled={busy}
@@ -346,10 +346,10 @@ function LoginSheet({
             Continue with Google
           </StickerButton>
 
-          <div className="flex items-center gap-2 text-tiny font-bold uppercase tracking-wide text-muted">
-            <span className="h-px flex-1 bg-ink/15" />
+          <div className="flex items-center gap-3 text-tiny font-bold uppercase tracking-wide text-faint">
+            <span className="h-px flex-1 bg-line" />
             or
-            <span className="h-px flex-1 bg-ink/15" />
+            <span className="h-px flex-1 bg-line" />
           </div>
 
           <form
@@ -367,9 +367,9 @@ function LoginSheet({
               placeholder="your email…"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="rounded-toy border-[1.5px] border-ink bg-cream px-4 py-3.5 text-body font-semibold outline-none placeholder:text-muted focus:border-pink"
+              className="rounded-toy border border-line bg-cream px-4 py-3.5 text-body font-semibold outline-none placeholder:text-muted focus:border-pink"
             />
-            <StickerButton type="submit" color="pink" size="lg" block disabled={busy || !email.trim()}>
+            <StickerButton type="submit" size="lg" block disabled={busy || !email.trim()}>
               {busy ? "Sending…" : "Send me a code →"}
             </StickerButton>
           </form>
@@ -389,10 +389,10 @@ function LoginSheet({
             placeholder="123456"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            className="rounded-toy border-[1.5px] border-ink bg-cream px-4 py-3.5 text-center font-mono text-h3 font-bold tracking-[0.4em] outline-none placeholder:text-muted focus:border-pink"
+            className="rounded-toy border border-line bg-cream px-4 py-3.5 text-center font-mono text-h3 font-bold tracking-[0.4em] outline-none placeholder:text-muted focus:border-pink"
           />
-          <StickerButton type="submit" color="blue" size="lg" block disabled={busy || !code.trim()}>
-            {busy ? "Verifying…" : "Log in ⛓️"}
+          <StickerButton type="submit" size="lg" block disabled={busy || !code.trim()}>
+            {busy ? "Verifying…" : "Log in"}
           </StickerButton>
           <button
             type="button"

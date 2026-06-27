@@ -175,23 +175,23 @@ function EmailBeat({
 }) {
   return (
     <>
-      <div className="flex flex-col items-center gap-3">
-        <span className="inline-flex size-[84px] -rotate-3 items-center justify-center rounded-toy-lg border-[1.5px] border-ink bg-card shadow-sticker-lg">
+      <div className="flex flex-col items-center gap-4">
+        <span className="inline-flex size-[84px] items-center justify-center rounded-toy-lg border border-line bg-card shadow-sticker-lg">
           <SparkMark width={42} height={42} aria-hidden />
         </span>
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1.5">
           <div className="text-hero font-extrabold tracking-display leading-none">SuperJam</div>
-          <div className="text-pink text-body font-semibold">
+          <div className="text-muted text-body font-medium">
             make a jam. share the jam.
           </div>
         </div>
       </div>
 
-      <StickerCard className="p-5 flex flex-col gap-3 shadow-sticker-lg" tilt={0}>
+      <StickerCard className="p-6 flex flex-col gap-4 shadow-sticker-lg" tilt={0}>
         <div className="text-center text-body font-bold">Hop in</div>
         <StickerButton
           type="button"
-          color="cream"
+          color="white"
           size="lg"
           block
           disabled={!ready}
@@ -199,10 +199,10 @@ function EmailBeat({
         >
           Continue with Google
         </StickerButton>
-        <div className="flex items-center gap-2 text-tiny font-bold uppercase tracking-wide text-muted">
-          <span className="h-px flex-1 bg-ink/15" />
+        <div className="flex items-center gap-3 text-tiny font-bold uppercase tracking-wide text-faint">
+          <span className="h-px flex-1 bg-line" />
           or
-          <span className="h-px flex-1 bg-ink/15" />
+          <span className="h-px flex-1 bg-line" />
         </div>
         <form
           onSubmit={(e) => {
@@ -219,9 +219,9 @@ function EmailBeat({
             placeholder="your email…"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="bg-cream border-[1.5px] border-ink rounded-toy px-4 py-3.5 text-body font-semibold placeholder:text-muted outline-none focus:border-pink"
+            className="bg-cream border border-line rounded-toy px-4 py-3.5 text-body font-semibold placeholder:text-muted outline-none focus:border-pink"
           />
-          <StickerButton type="submit" color="pink" size="lg" block disabled={!ready}>
+          <StickerButton type="submit" size="lg" block disabled={!ready}>
             Continue →
           </StickerButton>
         </form>
@@ -262,16 +262,14 @@ function ClaimBeat({
         </div>
       </div>
 
-      <StickerCard className="p-5 flex flex-col gap-3 shadow-sticker-lg">
+      <StickerCard className="p-6 flex flex-col gap-4 shadow-sticker-lg">
         {/* name-tag styled input */}
         <div
           className={cx(
-            "flex items-center bg-cream border-[1.5px] rounded-toy px-3.5 py-3 gap-0.5",
-            state === "available"
-              ? "border-ink"
-              : state === "invalid" || state === "taken"
-                ? "border-pink"
-                : "border-ink"
+            "flex items-center bg-cream border rounded-toy px-3.5 py-3 gap-0.5",
+            state === "invalid" || state === "taken"
+              ? "border-pink"
+              : "border-line"
           )}
         >
           <span className="font-mono text-body font-medium text-muted">@</span>
@@ -289,7 +287,7 @@ function ClaimBeat({
         </div>
 
         {/* every jam hangs under it */}
-        <div className="bg-cream border-[1.5px] border-ink rounded-xl px-3 py-2.5 flex flex-col gap-2">
+        <div className="bg-cream border border-line rounded-toy px-3 py-2.5 flex flex-col gap-2">
           <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             Every jam you make hangs under it
           </div>
@@ -297,7 +295,7 @@ function ClaimBeat({
             <div key={p} className="flex items-center gap-1.5">
               <span
                 className={cx(
-                  "size-1.5 rounded-full border-[1.5px] border-ink shrink-0",
+                  "size-1.5 rounded-full border border-line shrink-0",
                   i === 0 ? "bg-yellow" : "bg-blue"
                 )}
               />
@@ -308,7 +306,7 @@ function ClaimBeat({
             </div>
           ))}
           <div className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full border-[1.5px] border-dashed border-muted bg-card shrink-0" />
+            <span className="size-1.5 rounded-full border border-dashed border-muted bg-card shrink-0" />
             <span className="font-mono text-small font-semibold text-muted">
               @{handle}/your-next-jam
             </span>
@@ -316,7 +314,6 @@ function ClaimBeat({
         </div>
 
         <StickerButton
-          color="blue"
           size="lg"
           block
           onClick={onClaim}

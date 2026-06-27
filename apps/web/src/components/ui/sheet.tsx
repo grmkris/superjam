@@ -33,25 +33,24 @@ export function ToyboxSheet({
       <Drawer.Portal>
         {/* z above the fullscreen jam stage (z-[100]) so sheets opened from
             inside a running jam (share / app menu) aren't hidden behind it. */}
-        <Drawer.Overlay className="fixed inset-0 z-[190] bg-ink/40 lg:bg-ink/55" />
+        <Drawer.Overlay className="fixed inset-0 z-[190] bg-ink/30 backdrop-blur-[2px] lg:bg-ink/40" />
         <Drawer.Content
           aria-describedby={undefined}
           className={cx(
-            // mobile: full-width bottom sheet that slides up (unchanged).
+            // mobile: full-width bottom sheet that slides up.
             "fixed inset-x-0 bottom-0 z-[200] mx-auto flex max-h-[92dvh] w-full max-w-[460px] flex-col gap-4 overflow-y-auto",
-            "rounded-t-toy-lg border-t-[1.5px] border-ink bg-cream px-5 pt-3 outline-none",
+            "rounded-t-toy-lg border-t border-line bg-card px-5 pt-3 outline-none shadow-sticker-lg",
             "pb-[calc(2rem+env(safe-area-inset-bottom))]",
-            // desktop (lg): lift off the bottom and float as a Toybox dialog
-            // card — full ink frame, all corners rounded, sane max-width. A
-            // fixed top offset (not translate) keeps vaul's own slide transform
-            // free to animate the entrance.
+            // desktop (lg): lift off the bottom and float as a clean dialog card —
+            // hairline frame, all corners rounded, soft elevation. A fixed top
+            // offset (not translate) keeps vaul's own slide transform free.
             "lg:inset-x-0 lg:bottom-auto lg:top-[7dvh] lg:max-h-[86dvh] lg:max-w-[520px]",
-            "lg:rounded-toy-lg lg:border-[1.5px] lg:px-6 lg:pt-4 lg:pb-6 lg:shadow-sticker-lg",
+            "lg:rounded-toy-lg lg:border lg:border-line lg:px-6 lg:pt-4 lg:pb-6 lg:shadow-sticker-lg",
             className
           )}
         >
           {/* grab handle — mobile drag affordance; hidden on the desktop dialog */}
-          <div aria-hidden className="mx-auto h-1.5 w-10 shrink-0 rounded-full bg-ink/15 lg:hidden" />
+          <div aria-hidden className="mx-auto h-1.5 w-10 shrink-0 rounded-full bg-ink/10 lg:hidden" />
           <Drawer.Title className={titleHidden ? "sr-only" : "text-h3 font-extrabold"}>
             {title}
           </Drawer.Title>

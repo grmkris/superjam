@@ -20,18 +20,13 @@ import { EmojiToken, StickerButton } from "../ui/sticker";
 import { avatarEmoji } from "../ui/identity";
 import { type FeedJam, toViewerApp } from "./jam";
 
-// diagonal candy gradient per accent (poster placeholder backdrop)
-const ACCENT_GRADIENT: Record<FeedJam["accent"], string> = {
-  blue: "from-blue via-blue to-pink",
-  pink: "from-pink via-pink to-blue",
-  green: "from-green via-green to-yellow",
-  yellow: "from-yellow via-yellow to-green",
-};
-const ACCENT_TITLE: Record<FeedJam["accent"], string> = {
-  blue: "text-white",
-  pink: "text-white",
-  green: "text-ink",
-  yellow: "text-ink",
+// A low-opacity wash from the jam's content accent — the only color on an
+// otherwise editorial white poster card (identity, not decoration).
+const ACCENT_TINT: Record<FeedJam["accent"], string> = {
+  blue: "bg-blue/10",
+  pink: "bg-pink/10",
+  green: "bg-green/10",
+  yellow: "bg-yellow/10",
 };
 
 export function JamFeedCard({
@@ -114,7 +109,7 @@ export function JamFeedCard({
             fullscreen ? "fixed inset-0 z-[100]" : "absolute inset-0"
           )}
         >
-          <div className={fullscreen ? "border-b border-ink/60" : "border-b-[1.5px] border-ink bg-cream/95"}>
+          <div className={fullscreen ? "border-b border-ink/60" : "border-b border-line bg-cream/95"}>
             <JamChrome
               app={viewerApp}
               maker={{ username: jam.maker.username }}
@@ -135,36 +130,29 @@ export function JamFeedCard({
           </div>
         </div>
       ) : (
-        // Poster placeholder — no iframe. Active-but-signed-out gets a sign-in CTA.
-        <div
-          className={cx(
-            "absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center bg-gradient-to-br",
-            ACCENT_GRADIENT[jam.accent]
-          )}
-        >
+        // Poster placeholder — no iframe, a refined white card with a subtle
+        // accent wash. Active-but-signed-out gets a sign-in CTA.
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 px-8 text-center bg-card">
           <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
-            <div
-              className="absolute inset-0"
-              style={{ backgroundImage: "var(--dots)", backgroundSize: "var(--dots-size)" }}
-            />
-            <span className="absolute -right-10 -top-8 rotate-12 select-none text-[12rem] leading-none opacity-10">
+            <div className={cx("absolute inset-0", ACCENT_TINT[jam.accent])} />
+            <span className="absolute -right-10 -top-8 rotate-12 select-none text-[11rem] leading-none opacity-[0.04]">
               {jam.iconEmoji}
             </span>
           </div>
-          <EmojiToken emoji={jam.iconEmoji} color="yellow" size={120} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
-          <div className={cx("text-h2 font-extrabold ink-drop", ACCENT_TITLE[jam.accent])}>
+          <EmojiToken emoji={jam.iconEmoji} color="white" size={104} rounded="toy" className="shadow-sticker" />
+          <div className="text-h2 font-extrabold tracking-display text-ink">
             {jam.name}
           </div>
           <Link
             href={`/u/${jam.maker.username}`}
-            className="focus-ring inline-flex items-center gap-1.5 bg-card border-[1.5px] border-ink rounded-full px-3.5 py-1.5 text-small font-bold shadow-sticker-sm sticker-press"
+            className="focus-ring inline-flex items-center gap-1.5 bg-card border border-line rounded-full px-3.5 py-1.5 text-small font-bold shadow-sticker-sm sticker-press"
           >
             <EmojiToken emoji={avatarEmoji(jam.maker.username)} color="green" size={20} />
             <span className="font-bold">@{jam.maker.username}</span>
           </Link>
           {active && !isLoggedIn && (
-            <StickerButton color="pink" size="lg" onClick={() => openLogin()} className="rounded-full px-9 shadow-sticker-lg">
-              ▸ Sign in to play
+            <StickerButton size="lg" onClick={() => openLogin()}>
+              Sign in to play
             </StickerButton>
           )}
         </div>

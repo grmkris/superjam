@@ -33,7 +33,7 @@ export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const unread = useUnreadCount(pathname);
   return (
-    <nav className="flex lg:hidden border-t-[1.5px] border-ink bg-card px-2 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shrink-0">
+    <nav className="flex lg:hidden border-t border-line bg-card px-2 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shrink-0">
       {TABS.map((tab) => {
         const active = tab.match(pathname);
         const { Icon } = tab;
@@ -54,7 +54,7 @@ export function BottomNav() {
                 )}
               />
               {tab.label === "Inbox" && unread > 0 && (
-                <span className="absolute -right-2.5 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-[1.5px] border-ink bg-pink px-1 text-[10px] font-extrabold text-white">
+                <span className="absolute -right-2.5 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border border-line bg-pink px-1 text-[10px] font-extrabold text-white">
                   {unread > 9 ? "9+" : unread}
                 </span>
               )}

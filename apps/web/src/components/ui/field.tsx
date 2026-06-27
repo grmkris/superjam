@@ -15,7 +15,7 @@ import {
 import { cx } from "./cx";
 
 export const inputClass =
-  "w-full border-[1.5px] border-ink rounded-toy bg-card px-4 py-3 text-body font-semibold text-ink placeholder:text-faint outline-none transition-shadow focus:border-pink focus:ring-[3px] focus:ring-pink/30 disabled:opacity-50 disabled:bg-paper";
+  "w-full border border-line rounded-toy bg-card px-4 py-3 text-body font-semibold text-ink placeholder:text-faint outline-none transition-shadow focus:border-pink focus:ring-[3px] focus:ring-pink/30 disabled:opacity-50 disabled:bg-paper";
 
 export const Input = forwardRef<
   HTMLInputElement,

@@ -154,7 +154,7 @@ export default function App({ sdk }: { sdk: SuperJamSdk; ctx: AppContext }) {
                   <div className="tj-muted" style={{ fontSize: 13 }}>{s.transit}</div>
                 </div>
                 <button className="tj-btn" onClick={(e) => { e.stopPropagation(); toggleFav(s.name); }}
-                  style={{ background: faved ? "#FFC23D" : "#ECE6F6", padding: "6px 10px" }}
+                  style={{ background: faved ? "#F5B53C" : "#ECE6F6", padding: "6px 10px" }}
                   aria-label="bookmark">{faved ? "★" : "☆"}</button>
               </div>
               {isOpen && (
@@ -175,7 +175,7 @@ export default function App({ sdk }: { sdk: SuperJamSdk; ctx: AppContext }) {
       <div className="tj-row">
         <input className="tj-input" value={q} onChange={(e) => setQ(e.target.value)}
           placeholder="Vegetarian food in Kyoto?" style={{ flex: 1 }} />
-        <button className="tj-btn" onClick={ask} disabled={asking} style={{ background: "#18C480" }}>
+        <button className="tj-btn" onClick={ask} disabled={asking} style={{ background: "#18B877" }}>
           {asking ? "…" : "Ask"}
         </button>
       </div>

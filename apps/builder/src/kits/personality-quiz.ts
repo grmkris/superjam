@@ -32,7 +32,7 @@ A working starter is seeded (QUESTIONS + TYPES + the share loop). Make it land f
    carries {type, who}); and a "Retake" button.
 4. On open, \`readChallenge(sdk)\` returns a friend's {type, who} when launched from a
    share — show "@friend is a {type} — which are you?" to pull them in.
-5. Keep it Toybox (cream, .tj-* classes). Wire the spec's specifics:
+5. Keep it Studio (near-white, .tj-* classes). Wire the spec's specifics:
 ${spec.features.length ? spec.features.map((f) => `   - ${f}`).join("\n") : "   - (invent fun, on-theme questions + types)"}
 6. Acceptance: finishing the quiz shows a result card, the share button produces a
    link, and the result persists across a reload.`;

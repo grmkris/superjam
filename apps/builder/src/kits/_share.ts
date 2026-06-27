@@ -5,7 +5,7 @@
 // payload back as sdk.app.context().launch (read via `readChallenge`) and sees a
 // "@x got <result> — beat it?" framing. ONE source of truth for the card + helpers.
 
-/** The seeded `components/result-card.tsx` — a Toybox result card + the share/launch
+/** The seeded `components/result-card.tsx` — a Studio result card + the share/launch
  *  helpers. Viral kits import from `@/components/result-card`. */
 export const resultCardComponent = (): string => `"use client";
 
@@ -22,7 +22,7 @@ export interface ResultLine {
   pct?: number;
 }
 
-/** The shareable result card — a Toybox card with an emoji header + optional meter
+/** The shareable result card — a Studio card with an emoji header + optional meter
  *  rows + your own content. Keep the result personal + punchy (it's what spreads). */
 export function ResultCard(props: {
   emoji?: string;

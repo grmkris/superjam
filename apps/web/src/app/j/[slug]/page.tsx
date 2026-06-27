@@ -135,7 +135,7 @@ export default function JamPage({
         <StickerButton color="white" size="sm" onClick={() => setSendKind("share")}>
           Send to a friend
         </StickerButton>
-        <StickerButton color="pink" size="sm" onClick={() => setSendKind("challenge")}>
+        <StickerButton size="sm" onClick={() => setSendKind("challenge")}>
           Challenge
         </StickerButton>
       </div>

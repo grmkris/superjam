@@ -51,7 +51,7 @@ export function PayFriendSheet({
             onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
             inputMode="decimal"
             aria-label="Amount in USDC"
-            className="w-28 text-center text-hero font-extrabold tracking-display tabular-nums bg-transparent outline-none border-b-[1.5px] border-ink transition-colors focus:border-pink"
+            className="w-28 text-center text-hero font-extrabold tracking-display tabular-nums bg-transparent outline-none border-b border-line transition-colors focus:border-pink"
           />
           <span className="text-2xl font-bold text-muted">USDC</span>
         </div>
@@ -68,7 +68,6 @@ export function PayFriendSheet({
       />
 
       <StickerButton
-        color={request ? "yellow" : "green"}
         size="lg"
         block
         disabled={!valid}

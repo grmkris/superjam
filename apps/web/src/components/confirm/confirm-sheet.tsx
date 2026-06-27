@@ -105,7 +105,7 @@ function ReviewBody({
           {intent.toName ? (
             <NameTag name={intent.toName} />
           ) : (
-            <span className="font-mono text-small font-bold bg-card border-[1.5px] border-ink rounded-full px-3 py-1">
+            <span className="font-mono text-small font-bold bg-card border border-line rounded-full px-3 py-1">
               {shortAddr(intent.to ?? "")}
             </span>
           )}
@@ -120,7 +120,7 @@ function ReviewBody({
         <StickerButton color="white" size="lg" block onClick={onReject}>
           Reject
         </StickerButton>
-        <StickerButton color="green" size="lg" block onClick={onApprove}>
+        <StickerButton size="lg" block onClick={onApprove}>
           Approve
         </StickerButton>
       </div>
@@ -177,7 +177,7 @@ function TxChip({ txHash }: { txHash: string }) {
       href={basescan(txHash)}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-1.5 bg-card border-[1.5px] border-ink rounded-full px-3 py-1 font-mono text-small font-bold no-underline text-ink"
+      className="inline-flex items-center gap-1.5 bg-card border border-line rounded-full px-3 py-1 font-mono text-small font-bold no-underline text-ink"
     >
       {txHash.slice(0, 8)}…{txHash.slice(-6)}{" "}
       <span className="text-blue">↗</span>

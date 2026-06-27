@@ -71,7 +71,7 @@ const tjClassCount = (page: string): number =>
 
 /**
  * Generic gate (no kit): app/page.tsx must be a real, SDK-using, interactive page
- * that differs from the seed AND respects the Toybox theme (composes `.tj-*`,
+ * that differs from the seed AND respects the Studio theme (composes `.tj-*`,
  * doesn't clobber the locked theme, no dark-on-dark). Kit gates extend this with
  * use-case-specific probes (e.g. "calls sdk.data.counter").
  */
@@ -99,16 +99,16 @@ export const genericGate = (
     missing.push("add real interactivity — event handlers + React state");
   }
   // ── Look quality (the anti-"dogshit-UI" checks) ──────────────────────────
-  // The locked theme (cream bg, ink text, vivid accents, all .tj-* classes) is
+  // The locked theme (near-white bg, ink text, one vivid accent, all .tj-* classes) is
   // already loaded — the agent must USE it, not clobber it into dark-on-dark.
   if (ctx.themeSeed != null && ctx.themeNow != null && ctx.themeNow.trim() !== ctx.themeSeed.trim()) {
     missing.push("you edited app/theme.css (the LOCKED theme) — restore it unchanged and put any custom CSS in app/globals.css");
   }
   if (globalsDarkBg(ctx.globals) || pageDarkFullBleed(page)) {
-    missing.push("you set a DARK page background — keep the cream Toybox theme (ink text on cream paper); never dark-on-dark");
+    missing.push("you set a DARK page background — keep the near-white Studio theme (ink text on a near-white page); never dark-on-dark");
   }
   if (tjClassCount(page) < 2) {
-    missing.push("style the UI with the Toybox classes — wrap the screen in .tj-app and use .tj-card/.tj-header/.tj-btn/.tj-input/.tj-bar instead of raw/unstyled HTML");
+    missing.push("style the UI with the Studio classes — wrap the screen in .tj-app and use .tj-card/.tj-header/.tj-btn/.tj-input/.tj-bar instead of raw/unstyled HTML");
   }
   // NOTE: deliberately NO "no leftover // TODO" check. Starter templates use TODO
   // markers for cosmetic POLISH (juice, styling); enforcing their removal traps cheap

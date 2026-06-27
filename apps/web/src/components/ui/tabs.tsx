@@ -38,7 +38,7 @@ export function ToyboxTabs<T extends string>({
         className={cx(
           "flex items-center",
           segmented
-            ? "gap-1 rounded-full border-[1.5px] border-ink bg-card p-1"
+            ? "gap-1 rounded-full border border-line bg-paper p-1"
             : "gap-2"
         )}
       >
@@ -47,11 +47,10 @@ export function ToyboxTabs<T extends string>({
             key={o.value}
             value={o.value}
             className={cx(
-              "focus-ring cursor-pointer rounded-full font-extrabold tracking-tight transition-colors",
-              "data-[active]:bg-ink data-[active]:text-cream",
+              "focus-ring cursor-pointer rounded-full font-extrabold tracking-tight transition-all",
               segmented
-                ? "flex-1 px-4 py-1.5 text-small text-muted hover:text-ink data-[active]:hover:text-cream"
-                : "border-[1.5px] border-ink bg-card px-4 py-1.5 text-small text-ink shadow-sticker-sm sticker-press"
+                ? "flex-1 px-4 py-1.5 text-small text-muted hover:text-ink data-[active]:bg-card data-[active]:text-ink data-[active]:shadow-sticker-sm"
+                : "border border-line bg-card px-4 py-1.5 text-small text-ink shadow-sticker-sm sticker-press data-[active]:bg-ink data-[active]:text-cream"
             )}
           >
             {o.label}

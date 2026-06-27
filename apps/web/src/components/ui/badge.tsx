@@ -17,7 +17,7 @@ export function Badge({
   return (
     <span
       className={cx(
-        "inline-flex min-w-5 items-center justify-center gap-1 rounded-full border-[1.5px] border-ink px-2 py-0.5 text-tiny font-extrabold leading-none tracking-tight tabular-nums",
+        "inline-flex min-w-5 items-center justify-center gap-1 rounded-full border border-line px-2 py-0.5 text-tiny font-extrabold leading-none tracking-tight tabular-nums",
         FILL[color],
         className
       )}

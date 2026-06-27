@@ -1,6 +1,7 @@
-// Sticker primitives — the "Refined Arcade" surface: crisp 1.5px ink outlines,
-// LAYERED depth (a sharp offset + a soft ambient drop via shadow-sticker*), vivid
-// fills, and a tactile press-down on tap. Confident and tactile, never toy-like.
+// Sticker primitives — the "Studio" surface: white cards with a 1px hairline +
+// soft ambient shadow, solid clean buttons (no contrasting outline), a subtle
+// scale on press. Refined and editorial, never toy-like. (Names kept as a
+// contract; only the look evolved.)
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cx } from "./cx";
 
@@ -14,21 +15,25 @@ export type StickerColor =
   | "cream"
   | "ink";
 
+// Solid fills. `ink` is the default primary (near-black, Studio); `pink` is the
+// one accent (hero CTAs, key highlights). white/cream are quiet secondaries that
+// carry a hairline so they read on the near-white canvas. The colour fills
+// (yellow/green/blue/lavender) are for per-content identity, used sparingly.
 export const FILL: Record<StickerColor, string> = {
+  ink: "bg-ink text-white",
   pink: "bg-pink text-white",
   yellow: "bg-yellow text-ink",
-  green: "bg-green text-ink",
+  green: "bg-green text-white",
   blue: "bg-blue text-white",
   lavender: "bg-lavender text-ink",
-  white: "bg-card text-ink",
-  cream: "bg-cream text-ink",
-  ink: "bg-ink text-cream",
+  white: "bg-card text-ink border border-line",
+  cream: "bg-paper text-ink border border-line",
 };
 
-// A sticker list/menu row: emoji + label on a bordered card.
+// A list/menu row: emoji + label on a hairline card.
 export const actionRow =
-  "flex items-center gap-3 rounded-toy border-[1.5px] border-ink bg-card p-3 shadow-sticker-sm";
-// Interactive variant — button/link rows that press down on tap.
+  "flex items-center gap-3 rounded-toy border border-line bg-card p-3 shadow-sticker-sm";
+// Interactive variant — button/link rows that press on tap.
 export const actionRowButton = cx(actionRow, "focus-ring sticker-press w-full text-left");
 
 export interface StickerButtonProps
@@ -39,7 +44,7 @@ export interface StickerButtonProps
 }
 
 export function StickerButton({
-  color = "pink",
+  color = "ink",
   size = "md",
   block,
   className,
@@ -47,15 +52,15 @@ export function StickerButton({
   ...rest
 }: StickerButtonProps) {
   const sizes = {
-    sm: "text-sm px-3 py-1.5 rounded-toy shadow-sticker-sm",
-    md: "text-base px-4 min-h-[48px] rounded-toy shadow-sticker-md",
-    lg: "text-lg px-6 min-h-[54px] rounded-toy shadow-sticker-md",
+    sm: "text-sm px-3.5 py-2 rounded-toy",
+    md: "text-base px-5 min-h-[48px] rounded-toy",
+    lg: "text-lg px-7 min-h-[54px] rounded-toy",
   }[size];
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-2 border-[1.5px] border-ink font-extrabold",
-        "focus-ring sticker-press disabled:opacity-50 disabled:active:translate-y-0",
+        "inline-flex items-center justify-center gap-2 font-bold shadow-sticker-sm",
+        "focus-ring sticker-press disabled:opacity-50",
         sizes,
         FILL[color],
         block && "w-full",
@@ -84,7 +89,7 @@ export function StickerCard({
   return (
     <div
       className={cx(
-        "border-[1.5px] border-ink rounded-toy-lg shadow-sticker",
+        "border border-line rounded-toy-lg shadow-sticker",
         FILL[color],
         className
       )}
@@ -108,7 +113,7 @@ export function Pill({
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1.5 border-[1.5px] border-ink rounded-full px-3 py-1 text-xs font-bold",
+        "inline-flex items-center gap-1.5 border border-line rounded-full px-3 py-1 text-xs font-bold",
         FILL[color],
         className
       )}
@@ -137,7 +142,7 @@ export function EmojiToken({
   return (
     <span
       className={cx(
-        "inline-flex items-center justify-center border-[1.5px] border-ink shadow-sticker shrink-0",
+        "inline-flex items-center justify-center border border-line shadow-sticker shrink-0",
         rounded === "full" ? "rounded-full" : "rounded-toy",
         FILL[color],
         className

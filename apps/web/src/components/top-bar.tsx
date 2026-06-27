@@ -50,7 +50,7 @@ export function TopBar({ overlay = false }: { overlay?: boolean }) {
   }
 
   return (
-    <header className="shrink-0 flex h-14 items-center justify-between gap-2 border-b-[1.5px] border-ink bg-cream px-4">
+    <header className="shrink-0 flex h-14 items-center justify-between gap-2 border-b border-line bg-cream px-4">
       {/* mobile → wordmark; desktop → page title (sidebar already brands) */}
       <Link
         href="/"
@@ -72,7 +72,7 @@ function LoginButton() {
   return (
     <button
       onClick={() => openLogin()}
-      className="focus-ring sticker-press shrink-0 rounded-full border-[1.5px] border-ink bg-pink px-4 py-1.5 text-small font-extrabold text-white shadow-sticker-sm"
+      className="focus-ring sticker-press shrink-0 rounded-full bg-ink px-4 py-1.5 text-small font-bold text-white shadow-sticker-sm"
     >
       Log in
     </button>
@@ -120,7 +120,7 @@ function ProfileMenu({ username }: { username: string }) {
         <Menu.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
           <Menu.Popup
             style={{ transformOrigin: "var(--transform-origin)" }}
-            className="animate-pop min-w-[210px] rounded-toy border-[1.5px] border-ink bg-card p-1.5 shadow-sticker-md outline-none"
+            className="animate-pop min-w-[210px] rounded-toy border border-line bg-card p-1.5 shadow-sticker-md outline-none"
           >
             <div className="flex items-center gap-2 px-2 py-1.5">
               {avatar(28)}

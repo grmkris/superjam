@@ -97,7 +97,7 @@ export function FriendPicker({
               <button
                 onClick={() => send(f.username)}
                 disabled={sentTo === f.username}
-                className="focus-ring ml-auto bg-pink text-white border-[1.5px] border-ink rounded-full px-4 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                className="focus-ring ml-auto bg-ink text-white border border-line rounded-full px-4 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
               >
                 {sentTo === f.username ? "sent ✓" : challenge ? "Challenge" : "Send"}
               </button>

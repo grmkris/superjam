@@ -30,7 +30,7 @@ export const viewport = {
   initialScale: 1,
   // zoom stays enabled — desktop + accessibility need pinch/zoom (was maximumScale: 1)
   userScalable: true,
-  themeColor: "#ECEAE3",
+  themeColor: "#FAFAF8",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,16 +1,15 @@
 "use client";
 
 // Public profile (DESIGN_BRIEF §3f) — `/u/<username>`, reached by tapping any
-// @handle (reviews, maker pill, inbox, …). A toybox hero (accent band + overlapping
-// avatar), a stats shelf, the three social actions (friend/unfriend · 💸 send ·
-// 🙏 ask — ask is friends-only), and the jams this human has shipped. Your own
-// handle bounces to /me.
+// @handle (reviews, maker pill, inbox, …). A calm header (avatar + name + joined),
+// a stats shelf, the three social actions (friend/unfriend · 💸 send · 🙏 ask —
+// ask is friends-only), and the jams this human has shipped. Your own handle
+// bounces to /me.
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useConfirm } from "../../../components/confirm/confirm-provider";
 import { PayFriendSheet } from "../../../components/chat/pay-friend-sheet";
-import { cx } from "../../../components/ui/cx";
 import {
   EmojiToken,
   Pill,
@@ -18,7 +17,7 @@ import {
   StickerCard,
 } from "../../../components/ui/sticker";
 import { EmptyState } from "../../../components/ui/empty-state";
-import { type Accent, accentFor } from "../../../components/ui/identity";
+import { accentFor } from "../../../components/ui/identity";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { useLogin } from "../../../components/login";
 import { usePlatformClient } from "../../../components/use-platform-client";
@@ -46,14 +45,9 @@ interface Jam {
 
 const short = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-// A deterministic accent per handle so every profile owns a colour — shared with
-// the feed + reviews via ui/identity so a person looks the same everywhere.
-const ACCENT_BG: Record<Accent, string> = {
-  pink: "bg-pink",
-  yellow: "bg-yellow",
-  green: "bg-green",
-  blue: "bg-blue",
-};
+// A deterministic accent per handle (shared with the feed + reviews via
+// ui/identity so a person looks the same everywhere). In Studio it shows up only
+// as a muted touch — the avatar token — never a candy band.
 
 const joinedLabel = (d: string | number | Date): string => {
   const t = new Date(d);
@@ -204,21 +198,19 @@ export default function UserProfilePage({
         ‹ Back
       </button>
 
-      {/* hero — accent band + overlapping avatar */}
-      <StickerCard color="white" className="relative overflow-hidden p-0 shadow-sticker-md">
-        <div className={cx("h-20 border-b-[1.5px] border-ink", ACCENT_BG[accent])} />
-        <div className="flex flex-col gap-2 px-4 pb-4 -mt-10">
-          <EmojiToken
-            emoji="🙂"
-            color={accent}
-            size={76}
-            rounded="toy"
-            tilt={-5}
-            className="animate-pop shadow-sticker-md"
-          />
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-extrabold tracking-display text-h2">@{profile.username}</span>
-          </div>
+      {/* header — calm white card; the per-user accent shows only on the avatar */}
+      <StickerCard color="white" className="flex items-center gap-4 p-5 shadow-sticker-md">
+        <EmojiToken
+          emoji="🙂"
+          color={accent}
+          size={72}
+          rounded="toy"
+          className="animate-pop"
+        />
+        <div className="flex flex-col gap-1 min-w-0">
+          <span className="font-extrabold tracking-display text-h2 truncate">
+            @{profile.username}
+          </span>
           <div className="text-small font-semibold text-muted">
             joined {joinedLabel(profile.createdAt)} · 👥 {profile.friendsCount}{" "}
             {profile.friendsCount === 1 ? "friend" : "friends"}
@@ -254,14 +246,14 @@ export default function UserProfilePage({
             <StickerButton color="white" block onClick={toggleFriend} disabled={busy}>
               ✓ Friends
             </StickerButton>
-            <StickerButton color="yellow" block onClick={askGate}>
+            <StickerButton color="white" block onClick={askGate}>
               🙏 Ask for money
             </StickerButton>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <StickerButton color="green" block onClick={toggleFriend} disabled={busy}>
+          <StickerButton block onClick={toggleFriend} disabled={busy}>
             + Add friend
           </StickerButton>
           <StickerButton color="pink" block onClick={payGate}>
@@ -297,16 +289,13 @@ export default function UserProfilePage({
           </div>
         ) : (
           <div className="flex flex-col gap-2 stagger">
-            {jams.map((j, i) => (
+            {jams.map((j) => (
               <Link key={j.id} href={`/j/${j.slug}`} className="focus-ring">
-                <StickerCard
-                  className="p-3.5 flex items-center gap-3 sticker-press"
-                  tilt={i % 2 === 0 ? -0.3 : 0.3}
-                >
+                <StickerCard className="p-3.5 flex items-center gap-3 sticker-press">
                   <EmojiToken emoji={j.iconEmoji} color="blue" size={40} rounded="toy" />
                   <div className="flex flex-col min-w-0">
                     <div className="font-extrabold text-body truncate">{j.name}</div>
-                    <div className="text-small font-semibold text-muted">
+                    <div className="text-small font-semibold text-muted tabular-nums">
                       ♥ {j.likes} · ▸ {j.plays} · ★ {j.reviewCount}
                     </div>
                   </div>

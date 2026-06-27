@@ -116,9 +116,9 @@ function Notifications() {
         <StickerCard
           key={n.id}
           color={n.read ? "white" : "cream"}
-          className={cx("p-3.5 flex items-center gap-3", !n.read && "border-pink")}
+          className="p-3.5 flex items-center gap-3"
         >
-          {!n.read && <Dot className="border border-ink shrink-0" />}
+          {!n.read && <Dot className="border border-line shrink-0" />}
           <div className="flex flex-col min-w-0 gap-0.5">
             <div className="flex items-center gap-1.5 text-small">
               <HandleLink username={n.from.username} className="font-extrabold" />
@@ -130,7 +130,6 @@ function Notifications() {
             <span className="text-tiny font-semibold text-muted">{ago(n.createdAt)}</span>
             {n.link && (
               <StickerButton
-                color="blue"
                 size="sm"
                 onClick={() => router.push(n.link!)}
                 className="rounded-full"
@@ -217,7 +216,7 @@ function Friends() {
           placeholder="add a friend by @name…"
           className="flex-1 rounded-full text-small"
         />
-        <StickerButton color="green" size="md" onClick={add} disabled={adding || !handle.trim()}>
+        <StickerButton size="md" onClick={add} disabled={adding || !handle.trim()}>
           + Add
         </StickerButton>
       </div>
@@ -355,18 +354,17 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
         {msgs.map((m) => (
           <div key={m.id} className={cx("max-w-[82%]", m.fromMe ? "self-end" : "self-start")}>
             {m.kind === "tip" ? (
-              <div className="flex items-center gap-2 bg-green border-[1.5px] border-ink rounded-toy px-3.5 py-2 text-small font-extrabold shadow-sticker-sm">
+              <div className="flex items-center gap-2 bg-green border border-line rounded-toy px-3.5 py-2 text-small font-extrabold shadow-sticker-sm">
                 💸 {m.fromMe ? "sent" : "got"} {m.amountUsdc} USDC
               </div>
             ) : m.kind === "request" ? (
-              <div className="flex flex-col gap-1.5 bg-yellow border-[1.5px] border-ink rounded-toy px-3.5 py-2.5 shadow-sticker-sm">
+              <div className="flex flex-col gap-1.5 bg-yellow border border-line rounded-toy px-3.5 py-2.5 shadow-sticker-sm">
                 <div className="text-small font-extrabold">
                   🙏 {m.fromMe ? "you asked for" : `@${friend.username} asked for`} {m.amountUsdc} USDC
                 </div>
                 {m.text && <div className="text-small font-semibold leading-snug">{m.text}</div>}
                 {!m.fromMe && (
                   <StickerButton
-                    color="green"
                     size="sm"
                     className="self-start rounded-full"
                     onClick={() => pay(Number(m.amountUsdc), m.text ?? "")}
@@ -385,8 +383,8 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
             ) : (
               <div
                 className={cx(
-                  "border-[1.5px] border-ink rounded-toy px-3.5 py-2 text-small font-semibold shadow-sticker-sm",
-                  m.fromMe ? "bg-pink text-white rounded-br-sm" : "bg-card rounded-bl-sm"
+                  "border border-line rounded-toy px-3.5 py-2 text-small font-semibold shadow-sticker-sm",
+                  m.fromMe ? "bg-ink text-white rounded-br-sm" : "bg-card rounded-bl-sm"
                 )}
               >
                 {m.text}
@@ -400,21 +398,21 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
       <div className="flex gap-2 items-center sticky bottom-0 bg-cream pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
         <button
           onClick={() => setPaying(true)}
-          className="focus-ring size-11 bg-green border-[1.5px] border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          className="focus-ring size-11 bg-card border border-line rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Pay a friend"
         >
           💸
         </button>
         <button
           onClick={() => setRequesting(true)}
-          className="focus-ring size-11 bg-yellow border-[1.5px] border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          className="focus-ring size-11 bg-card border border-line rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Ask for money"
         >
           🙏
         </button>
         <button
           onClick={() => setPicking(true)}
-          className="focus-ring size-11 bg-blue border-[1.5px] border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          className="focus-ring size-11 bg-card border border-line rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Share a jam"
         >
           🎮

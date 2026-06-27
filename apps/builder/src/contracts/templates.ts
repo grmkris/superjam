@@ -2,7 +2,7 @@
 // seeds + fills from the spec, so the agent NEVER hand-writes Solidity (the #1
 // onchain build failure). Each template is a complete, compile-tested contract
 // (operator-gated, dependency-free, `fn(address player, …)` first-arg convention —
-// the bridge stamps the player + relays gaslessly) plus a near-complete Toybox
+// the bridge stamps the player + relays gaslessly) plus a near-complete Studio
 // `app/page.tsx` that drives it through `sdk.onchain`. The agent only extends the
 // PAGE; the contract is fixed. selectOnchainTemplate() picks one from the spec.
 import type { AppSpec } from "@superjam/shared";
@@ -16,7 +16,7 @@ export interface OnchainTemplate {
   match(hay: string): boolean;
   /** The filled, compile-ready contracts/src/Game.sol. */
   contract(spec: AppSpec): string;
-  /** A near-complete Toybox app/page.tsx that plays the contract via sdk.onchain. */
+  /** A near-complete Studio app/page.tsx that plays the contract via sdk.onchain. */
   page(spec: AppSpec): string;
 }
 

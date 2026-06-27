@@ -80,7 +80,7 @@ const plan = (spec: AppSpec): string => {
 3. Render the CURRENT question, its tappable options, and a per-question countdown
    (a \`setInterval\` ticking a \`timeLeft\` state down to 0).
 4. On tap: LOCK the options (ignore further taps), REVEAL the result — paint the
-   correct option green (#18C480) and, if wrong, the picked option red (#E5484D).
+   correct option green (#18B877) and, if wrong, the picked option red (#E5484D).
    If correct, bump the running score.
 5. If the timer hits 0 before a tap, lock + reveal as a miss (no points), then
    advance.
@@ -231,7 +231,7 @@ export default function Page() {
                 const bg = !locked
                   ? undefined
                   : i === current.correctIndex
-                    ? "#18C480"
+                    ? "#18B877"
                     : i === picked
                       ? "#E5484D"
                       : undefined;

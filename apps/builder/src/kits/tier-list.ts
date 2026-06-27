@@ -30,7 +30,7 @@ A working tap-to-rank starter is seeded (S/A/B/C + the share loop).
 3. End on the seeded \`<ResultCard>\` — the tiers with their items — and a "Share my
    ranking" button: \`shareResult(sdk, { text, data:{ ranks } })\`. \`readChallenge\` shows a
    friend's ranking when opened from a share ("@x ranked these — agree?").
-4. Theme it (Toybox: .tj-card/.tj-choice/.tj-bar). Items to rank:
+4. Theme it (Studio: .tj-card/.tj-choice/.tj-bar). Items to rank:
 ${itemsOf(spec).map((i) => `   - ${i}`).join("\n")}
 5. Acceptance: tapping items assigns tiers, the result card shows the grouped ranking,
    and the share button produces a link.`;
@@ -49,7 +49,7 @@ import { ResultCard, shareResult } from "@/components/result-card";
 // TODO: replace ITEMS with the things to rank for "${title}".
 const ITEMS: string[] = ${itemsLiteral};
 const TIERS = ["S", "A", "B", "C"];
-const TIER_COLOR = ["#FF4767", "#FFC23D", "#18C480", "#3E63F2"];
+const TIER_COLOR = ["#FF4767", "#F5B53C", "#18B877", "#3E63F2"];
 
 export default function Page() {
   const sdkRef = useRef<SuperJamSdk | null>(null);

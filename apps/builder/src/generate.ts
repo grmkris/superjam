@@ -207,7 +207,7 @@ export type TripStop = {
 };
 
 // Refined Arcade palette — one hue per trip day (wraps after 6).
-const DAY_COLORS = ["#3E63F2", "#FF4767", "#FFC23D", "#18C480", "#9B7BFF", "#FF8A3D"];
+const DAY_COLORS = ["#3E63F2", "#FF4767", "#F5B53C", "#18B877", "#9B7BFF", "#FF8A3D"];
 // Free, keyless vector basemap (CORS-enabled). No API token required.
 const STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
@@ -245,7 +245,7 @@ export function TripMap({ stops, height = 320 }: { stops: TripStop[]; height?: n
           id: "route",
           type: "line",
           source: "route",
-          paint: { "line-color": "#17131F", "line-width": 3, "line-dasharray": [2, 1.5], "line-opacity": 0.55 },
+          paint: { "line-color": "#18151D", "line-width": 3, "line-dasharray": [2, 1.5], "line-opacity": 0.55 },
         });
       }
       const bounds = new maplibregl.LngLatBounds();
@@ -331,7 +331,7 @@ ${spec.features.map((f) => `        <li>${f.replace(/</g, "&lt;")}</li>`).join("
 }
 `;
 
-// Root layout — ships the Toybox theme so a framed jam looks native in the host
+// Root layout — ships the Studio theme so a framed jam looks native in the host
 // (same Bricolage Grotesque font + tokens as apps/web). theme.css is the LOCKED design system
 // (DO-NOT-EDIT); globals.css is the agent's scratch sheet, imported AFTER so its
 // additions layer on top without being able to replace the theme's tokens/body.
@@ -357,7 +357,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 `;
 
-// Deployed-tier Toybox theme — the LOCKED design system seeded as app/theme.css and
+// Deployed-tier Studio theme — the LOCKED design system seeded as app/theme.css and
 // imported first in layout.tsx. Matches the host + the SDK \`tj-*\` contract in
 // packages/app-template/src/theme.css (keep the --bg/--card/--text/--muted/--accent/
 // --danger/--radius vars + all .tj-* class NAMES in sync; only values may differ).
@@ -366,18 +366,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 // The agent is told NOT to edit this file (gate-enforced) — custom CSS goes in the
 // globals.css scratch sheet — so the theme can never be clobbered into dark-on-dark.
 const themeCss = (): string => `:root {
-  --bg: #F6F4EC;     /* cream paper */
+  --bg: #FAFAF8;     /* near-white paper */
   --card: #FFFFFF;   /* card face */
-  --text: #17131F;   /* ink — text AND outlines/shadows */
-  --muted: #6A6475;
-  --accent: #FF4767; /* primary */
-  --yellow: #FFC23D;
-  --green: #18C480;
+  --text: #18151D;   /* ink — body text */
+  --line: #EBE9E4;   /* 1px hairline border */
+  --muted: #6B6770;
+  --accent: #FF4767; /* the one accent */
+  --yellow: #F5B53C;
+  --green: #18B877;
   --blue: #3E63F2;
   --danger: #E5484D;
-  --radius: 14px;
-  /* layered depth: a crisp ink offset + a soft ambient drop (never a flat slab) */
-  --shadow: 0 3px 0 var(--text), 0 12px 24px -10px rgba(23, 19, 31, 0.24);
+  --radius: 12px;
+  /* soft realistic elevation — never a flat cartoon slab */
+  --shadow: 0 1px 2px rgba(24, 21, 29, 0.05), 0 10px 26px -10px rgba(24, 21, 29, 0.14);
 }
 * { box-sizing: border-box; }
 html, body { -webkit-tap-highlight-color: transparent; }
@@ -388,10 +389,6 @@ body {
   letter-spacing: -0.01em;
   color: var(--text);
   background-color: var(--bg);
-  /* whisper-quiet dot-grid for paper depth — never a busy pattern */
-  background-image: radial-gradient(rgba(23, 19, 31, 0.03) 1px, transparent 1.7px);
-  background-size: 22px 22px;
-  background-position: -11px -11px;
   min-height: 100dvh;
 }
 /* Mobile-first readable column for content jams. Toys can nest a single tj-card. */
@@ -401,22 +398,21 @@ body {
    of a bare card. Bleeds full-width past the .tj-app padding; white text on a vivid
    gradient stays high-contrast. Drop a .tj-title + .tj-sub (or a baked
    <img src="/hero.png">) inside. This is a contained band, NOT a dark page
-   background — the page itself stays cream. Override the gradient with an inline
-   \`style\` or a new globals.css class for per-jam art. */
+   background — the page itself stays near-white. Override the gradient with an
+   inline \`style\` or a new globals.css class for per-jam art. */
 .tj-hero {
   margin: -20px -16px 18px;
   padding: 30px 22px;
   color: #fff;
   text-align: center;
   background: linear-gradient(135deg, var(--accent), var(--blue));
-  box-shadow: 0 3px 0 var(--text);
 }
 .tj-hero .tj-sub { color: #fff; opacity: .92; }
 
 /* ── Surfaces ───────────────────────────────────────────────────────────── */
 .tj-card {
   background: var(--card);
-  border: 1.5px solid var(--text);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 20px;
   width: 100%;
@@ -431,13 +427,13 @@ body {
 .tj-emoji {
   flex: none; display: grid; place-items: center;
   width: 46px; height: 46px; font-size: 26px;
-  background: var(--bg); border: 1.5px solid var(--text); border-radius: 13px;
-  box-shadow: 0 2px 0 var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow);
 }
 .tj-htext { min-width: 0; }
 .tj-spacer { margin-left: auto; }
 
-.tj-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+.tj-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.1; letter-spacing: -0.025em; }
 .tj-sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; font-weight: 500; }
 .tj-muted { color: var(--muted); }
 
@@ -445,21 +441,21 @@ body {
 .tj-btn {
   background: var(--accent);
   color: #fff;
-  border: 1.5px solid var(--text);
-  border-radius: 12px;
-  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 18px;
   font-weight: 700;
   cursor: pointer;
   font-size: 15px;
   font-family: inherit;
   letter-spacing: -0.01em;
-  box-shadow: 0 2px 0 var(--text), 0 6px 14px -6px rgba(23, 19, 31, 0.26);
-  transition: transform .12s cubic-bezier(0.23,1,0.32,1), box-shadow .12s cubic-bezier(0.23,1,0.32,1), filter .12s ease;
+  box-shadow: 0 1px 2px rgba(24, 21, 29, 0.05), 0 4px 12px -4px rgba(24, 21, 29, 0.18);
+  transition: transform .14s cubic-bezier(0.23,1,0.32,1), box-shadow .14s cubic-bezier(0.23,1,0.32,1), filter .14s ease;
 }
 .tj-btn:hover { filter: brightness(1.04); }
-.tj-btn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--text); }
-.tj-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: 0 2px 0 var(--text); transform: none; filter: none; }
-.tj-btn-ghost { background: var(--card); color: var(--text); }
+.tj-btn:active { transform: scale(0.98); box-shadow: 0 1px 2px rgba(24, 21, 29, 0.06); }
+.tj-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; filter: none; }
+.tj-btn-ghost { background: var(--card); color: var(--text); border: 1px solid var(--line); }
 .tj-btn-yellow { background: var(--yellow); color: var(--text); }
 .tj-btn-green { background: var(--green); color: #fff; }
 .tj-btn-blue { background: var(--blue); color: #fff; }
@@ -469,15 +465,16 @@ body {
 .tj-input {
   width: 100%;
   background: #fff;
-  border: 1.5px solid var(--text);
+  border: 1px solid var(--line);
   color: var(--text);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 11px 13px;
   font-size: 14px;
   font-family: inherit;
   font-weight: 500;
+  transition: border-color .12s ease, box-shadow .12s ease;
 }
-.tj-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tj-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 
 /* ── Segmented choice picker — a row/grid of options; the picked one fills with
    accent. Use \`aria-pressed={selected}\` (or add .is-on) on each .tj-choice. ── */
@@ -486,22 +483,24 @@ body {
 .tj-choice {
   appearance: none; cursor: pointer; text-align: center;
   background: var(--card); color: var(--text);
-  border: 1.5px solid var(--text); border-radius: 12px;
-  padding: 12px 14px; font-family: inherit; font-weight: 700; font-size: 15px;
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 13px 14px; font-family: inherit; font-weight: 600; font-size: 15px;
   letter-spacing: -0.01em;
-  box-shadow: 0 2px 0 var(--text), 0 5px 12px -6px rgba(23, 19, 31, 0.22);
-  transition: transform .12s cubic-bezier(0.23,1,0.32,1), box-shadow .12s cubic-bezier(0.23,1,0.32,1);
+  box-shadow: var(--shadow);
+  transition: transform .14s cubic-bezier(0.23,1,0.32,1), box-shadow .14s cubic-bezier(0.23,1,0.32,1), border-color .12s ease;
 }
-.tj-choice:active { transform: translateY(2px); box-shadow: 0 0 0 var(--text); }
-.tj-choice[aria-pressed="true"], .tj-choice.is-on { background: var(--accent); color: #fff; }
+.tj-choice:hover { border-color: color-mix(in srgb, var(--text) 18%, var(--line)); }
+.tj-choice:active { transform: scale(0.98); }
+.tj-choice[aria-pressed="true"], .tj-choice.is-on { background: var(--accent); color: #fff; border-color: transparent; }
 .tj-choice:disabled { cursor: default; }
 
-/* ── Result / progress bar — ink-bordered track with an animated fill.
+/* ── Result / progress bar — hairline track with an animated fill.
    <div class="tj-bar"><div class="tj-bar-fill" style="width:60%"></div>
      <div class="tj-bar-label"><span>Cats</span><span>60%</span></div></div> ── */
 .tj-bar {
-  position: relative; height: 32px;
-  background: var(--bg); border: 1.5px solid var(--text); border-radius: 10px;
+  position: relative; height: 30px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border: 1px solid var(--line); border-radius: 9px;
   overflow: hidden;
 }
 .tj-bar-fill {
@@ -513,7 +512,7 @@ body {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; padding: 0 10px;
-  font-weight: 700; font-size: 13px;
+  font-weight: 600; font-size: 13px;
 }
 
 /* ── Layout helpers ─────────────────────────────────────────────────────── */
@@ -527,7 +526,7 @@ body {
 .tj-stat { font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
 .tj-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  background: var(--bg); border: 1.5px solid var(--text); border-radius: 999px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 999px;
   padding: 2px 10px; font-size: 12px; font-weight: 600;
 }
 .tj-pill {
@@ -538,7 +537,7 @@ body {
 .tj-empty { display: grid; place-items: center; gap: 6px; padding: 28px 12px; color: var(--muted); font-weight: 500; text-align: center; }
 
 /* ── Spinner ────────────────────────────────────────────────────────────── */
-.tj-spin { width: 22px; height: 22px; border: 3px solid var(--bg); border-top-color: var(--accent); border-radius: 50%; animation: tj-rot .7s linear infinite; }
+.tj-spin { width: 22px; height: 22px; border: 3px solid color-mix(in srgb, var(--text) 10%, transparent); border-top-color: var(--accent); border-radius: 50%; animation: tj-rot .7s linear infinite; }
 @keyframes tj-rot { to { transform: rotate(360deg); } }
 
 /* ── Full-bleed game stage (escapes the column; put a <canvas> inside, overlay
@@ -558,13 +557,13 @@ body {
 // theme.css. Custom, app-specific CSS goes here; the locked theme stays untouched.
 const globalsScratch = (): string => `/* Your app-specific CSS goes here.
  *
- * The Toybox theme is ALREADY loaded from theme.css — cream --bg, ink --text,
+ * The Studio theme is ALREADY loaded from theme.css — near-white --bg, ink --text,
  * --accent, Bricolage Grotesque, and every .tj-* component class (.tj-card, .tj-btn,
  * .tj-input, .tj-header, .tj-choice, .tj-bar, .tj-stat, .tj-badge, .tj-pill, …).
  * Compose with those. Add only NEW classes here.
  *
  * DO NOT restyle 'body', ':root', or any '.tj-*' class, and NEVER set a dark page
- * background — the app must stay cream paper with ink text (high contrast).
+ * background — the app must stay near-white paper with ink text (high contrast).
  */
 `;
 
@@ -583,7 +582,7 @@ export const generateApp = (spec: AppSpec, ctx?: GenerateContext): GeneratedApp 
       ctx?.jwksUrl ?? DEFAULT_JWKS_URL
     ),
     "app/layout.tsx": layout(spec),
-    "app/theme.css": themeCss(), // LOCKED Toybox design system (layout imports it first)
+    "app/theme.css": themeCss(), // LOCKED Studio design system (layout imports it first)
     "app/globals.css": globalsScratch(), // agent scratch sheet (imported after theme.css)
     "app/page.tsx": page(spec),
     "lib/auth.ts": authLib(),

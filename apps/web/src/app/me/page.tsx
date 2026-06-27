@@ -119,7 +119,7 @@ export default function ProfilePage() {
     <div className="screen">
       {/* identity */}
       <div className="flex items-center gap-3">
-        <EmojiToken emoji="🙂" color="green" size={56} rounded="toy" tilt={-5} />
+        <EmojiToken emoji="🙂" color="green" size={56} rounded="toy" />
         <div className="flex flex-col gap-1 min-w-0">
           <span className="font-extrabold text-h3 tracking-tight">@{me?.username ?? "you"}</span>
         </div>
@@ -151,7 +151,7 @@ export default function ProfilePage() {
               <div className="ml-auto flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => router.push(`/build?d=${d.id}&step=${d.step}`)}
-                  className="focus-ring whitespace-nowrap border-[1.5px] border-ink rounded-full bg-pink text-white px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                  className="focus-ring whitespace-nowrap border border-line rounded-full bg-ink text-white px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
                 >
                   Resume →
                 </button>
@@ -189,7 +189,7 @@ export default function ProfilePage() {
                   {live ? (
                     <button
                       onClick={() => router.push(`/app/${j.slug}`)}
-                      className="ml-auto shrink-0 focus-ring whitespace-nowrap border-[1.5px] border-ink rounded-full bg-green text-ink px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                      className="ml-auto shrink-0 focus-ring whitespace-nowrap border border-line rounded-full bg-ink text-white px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
                     >
                       ▸ Play
                     </button>
@@ -210,7 +210,7 @@ export default function ProfilePage() {
       )}
 
       <StickerButton
-        color="cream"
+        color="white"
         size="md"
         block
         onClick={() => logOut(undefined, { onSuccess: () => router.push("/welcome") })}

@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { JamFeedCard } from "../components/feed/jam-feed-card";
 import { type FeedJam, type FeedTab, loadFeed } from "../components/feed/jam";
-import { cx } from "../components/ui/cx";
 import { Skeleton } from "../components/ui/skeleton";
 import { SparkMark } from "../components/ui/nav-icons";
 import { StickerButton } from "../components/ui/sticker";
@@ -85,7 +84,7 @@ export default function DiscoverPage() {
   }
 
   return (
-    <div className="relative flex h-full flex-col bg-blue">
+    <div className="relative flex h-full flex-col bg-ink">
       {/* The unified top bar now lives inside each jam's JamChrome (identity +
           actions + profile), so the feed is edge-to-edge with no page-level band. */}
       <div className="relative min-h-0 flex-1">
@@ -112,34 +111,30 @@ export default function DiscoverPage() {
 }
 
 function FeedSkeleton() {
-  // Toybox Skeleton, restyled white-translucent to read on the blue bleed.
-  const wash = "bg-white/30 border-[1.5px] border-ink/40";
+  // A calm, monochrome loading state on a light surface (the SparkMark anchors it).
   return (
-    <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
-      <Skeleton className={cx("size-[140px] rounded-toy-lg", wash)} />
-      <Skeleton className={cx("w-40 h-7 rounded-full", wash)} />
-      <Skeleton className={cx("w-64 h-12 rounded-toy", wash)} />
-      <Skeleton className={cx("w-36 h-12 rounded-full", wash)} />
+    <div className="h-full flex flex-col items-center justify-center gap-4 px-6 bg-paper">
+      <span className="inline-flex size-20 items-center justify-center rounded-toy-lg border border-line bg-card shadow-sticker">
+        <SparkMark width={36} height={36} aria-hidden />
+      </span>
+      <Skeleton className="w-40 h-7 rounded-full" />
+      <Skeleton className="w-64 h-12 rounded-toy" />
+      <Skeleton className="w-36 h-12 rounded-full" />
     </div>
   );
 }
 
 function EmptyFeed({ onMake }: { onMake: () => void }) {
   return (
-    <div className="h-full flex flex-col items-center justify-center gap-4 px-8 text-center">
-      <span className="inline-flex size-20 items-center justify-center rounded-toy-lg border-[1.5px] border-ink bg-card shadow-sticker-lg">
+    <div className="h-full flex flex-col items-center justify-center gap-4 px-8 text-center bg-paper">
+      <span className="inline-flex size-20 items-center justify-center rounded-toy-lg border border-line bg-card shadow-sticker">
         <SparkMark width={40} height={40} aria-hidden />
       </span>
-      <div className="text-h2 font-extrabold tracking-display text-white ink-drop">
+      <div className="text-h2 font-extrabold tracking-display text-ink">
         Nothing here yet
       </div>
-      <div className="text-white/90 font-semibold">Be the first to make one.</div>
-      <StickerButton
-        color="pink"
-        size="lg"
-        onClick={onMake}
-        className="rounded-full px-8 shadow-sticker-lg"
-      >
+      <div className="text-muted font-semibold">Be the first to make one.</div>
+      <StickerButton size="lg" onClick={onMake}>
         Make a jam
       </StickerButton>
     </div>

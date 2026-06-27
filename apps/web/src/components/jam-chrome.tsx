@@ -18,7 +18,7 @@ import { actionRowButton, EmojiToken, StickerButton } from "./ui/sticker";
 import { cx } from "./ui/cx";
 
 const PILL =
-  "inline-flex items-center bg-white/85 backdrop-blur border-[1.5px] border-ink rounded-full text-small font-bold shadow-sticker-sm sticker-press focus-ring";
+  "inline-flex items-center bg-white/85 backdrop-blur border border-line rounded-full text-small font-bold shadow-sticker-sm sticker-press focus-ring";
 const ICON_PILL = cx(PILL, "size-8 shrink-0 justify-center text-body");
 // emoji + count pill (like / comment)
 const COUNT_PILL = cx(PILL, "shrink-0 gap-1 px-2.5 py-1 text-tiny");
@@ -194,7 +194,7 @@ function AppMenuSheet({
       <div className="flex flex-col gap-2.5">
         {maker && (
           <Link href={`/u/${maker.username}`} className={actionRowButton}>
-            <EmojiToken emoji="👤" color="green" size={36} />
+            <EmojiToken emoji="👤" color="white" size={36} />
             <span className="font-extrabold">@{maker.username}</span>
           </Link>
         )}
@@ -206,7 +206,7 @@ function AppMenuSheet({
           }}
           className={actionRowButton}
         >
-          <EmojiToken emoji="📣" color="pink" size={36} />
+          <EmojiToken emoji="📣" color="white" size={36} />
           <span className="font-extrabold">Send to a friend</span>
         </button>
         {onFullscreen && !fullscreen && (
@@ -218,16 +218,16 @@ function AppMenuSheet({
             }}
             className={actionRowButton}
           >
-            <EmojiToken emoji="⛶" color="blue" size={36} />
+            <EmojiToken emoji="⛶" color="white" size={36} />
             <span className="font-extrabold">Fullscreen</span>
           </button>
         )}
         <Link href={`/j/${app.slug}`} className={actionRowButton}>
-          <EmojiToken emoji="💬" color="yellow" size={36} />
+          <EmojiToken emoji="💬" color="white" size={36} />
           <span className="font-extrabold">Jam page</span>
         </Link>
         <Link href={`/build?remix=${app.slug}`} className={actionRowButton}>
-          <EmojiToken emoji="🔁" color="lavender" size={36} />
+          <EmojiToken emoji="🔁" color="white" size={36} />
           <span className="font-extrabold">Remix this jam</span>
         </Link>
       </div>
