@@ -40,7 +40,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
             <TopBar />
             <div
               key={pathname}
-              className="flex-1 min-h-0 overflow-y-auto motion-safe:animate-[fadein_0.2s_ease-out]"
+              className="flex-1 min-h-0 overflow-y-auto motion-safe:animate-screen-in"
             >
               {children}
             </div>

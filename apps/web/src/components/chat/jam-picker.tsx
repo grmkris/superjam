@@ -45,7 +45,7 @@ export function JamPicker({
       }}
       title="Send a jam"
     >
-      <div className="text-h3 font-extrabold">🎮 Send a jam</div>
+      <div className="text-h3 font-extrabold tracking-tight">Send a jam</div>
       {jams === null ? (
         <div className="flex flex-col gap-2.5 py-1">
           <Skeleton className="h-14" />
@@ -53,30 +53,32 @@ export function JamPicker({
           <Skeleton className="h-14" />
         </div>
       ) : playable.length === 0 ? (
-        <div className="text-muted font-semibold py-4 text-center">
-          no live jams yet — make one first ✨
+        <div className="prose-body text-muted py-4 text-center">
+          no live jams yet — make one first.
         </div>
       ) : (
-        playable.map((j) => (
-          <StickerCard key={j.id} className="p-3 flex items-center gap-3">
-            <EmojiToken emoji={j.iconEmoji} color="blue" size={40} rounded="toy" />
-            <div className="font-extrabold text-body truncate min-w-0 flex-1">
-              {j.name}
-            </div>
-            <button
-              onClick={() => onPick(j.slug, false)}
-              className="focus-ring bg-green text-ink border-2 border-ink rounded-full px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
-            >
-              Share
-            </button>
-            <button
-              onClick={() => onPick(j.slug, true)}
-              className="focus-ring bg-pink text-white border-2 border-ink rounded-full px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
-            >
-              ⚔ Challenge
-            </button>
-          </StickerCard>
-        ))
+        <div className="flex flex-col gap-2.5 stagger">
+          {playable.map((j) => (
+            <StickerCard key={j.id} className="p-3 flex items-center gap-3">
+              <EmojiToken emoji={j.iconEmoji} color="blue" size={40} rounded="toy" />
+              <div className="font-extrabold text-body tracking-tight truncate min-w-0 flex-1">
+                {j.name}
+              </div>
+              <button
+                onClick={() => onPick(j.slug, false)}
+                className="focus-ring bg-green text-ink border-[1.5px] border-ink rounded-full px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+              >
+                Share
+              </button>
+              <button
+                onClick={() => onPick(j.slug, true)}
+                className="focus-ring bg-pink text-white border-[1.5px] border-ink rounded-full px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+              >
+                ⚔ Challenge
+              </button>
+            </StickerCard>
+          ))}
+        </div>
       )}
       <StickerButton color="white" size="md" block onClick={onClose}>
         Cancel

@@ -513,20 +513,20 @@ function HomeBeat({
   return (
     <div className="flex flex-1 flex-col gap-4">
       {remix && (
-        <div className="bg-yellow border-2 border-ink rounded-toy px-3 py-2 text-small font-bold">
+        <div className="bg-yellow border-[1.5px] border-ink rounded-toy px-3 py-2 text-small font-bold">
           🔁 Based on <span className="underline">{remix}</span> — say your changes
         </div>
       )}
-      <div className="flex flex-col gap-1 mt-1">
-        <div className="text-h1 font-extrabold">
+      <div className="flex flex-col gap-1.5 mt-1">
+        <div className="text-h1 font-extrabold tracking-display leading-[1.05]">
           {remix ? "Your changes" : "Dream up"}
           {!remix && (
             <>
-              <br />a little app! <span className="inline-block rotate-[8deg]">🧸</span>
+              <br />a little app.
             </>
           )}
         </div>
-        <div className="text-body font-medium text-muted">
+        <div className="text-body font-medium text-muted prose-body">
           Say it in a sentence — we'll make it real.
         </div>
       </div>
@@ -547,13 +547,13 @@ function HomeBeat({
       </div>
 
       {/* lightweight idea scaffolds, right under the box — click to prefill */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="stagger flex flex-wrap items-center gap-1.5">
         <span className="text-tiny font-bold text-muted">try:</span>
         {picks.map((ex) => (
           <button
             key={ex}
             onClick={() => setIdea(ex)}
-            className="focus-ring rounded-full border-2 border-ink bg-cream px-2.5 py-1 text-tiny font-semibold text-muted sticker-press"
+            className="focus-ring rounded-full border-[1.5px] border-ink bg-cream px-2.5 py-1 text-tiny font-semibold text-muted sticker-press"
           >
             {ex}
           </button>
@@ -562,7 +562,7 @@ function HomeBeat({
           type="button"
           onClick={() => setPicks(shuffledExamples(4))}
           aria-label="Shuffle suggestions"
-          className="focus-ring rounded-full border-2 border-ink bg-card px-2 py-1 text-tiny font-bold sticker-press"
+          className="focus-ring rounded-full border-[1.5px] border-ink bg-card px-2 py-1 text-tiny font-bold sticker-press"
         >
           🔀
         </button>
@@ -574,7 +574,7 @@ function HomeBeat({
           <div className="flex items-center gap-2 flex-wrap">
             <label
               className={cx(
-                "inline-flex items-center gap-1.5 bg-cream border-2 border-ink rounded-full px-3 py-1.5 text-small font-bold sticker-press cursor-pointer",
+                "inline-flex items-center gap-1.5 bg-cream border-[1.5px] border-ink rounded-full px-3 py-1.5 text-small font-bold sticker-press cursor-pointer",
                 (uploading || atCap) && "opacity-50 pointer-events-none"
               )}
             >
@@ -599,7 +599,7 @@ function HomeBeat({
               {attachments.map((a) => (
                 <span
                   key={a.key}
-                  className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full pl-2.5 pr-1.5 py-1 text-tiny font-bold"
+                  className="inline-flex items-center gap-1.5 bg-card border-[1.5px] border-ink rounded-full pl-2.5 pr-1.5 py-1 text-tiny font-bold"
                 >
                   {a.mime.startsWith("image/") ? "🖼" : "📄"} {a.name.slice(0, 24)}
                   <button
@@ -628,7 +628,7 @@ function HomeBeat({
           onClick={onGo}
           disabled={busy || !idea.trim()}
         >
-          {busy ? "thinking…" : idea.trim() ? "⚡ Let's go! →" : "Let's go! →"}
+          {busy ? "thinking…" : idea.trim() ? "⚡ Let's go →" : "Let's go →"}
         </StickerButton>
       ) : (
         // refine is a protected call — a signed-out maker would just 401. Send
@@ -665,7 +665,7 @@ function HomeBeat({
                 <div className="ml-auto flex shrink-0 items-center gap-1.5">
                   <button
                     onClick={() => onResumeDraft(d.id, d.step)}
-                    className="focus-ring whitespace-nowrap rounded-full border-2 border-ink bg-pink px-3 py-1.5 text-small font-extrabold text-white shadow-sticker-sm sticker-press"
+                    className="focus-ring whitespace-nowrap rounded-full border-[1.5px] border-ink bg-pink px-3 py-1.5 text-small font-extrabold text-white shadow-sticker-sm sticker-press"
                   >
                     Resume →
                   </button>
@@ -714,8 +714,8 @@ function FollowupsBeat({
     <>
       <div className="flex items-start gap-2">
         <EmojiToken emoji="⚡" color="yellow" size={30} tilt={-6} />
-        <div className="bg-card border-2 border-ink rounded-toy rounded-tl-sm px-3.5 py-3 text-small font-semibold shadow-sticker">
-          Ooh, fun! Two quick things before I draw up the plan:
+        <div className="bg-card border-[1.5px] border-ink rounded-toy rounded-tl-sm px-3.5 py-3 text-small font-semibold shadow-sticker prose-body">
+          Two quick things before I draw up the plan.
         </div>
       </div>
 
@@ -739,7 +739,7 @@ function FollowupsBeat({
         </StickerCard>
       )}
 
-      <div className="flex flex-col gap-3 pl-9">
+      <div className="stagger flex flex-col gap-3 pl-9">
         {questions.map((q, i) => (
           <div key={i} className="flex flex-col gap-2">
             <div className="text-body font-semibold">{q.q}</div>
@@ -749,7 +749,7 @@ function FollowupsBeat({
                   key={o}
                   onClick={() => setPick(i, o)}
                   className={cx(
-                    "focus-ring border-2 border-ink rounded-full px-4 py-2 text-small sticker-press",
+                    "focus-ring border-[1.5px] border-ink rounded-full px-4 py-2 text-small sticker-press",
                     picks[i] === o
                       ? "bg-yellow font-bold shadow-sticker-sm"
                       : "bg-card font-semibold"
@@ -770,7 +770,7 @@ function FollowupsBeat({
         {comments.map((c, i) => (
           <div
             key={i}
-            className="flex items-center gap-2 bg-card border-2 border-ink rounded-xl px-3 py-2 text-small font-semibold"
+            className="flex items-center gap-2 bg-card border-[1.5px] border-ink rounded-xl px-3 py-2 text-small font-semibold"
           >
             <span className="size-1.5 rounded-full bg-pink border-[1.5px] border-ink shrink-0" />
             <span className="min-w-0 break-words">{c}</span>
@@ -800,7 +800,7 @@ function FollowupsBeat({
                 setDraft("");
               }
             }}
-            className="focus-ring size-12 shrink-0 bg-card border-2 border-ink rounded-full text-xl font-extrabold sticker-press"
+            className="focus-ring size-12 shrink-0 bg-card border-[1.5px] border-ink rounded-full text-xl font-extrabold sticker-press"
             aria-label="Add comment"
           >
             +
@@ -834,7 +834,7 @@ function PlanBeat({
   return (
     <>
       <div className="flex flex-col gap-0.5">
-        <div className="text-h2 font-extrabold">Here's the plan!</div>
+        <div className="text-h2 font-extrabold tracking-display">Here's the plan.</div>
         <div className="text-small font-medium text-muted">
           tweak anything — the plan keeps up
         </div>
@@ -844,15 +844,15 @@ function PlanBeat({
         <div className="flex items-center gap-3">
           <EmojiToken emoji={spec.iconEmoji} color="yellow" size={56} rounded="toy" tilt={-5} />
           <div className="flex flex-col min-w-0">
-            <div className="font-extrabold text-h3 truncate">{spec.name}</div>
-            <div className="text-small font-medium text-muted leading-snug">
+            <div className="font-extrabold text-h3 truncate tracking-display">{spec.name}</div>
+            <div className="text-small text-muted prose-body">
               {spec.description}
             </div>
           </div>
         </div>
 
         {/* ENS address row */}
-        <div className="flex items-center gap-1.5 bg-cream border-2 border-ink rounded-l-md rounded-r-full pl-2.5 pr-2.5 py-1.5">
+        <div className="flex items-center gap-1.5 bg-cream border-[1.5px] border-ink rounded-l-md rounded-r-full pl-2.5 pr-2.5 py-1.5">
           <span className="size-[7px] rounded-full bg-yellow border-[1.5px] border-ink shrink-0" />
           <span className="font-mono text-small font-bold truncate">
             {spec.slug}
@@ -867,27 +867,29 @@ function PlanBeat({
           <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             What's inside
           </div>
+          <div className="stagger flex flex-col gap-2.5">
           {spec.features.slice(0, 5).map((f, i) => (
             <div key={i} className="flex items-center gap-2.5 text-small font-semibold">
-              <span className="size-6 rounded-lg bg-cream border-2 border-ink flex items-center justify-center text-tiny shrink-0">
+              <span className="size-6 rounded-lg bg-cream border-[1.5px] border-ink flex items-center justify-center text-tiny shrink-0">
                 {["🪙", "💬", "🏆", "🔔", "✨"][i % 5]}
               </span>
               <span className="min-w-0">{f}</span>
             </div>
           ))}
+          </div>
         </div>
       </StickerCard>
 
       {/* refine exchange */}
       {exchange.map((e, i) => (
         <div key={i} className="flex flex-col gap-1.5">
-          <div className="self-end max-w-[78%] bg-pink text-white border-2 border-ink rounded-toy rounded-br-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
+          <div className="self-end max-w-[78%] bg-pink text-white border-[1.5px] border-ink rounded-toy rounded-br-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
             {e.you}
           </div>
           {e.back && (
             <div className="flex items-end gap-2">
               <EmojiToken emoji="⚡" color="yellow" size={26} tilt={-6} />
-              <div className="bg-card border-2 border-ink rounded-toy rounded-bl-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
+              <div className="bg-card border-[1.5px] border-ink rounded-toy rounded-bl-sm px-3.5 py-2 text-small font-semibold shadow-sticker-sm">
                 {e.back}
               </div>
             </div>
@@ -905,7 +907,7 @@ function PlanBeat({
               setDraft("");
             }
           }}
-          placeholder="✏️ change anything — just say it"
+          placeholder="change anything — just say it"
           className="flex-1 rounded-full text-small"
         />
         <MicButton value={draft} onChange={setDraft} size={48} />
@@ -916,7 +918,7 @@ function PlanBeat({
               setDraft("");
             }
           }}
-          className="focus-ring size-12 shrink-0 bg-yellow border-2 border-ink rounded-full text-lg font-extrabold sticker-press"
+          className="focus-ring size-12 shrink-0 bg-yellow border-[1.5px] border-ink rounded-full text-lg font-extrabold sticker-press"
           aria-label="Send change"
         >
           ↑
@@ -924,7 +926,7 @@ function PlanBeat({
       </div>
 
       <StickerButton color="green" size="lg" block onClick={onMake}>
-        Make it! 🔨
+        Make it →
       </StickerButton>
     </>
   );
@@ -964,7 +966,7 @@ function StepTimeline({ events, running }: { events: StepEvent[]; running?: bool
   if (events.length === 0) {
     return (
       <div className="w-full flex items-center gap-2.5 text-small font-bold text-muted">
-        <span className="size-5 rounded-full border-2 border-ink bg-card flex items-center justify-center text-tiny animate-pulse">
+        <span className="size-5 rounded-full border-[1.5px] border-ink bg-card flex items-center justify-center text-tiny animate-pulse">
           …
         </span>
         {running ? "warming up the workshop…" : "no steps recorded"}
@@ -988,7 +990,7 @@ function StepTimeline({ events, running }: { events: StepEvent[]; running?: bool
           >
             <span
               className={cx(
-                "size-5 rounded-full border-2 border-ink flex items-center justify-center text-tiny shrink-0",
+                "size-5 rounded-full border-[1.5px] border-ink flex items-center justify-center text-tiny shrink-0",
                 err ? "bg-pink text-white" : active ? "bg-card animate-pulse" : "bg-green"
               )}
             >
@@ -1062,8 +1064,8 @@ function WorkshopBeat({
     return (
       <div className="flex flex-col items-center gap-4 py-10 text-center">
         <EmojiToken emoji="😖" color="pink" size={72} rounded="toy" />
-        <div className="text-h3 font-extrabold">couldn't finish this jam</div>
-        <div className="text-small font-semibold text-muted max-w-[280px]">
+        <div className="text-h3 font-extrabold tracking-display">couldn't finish this jam</div>
+        <div className="text-small text-muted max-w-[280px] prose-body">
           {failed}
         </div>
         <StickerButton color="pink" size="lg" onClick={() => location.assign("/build")}>
@@ -1076,7 +1078,7 @@ function WorkshopBeat({
   return (
     <div className="flex flex-col items-center gap-4 py-4">
       <EmojiToken emoji={spec.iconEmoji} color="yellow" size={84} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
-      <div className="text-h3 font-extrabold">Making your jam…</div>
+      <div className="text-h3 font-extrabold tracking-display">Making your jam…</div>
       <div className="font-mono text-small text-muted">
         {spec.slug}.{username}.superjam.fun
       </div>
@@ -1102,10 +1104,9 @@ function RevealBeat({
   const copy = () => navigator.clipboard?.writeText(`https://${link}`).catch(() => {});
   return (
     <div className="flex flex-col items-center gap-4 py-4 text-center animate-pop">
-      <div className="text-4xl">🎉</div>
       <EmojiToken emoji={spec.iconEmoji} color="yellow" size={96} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
-      <div className="text-h2 font-extrabold">{spec.name} is live!</div>
-      <div className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full pl-2.5 pr-3 py-1.5">
+      <div className="text-h2 font-extrabold tracking-display">{spec.name} is live</div>
+      <div className="inline-flex items-center gap-1.5 bg-card border-[1.5px] border-ink rounded-full pl-2.5 pr-3 py-1.5">
         <span className="size-[7px] rounded-full bg-yellow border-[1.5px] border-ink" />
         <span className="font-mono text-small font-bold">
           {slug}

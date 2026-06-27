@@ -39,14 +39,14 @@ export function ToyboxSheet({
           className={cx(
             // mobile: full-width bottom sheet that slides up (unchanged).
             "fixed inset-x-0 bottom-0 z-[200] mx-auto flex max-h-[92dvh] w-full max-w-[460px] flex-col gap-4 overflow-y-auto",
-            "rounded-t-toy-lg border-t-2 border-ink bg-cream px-5 pt-3 outline-none",
+            "rounded-t-toy-lg border-t-[1.5px] border-ink bg-cream px-5 pt-3 outline-none",
             "pb-[calc(2rem+env(safe-area-inset-bottom))]",
             // desktop (lg): lift off the bottom and float as a Toybox dialog
             // card — full ink frame, all corners rounded, sane max-width. A
             // fixed top offset (not translate) keeps vaul's own slide transform
             // free to animate the entrance.
             "lg:inset-x-0 lg:bottom-auto lg:top-[7dvh] lg:max-h-[86dvh] lg:max-w-[520px]",
-            "lg:rounded-toy-lg lg:border-2 lg:px-6 lg:pt-4 lg:pb-6 lg:shadow-sticker-lg",
+            "lg:rounded-toy-lg lg:border-[1.5px] lg:px-6 lg:pt-4 lg:pb-6 lg:shadow-sticker-lg",
             className
           )}
         >

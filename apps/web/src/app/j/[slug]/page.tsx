@@ -75,7 +75,7 @@ export default function JamPage({
     return (
       <div className="screen items-center justify-center">
         <EmptyState
-          emoji="🧸"
+          emoji="🔍"
           title="this jam wandered off"
           action={
             <StickerButton color="white" size="sm" onClick={() => router.push("/")}>
@@ -99,7 +99,7 @@ export default function JamPage({
       <StickerCard className="p-4 flex items-center gap-3 shadow-sticker-md">
         <EmojiToken emoji={jam.iconEmoji} color="blue" size={56} rounded="toy" />
         <div className="flex flex-col gap-0.5 min-w-0">
-          <div className="font-extrabold text-h3 truncate">{jam.name}</div>
+          <div className="font-extrabold tracking-display text-h3 truncate">{jam.name}</div>
           <div className="flex items-center gap-1.5 text-small font-semibold text-muted">
             by{" "}
             {jam.maker.username === "maker" ? (
@@ -133,10 +133,10 @@ export default function JamPage({
       {/* send / challenge a friend */}
       <div className="flex gap-2">
         <StickerButton color="white" size="sm" onClick={() => setSendKind("share")}>
-          📣 Send to a friend
+          Send to a friend
         </StickerButton>
         <StickerButton color="pink" size="sm" onClick={() => setSendKind("challenge")}>
-          ⚔ Challenge
+          Challenge
         </StickerButton>
       </div>
 

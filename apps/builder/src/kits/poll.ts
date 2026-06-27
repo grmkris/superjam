@@ -110,7 +110,7 @@ import { useEffect, useRef, useState } from "react";
 // ${title} — a poll. Per-option tallies live in sdk.data.counter("${counter}");
 // the voter's own pick persists in sdk.storage("${store}") so results show on return.
 const OPTIONS: string[] = ${optsLiteral};
-const COLORS = ["#FF4D6D", "#FFC940", "#2FD180", "#4D7CFF"];
+const COLORS = ["#FF4767", "#FFC23D", "#18C480", "#3E63F2"];
 
 export default function Page() {
   const [sdk, setSdk] = useState<SuperJamSdk | null>(null);

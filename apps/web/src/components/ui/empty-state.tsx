@@ -26,10 +26,10 @@ export function EmptyState({
         className
       )}
     >
-      <EmojiToken emoji={emoji} color={emojiColor} size={56} className="animate-pop" />
-      <div className="text-h3 font-extrabold">{title}</div>
+      <EmojiToken emoji={emoji} color={emojiColor} size={56} />
+      <div className="text-h3 font-extrabold tracking-tight">{title}</div>
       {children && (
-        <div className="text-small font-semibold text-muted">{children}</div>
+        <div className="prose-body text-small text-muted max-w-[34ch]">{children}</div>
       )}
       {action && <div className="mt-1">{action}</div>}
     </div>

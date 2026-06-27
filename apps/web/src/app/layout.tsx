@@ -30,15 +30,16 @@ export const viewport = {
   initialScale: 1,
   // zoom stays enabled — desktop + accessibility need pinch/zoom (was maximumScale: 1)
   userScalable: true,
-  themeColor: "#E9E9EE",
+  themeColor: "#ECEAE3",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
-        {/* Baloo 2 — the Toybox display face (DESIGN_BRIEF §2). Figtree — the
-            refined body companion for long-form prose (.prose-body). */}
+        {/* Bricolage Grotesque — the distinctive modern display face that carries
+            the whole product voice. Hanken Grotesk — the calm reading companion
+            for long-form prose (.prose-body). */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -46,7 +47,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Figtree:wght@400;450;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
       </head>

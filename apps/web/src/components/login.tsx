@@ -211,7 +211,7 @@ function DeviceRegistrationGate({ email }: { email: string | null }) {
         backdropFilter: "blur(4px)",
       }}
     >
-      <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-toy border-2 border-ink bg-cream p-6 text-center">
+      <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-toy border-[1.5px] border-ink bg-cream p-6 text-center">
         <EmojiToken emoji="📧" color="blue" size={64} tilt={-6} />
         <div className="text-h3 font-extrabold">Verify this device</div>
         <p className="text-small font-medium text-muted">
@@ -367,7 +367,7 @@ function LoginSheet({
               placeholder="your email…"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="rounded-toy border-2 border-ink bg-cream px-4 py-3.5 text-body font-semibold outline-none placeholder:text-muted focus:border-pink"
+              className="rounded-toy border-[1.5px] border-ink bg-cream px-4 py-3.5 text-body font-semibold outline-none placeholder:text-muted focus:border-pink"
             />
             <StickerButton type="submit" color="pink" size="lg" block disabled={busy || !email.trim()}>
               {busy ? "Sending…" : "Send me a code →"}
@@ -389,7 +389,7 @@ function LoginSheet({
             placeholder="123456"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            className="rounded-toy border-2 border-ink bg-cream px-4 py-3.5 text-center font-mono text-h3 font-bold tracking-[0.4em] outline-none placeholder:text-muted focus:border-pink"
+            className="rounded-toy border-[1.5px] border-ink bg-cream px-4 py-3.5 text-center font-mono text-h3 font-bold tracking-[0.4em] outline-none placeholder:text-muted focus:border-pink"
           />
           <StickerButton type="submit" color="blue" size="lg" block disabled={busy || !code.trim()}>
             {busy ? "Verifying…" : "Log in ⛓️"}

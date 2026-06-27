@@ -42,8 +42,8 @@ export default function InboxPage() {
         value={tab}
         onValueChange={setTab}
         options={[
-          { value: "notifications", label: "🔔 Notifications" },
-          { value: "friends", label: "👋 Friends" },
+          { value: "notifications", label: "Notifications" },
+          { value: "friends", label: "Friends" },
         ]}
       />
       {tab === "notifications" ? <Notifications /> : <Friends />}
@@ -224,22 +224,24 @@ function Friends() {
 
       {friends.length === 0 ? (
         <EmptyState emoji="👋" title="no crew yet" emojiColor="green" className="flex-1">
-          add a friend to share jams + challenge
+          add a friend to share jams and challenge them
         </EmptyState>
       ) : (
-        friends.map((f) => (
-          <button key={f.id} onClick={() => setOpen(f)} className="text-left">
-            <StickerCard className="p-3.5 flex items-center gap-3">
-              <EmojiToken emoji="🙂" color="green" size={40} />
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold">@{f.username}</span>
-              </div>
-              {unread[f.username] ? (
-                <Badge className="ml-auto">{unread[f.username]}</Badge>
-              ) : null}
-            </StickerCard>
-          </button>
-        ))
+        <div className="flex flex-col gap-2.5 stagger">
+          {friends.map((f) => (
+            <button key={f.id} onClick={() => setOpen(f)} className="text-left">
+              <StickerCard className="p-3.5 flex items-center gap-3 sticker-press">
+                <EmojiToken emoji="🙂" color="green" size={40} />
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold">@{f.username}</span>
+                </div>
+                {unread[f.username] ? (
+                  <Badge className="ml-auto">{unread[f.username]}</Badge>
+                ) : null}
+              </StickerCard>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -353,11 +355,11 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
         {msgs.map((m) => (
           <div key={m.id} className={cx("max-w-[82%]", m.fromMe ? "self-end" : "self-start")}>
             {m.kind === "tip" ? (
-              <div className="flex items-center gap-2 bg-green border-2 border-ink rounded-toy px-3.5 py-2 text-small font-extrabold shadow-sticker-sm">
+              <div className="flex items-center gap-2 bg-green border-[1.5px] border-ink rounded-toy px-3.5 py-2 text-small font-extrabold shadow-sticker-sm">
                 💸 {m.fromMe ? "sent" : "got"} {m.amountUsdc} USDC
               </div>
             ) : m.kind === "request" ? (
-              <div className="flex flex-col gap-1.5 bg-yellow border-2 border-ink rounded-toy px-3.5 py-2.5 shadow-sticker-sm">
+              <div className="flex flex-col gap-1.5 bg-yellow border-[1.5px] border-ink rounded-toy px-3.5 py-2.5 shadow-sticker-sm">
                 <div className="text-small font-extrabold">
                   🙏 {m.fromMe ? "you asked for" : `@${friend.username} asked for`} {m.amountUsdc} USDC
                 </div>
@@ -383,7 +385,7 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
             ) : (
               <div
                 className={cx(
-                  "border-2 border-ink rounded-toy px-3.5 py-2 text-small font-semibold shadow-sticker-sm",
+                  "border-[1.5px] border-ink rounded-toy px-3.5 py-2 text-small font-semibold shadow-sticker-sm",
                   m.fromMe ? "bg-pink text-white rounded-br-sm" : "bg-card rounded-bl-sm"
                 )}
               >
@@ -398,21 +400,21 @@ function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) 
       <div className="flex gap-2 items-center sticky bottom-0 bg-cream pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
         <button
           onClick={() => setPaying(true)}
-          className="focus-ring size-11 bg-green border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          className="focus-ring size-11 bg-green border-[1.5px] border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Pay a friend"
         >
           💸
         </button>
         <button
           onClick={() => setRequesting(true)}
-          className="focus-ring size-11 bg-yellow border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          className="focus-ring size-11 bg-yellow border-[1.5px] border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Ask for money"
         >
           🙏
         </button>
         <button
           onClick={() => setPicking(true)}
-          className="focus-ring size-11 bg-blue border-2 border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          className="focus-ring size-11 bg-blue border-[1.5px] border-ink rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Share a jam"
         >
           🎮

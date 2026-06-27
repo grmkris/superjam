@@ -1,6 +1,6 @@
-// Toybox sticker primitives (DESIGN_BRIEF §2): chunky 2px ink outlines, hard
-// `0 3px 0` offset shadows, candy fills, press-down on tap. Everything looks
-// like a sticker you could peel off the screen.
+// Sticker primitives — the "Refined Arcade" surface: crisp 1.5px ink outlines,
+// LAYERED depth (a sharp offset + a soft ambient drop via shadow-sticker*), vivid
+// fills, and a tactile press-down on tap. Confident and tactile, never toy-like.
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cx } from "./cx";
 
@@ -27,7 +27,7 @@ export const FILL: Record<StickerColor, string> = {
 
 // A sticker list/menu row: emoji + label on a bordered card.
 export const actionRow =
-  "flex items-center gap-3 rounded-toy border-2 border-ink bg-card p-3 shadow-sticker-sm";
+  "flex items-center gap-3 rounded-toy border-[1.5px] border-ink bg-card p-3 shadow-sticker-sm";
 // Interactive variant — button/link rows that press down on tap.
 export const actionRowButton = cx(actionRow, "focus-ring sticker-press w-full text-left");
 
@@ -54,7 +54,7 @@ export function StickerButton({
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-2 border-2 border-ink font-extrabold",
+        "inline-flex items-center justify-center gap-2 border-[1.5px] border-ink font-extrabold",
         "focus-ring sticker-press disabled:opacity-50 disabled:active:translate-y-0",
         sizes,
         FILL[color],
@@ -84,7 +84,7 @@ export function StickerCard({
   return (
     <div
       className={cx(
-        "border-2 border-ink rounded-toy-lg shadow-sticker",
+        "border-[1.5px] border-ink rounded-toy-lg shadow-sticker",
         FILL[color],
         className
       )}
@@ -108,7 +108,7 @@ export function Pill({
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1.5 border-2 border-ink rounded-full px-3 py-1 text-xs font-bold",
+        "inline-flex items-center gap-1.5 border-[1.5px] border-ink rounded-full px-3 py-1 text-xs font-bold",
         FILL[color],
         className
       )}
@@ -137,7 +137,7 @@ export function EmojiToken({
   return (
     <span
       className={cx(
-        "inline-flex items-center justify-center border-2 border-ink shadow-sticker shrink-0",
+        "inline-flex items-center justify-center border-[1.5px] border-ink shadow-sticker shrink-0",
         rounded === "full" ? "rounded-full" : "rounded-toy",
         FILL[color],
         className

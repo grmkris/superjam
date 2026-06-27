@@ -76,7 +76,7 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
       <div style={{ display: "grid", gap: 8 }}>
         {q.options.map((o, i) => {
           const reveal = picked != null && (i === q.answer || i === picked);
-          const bg = picked == null ? undefined : i === q.answer ? "#2FD180" : i === picked ? "#E5484D" : undefined;
+          const bg = picked == null ? undefined : i === q.answer ? "#18C480" : i === picked ? "#E5484D" : undefined;
           return (
             <button key={o} className="tj-btn" disabled={picked != null}
               style={{ background: bg, color: reveal ? "#fff" : undefined }} onClick={() => answer(i)}>

@@ -17,7 +17,7 @@ function Ball({ onHit }: { onHit: () => void }) {
       <mesh ref={ref} position={pos}
         onClick={() => { sfx.pop(); onHit(); setPos([rand(-3, 3), rand(-2, 2), rand(-1.5, 0.5)]); }}>
         <icosahedronGeometry args={[0.7, 0]} />
-        <meshStandardMaterial color="#FFC940" emissive="#FF4D6D" emissiveIntensity={0.35} metalness={0.3} roughness={0.4} />
+        <meshStandardMaterial color="#FFC23D" emissive="#FF4767" emissiveIntensity={0.35} metalness={0.3} roughness={0.4} />
       </mesh>
     </Float>
   );

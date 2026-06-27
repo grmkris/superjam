@@ -47,8 +47,8 @@ export function WalletCard({ walletAddress }: { walletAddress: string | null }) 
       {bal === "loading" ? (
         <Skeleton className="mt-1 h-11 w-44" />
       ) : (
-        <div className="text-hero font-extrabold leading-none">
-          {shown ?? "—"} <span className="text-2xl text-muted">USDC</span>
+        <div className="text-hero font-extrabold leading-none tracking-display tabular-nums">
+          {shown ?? "—"} <span className="text-2xl font-bold text-muted">USDC</span>
         </div>
       )}
 

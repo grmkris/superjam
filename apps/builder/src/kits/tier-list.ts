@@ -49,7 +49,7 @@ import { ResultCard, shareResult } from "@/components/result-card";
 // TODO: replace ITEMS with the things to rank for "${title}".
 const ITEMS: string[] = ${itemsLiteral};
 const TIERS = ["S", "A", "B", "C"];
-const TIER_COLOR = ["#FF4D6D", "#FFC940", "#2FD180", "#4D7CFF"];
+const TIER_COLOR = ["#FF4767", "#FFC23D", "#18C480", "#3E63F2"];
 
 export default function Page() {
   const sdkRef = useRef<SuperJamSdk | null>(null);

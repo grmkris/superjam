@@ -10,6 +10,7 @@ import { JamFeedCard } from "../components/feed/jam-feed-card";
 import { type FeedJam, type FeedTab, loadFeed } from "../components/feed/jam";
 import { cx } from "../components/ui/cx";
 import { Skeleton } from "../components/ui/skeleton";
+import { SparkMark } from "../components/ui/nav-icons";
 import { StickerButton } from "../components/ui/sticker";
 import { usePlatformClient } from "../components/use-platform-client";
 
@@ -112,7 +113,7 @@ export default function DiscoverPage() {
 
 function FeedSkeleton() {
   // Toybox Skeleton, restyled white-translucent to read on the blue bleed.
-  const wash = "bg-white/30 border-2 border-ink/40";
+  const wash = "bg-white/30 border-[1.5px] border-ink/40";
   return (
     <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
       <Skeleton className={cx("size-[140px] rounded-toy-lg", wash)} />
@@ -126,18 +127,20 @@ function FeedSkeleton() {
 function EmptyFeed({ onMake }: { onMake: () => void }) {
   return (
     <div className="h-full flex flex-col items-center justify-center gap-4 px-8 text-center">
-      <div className="text-6xl">🧸</div>
-      <div className="text-h2 font-extrabold text-white ink-drop">
-        nothing here yet
+      <span className="inline-flex size-20 items-center justify-center rounded-toy-lg border-[1.5px] border-ink bg-card shadow-sticker-lg">
+        <SparkMark width={40} height={40} aria-hidden />
+      </span>
+      <div className="text-h2 font-extrabold tracking-display text-white ink-drop">
+        Nothing here yet
       </div>
-      <div className="text-white/90 font-semibold">make the first jam ✨</div>
+      <div className="text-white/90 font-semibold">Be the first to make one.</div>
       <StickerButton
         color="pink"
         size="lg"
         onClick={onMake}
         className="rounded-full px-8 shadow-sticker-lg"
       >
-        ⚡ Make a jam
+        Make a jam
       </StickerButton>
     </div>
   );

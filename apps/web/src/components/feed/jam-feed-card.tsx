@@ -114,7 +114,7 @@ export function JamFeedCard({
             fullscreen ? "fixed inset-0 z-[100]" : "absolute inset-0"
           )}
         >
-          <div className={fullscreen ? "border-b border-ink/60" : "border-b-2 border-ink bg-cream/95"}>
+          <div className={fullscreen ? "border-b border-ink/60" : "border-b-[1.5px] border-ink bg-cream/95"}>
             <JamChrome
               app={viewerApp}
               maker={{ username: jam.maker.username }}
@@ -157,7 +157,7 @@ export function JamFeedCard({
           </div>
           <Link
             href={`/u/${jam.maker.username}`}
-            className="focus-ring inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-small font-bold shadow-sticker-sm sticker-press"
+            className="focus-ring inline-flex items-center gap-1.5 bg-card border-[1.5px] border-ink rounded-full px-3.5 py-1.5 text-small font-bold shadow-sticker-sm sticker-press"
           >
             <EmojiToken emoji={avatarEmoji(jam.maker.username)} color="green" size={20} />
             <span className="font-bold">@{jam.maker.username}</span>

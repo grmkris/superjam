@@ -76,7 +76,7 @@ export function ConfirmSheet({
       {phase === "error" && <ErrorBody error={error} onClose={onReject} />}
 
       {intent.jam && phase === "review" && (
-        <div className="text-center text-small font-medium text-muted leading-snug">
+        <div className="prose-body text-center text-small text-muted">
           asked for by {intent.jam.name} — jams never touch your wallet.
         </div>
       )}
@@ -97,21 +97,21 @@ function ReviewBody({
     <>
       <div className="flex flex-col items-center gap-1.5">
         <div className="text-body font-bold text-muted">{summary(intent)}</div>
-        <div className="text-hero font-extrabold">
+        <div className="text-hero font-extrabold tracking-display tabular-nums leading-none">
           {intent.amountUsdc.toFixed(2)}{" "}
-          <span className="text-2xl text-muted">USDC</span>
+          <span className="text-2xl font-bold text-muted">USDC</span>
         </div>
         <div className="mt-1">
           {intent.toName ? (
             <NameTag name={intent.toName} />
           ) : (
-            <span className="font-mono text-small font-bold bg-card border-2 border-ink rounded-full px-3 py-1">
+            <span className="font-mono text-small font-bold bg-card border-[1.5px] border-ink rounded-full px-3 py-1">
               {shortAddr(intent.to ?? "")}
             </span>
           )}
         </div>
         {intent.memo && (
-          <div className="text-small font-semibold text-ink text-center mt-1">
+          <div className="prose-body text-small text-ink text-center mt-1">
             “{intent.memo}”
           </div>
         )}
@@ -132,7 +132,7 @@ function PendingBody({ txHash }: { txHash?: string | null }) {
   return (
     <div className="flex flex-col items-center gap-3 py-3">
       <Spinner />
-      <div className="font-extrabold text-h3">sending…</div>
+      <div className="font-extrabold text-h3 tracking-tight">sending…</div>
       {txHash && <TxChip txHash={txHash} />}
     </div>
   );
@@ -147,9 +147,9 @@ function SuccessBody({
 }) {
   return (
     <div className="flex flex-col items-center gap-2 py-3">
-      <EmojiToken emoji="✓" color="green" size={64} />
-      <div className="font-extrabold text-h3">sent! 🎉</div>
-      <div className="text-body font-semibold text-muted">
+      <EmojiToken emoji="✓" color="green" size={64} className="animate-pop" />
+      <div className="font-extrabold text-h3 tracking-tight">Sent</div>
+      <div className="text-body font-semibold text-muted tabular-nums">
         {`${intent.amountUsdc.toFixed(2)} USDC on its way`}
       </div>
     </div>
@@ -160,8 +160,8 @@ function ErrorBody({ error, onClose }: { error?: string; onClose: () => void }) 
   return (
     <div className="flex flex-col items-center gap-3 py-2">
       <EmojiToken emoji="😖" color="pink" size={56} />
-      <div className="font-extrabold text-h3">that didn't go through</div>
-      <div className="text-small font-semibold text-muted text-center px-2">
+      <div className="font-extrabold text-h3 tracking-tight">that didn't go through</div>
+      <div className="prose-body text-small text-muted text-center px-2">
         {error ?? "Something went wrong. Nothing was sent."}
       </div>
       <StickerButton color="white" size="md" block onClick={onClose}>
@@ -177,7 +177,7 @@ function TxChip({ txHash }: { txHash: string }) {
       href={basescan(txHash)}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full px-3 py-1 font-mono text-small font-bold no-underline text-ink"
+      className="inline-flex items-center gap-1.5 bg-card border-[1.5px] border-ink rounded-full px-3 py-1 font-mono text-small font-bold no-underline text-ink"
     >
       {txHash.slice(0, 8)}…{txHash.slice(-6)}{" "}
       <span className="text-blue">↗</span>

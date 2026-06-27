@@ -48,7 +48,7 @@ export function MicButton({
       aria-label={listening ? "Stop dictating" : label}
       title={denied ? "Mic blocked — check browser permissions" : label}
       className={cx(
-        "focus-ring relative grid place-items-center shrink-0 border-2 border-ink rounded-full shadow-sticker-sm sticker-press transition-colors",
+        "focus-ring relative grid place-items-center shrink-0 border-[1.5px] border-ink rounded-full shadow-sticker-sm sticker-press transition-colors",
         listening ? "bg-pink text-white" : "bg-cream text-ink",
         className
       )}
@@ -58,18 +58,18 @@ export function MicButton({
       {listening && (
         <span
           aria-hidden
-          className="absolute inset-0 rounded-full border-2 border-pink animate-ping motion-reduce:animate-none"
+          className="absolute inset-0 rounded-full border-[1.5px] border-pink animate-ping motion-reduce:animate-none"
         />
       )}
       {/* Live preview of in-progress words, floated above the button. */}
       {listening && interim && (
-        <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 max-w-[60vw] truncate rounded-full border-2 border-ink bg-ink px-2.5 py-1 text-tiny font-semibold text-cream shadow-sticker-sm">
+        <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 max-w-[60vw] truncate rounded-full border-[1.5px] border-ink bg-ink px-2.5 py-1 text-tiny font-semibold text-cream shadow-sticker-sm">
           {interim}
         </span>
       )}
       {/* Permission denied — phones never show the title tooltip, so surface it. */}
       {denied && !listening && (
-        <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap rounded-full border-2 border-ink bg-pink px-2.5 py-1 text-tiny font-semibold text-white shadow-sticker-sm">
+        <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap rounded-full border-[1.5px] border-ink bg-pink px-2.5 py-1 text-tiny font-semibold text-white shadow-sticker-sm">
           allow mic access
         </span>
       )}

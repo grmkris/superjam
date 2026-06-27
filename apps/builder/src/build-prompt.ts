@@ -78,7 +78,7 @@ const baseSystem = (seams: DriverSeams = {}): string => {
 Next.js 16 (app-router) + React 19, TypeScript. \`@superjam/sdk\` is aliased to the published npm package. Files present:
 - app/page.tsx        — the app's single screen. REPLACE its stub with the real "use client" UI.
 - app/layout.tsx      — minimal root layout (loads the font + imports theme.css then globals.css). Leave it.
-- app/theme.css       — the LOCKED Toybox design system (cream bg, ink text, candy accents, all .tj-* classes). DO NOT EDIT — it's already loaded; just USE its classes.
+- app/theme.css       — the LOCKED Toybox design system (cream bg, ink text, vivid accents, all .tj-* classes). DO NOT EDIT — it's already loaded; just USE its classes.
 - app/globals.css     — your editable scratch stylesheet for app-specific CSS. Add NEW classes here; never restyle body/:root/.tj-* and never set a dark background.
 - lib/superjam-config.ts — BAKED SUPERJAM_APP_ID + JWKS url (identity). DO NOT EDIT.
 - lib/auth.ts         — jose JWKS verifyUser() for your API routes. DO NOT EDIT.
@@ -98,15 +98,15 @@ STRONGLY prefer zero-backend. Provisioning a Neon DB adds ~30–60s to the build
 The manifest declares capabilities that gate SDK surface: "payments" → payUSDC/pot; "ai" → ai.chat (slow, ~25/user/day — always show a loading state); "social" → messages.send. Only use a gated API if the spec's capabilities include it.
 
 ## Design — it's a toy, not a tool ("Toybox")
-The Toybox theme is ALREADY loaded (theme.css): cream paper background, ink (#221A33) text, candy-pink \`--accent\`, the Baloo 2 font, 2px ink borders + sticker shadows, and a full set of \`.tj-*\` component classes. High contrast is built in — COMPOSE these classes; do NOT hand-roll raw HTML or restyle the page. The components:
+The Toybox theme is ALREADY loaded (theme.css): cream paper background, ink (#17131F) text, vivid pink \`--accent\`, the Bricolage Grotesque font, crisp ink borders + sticker shadows, and a full set of \`.tj-*\` component classes. High contrast is built in — COMPOSE these classes; do NOT hand-roll raw HTML or restyle the page. The components:
 - \`.tj-app\` — wrap the whole screen in this (the centered, mobile-first column). Inside it, stack \`.tj-card\` surfaces.
-- \`.tj-hero\` — a full-bleed candy header band that gives your FIRST screen its own identity (white text on a candy gradient; bleeds past the .tj-app padding). Drop a \`.tj-title\` hook line + \`.tj-sub\` (or a baked \`<img src="/hero.png">\`) inside; override the gradient with an inline \`style\` or a new globals.css class for per-jam art. Lead with this so the jam doesn't open as a generic bare card.
+- \`.tj-hero\` — a full-bleed vivid header band that gives your FIRST screen its own identity (white text on a vivid gradient; bleeds past the .tj-app padding). Drop a \`.tj-title\` hook line + \`.tj-sub\` (or a baked \`<img src="/hero.png">\`) inside; override the gradient with an inline \`style\` or a new globals.css class for per-jam art. Lead with this so the jam doesn't open as a generic bare card.
 - \`.tj-card\` — a white card (ink border + sticker shadow). \`.tj-header\` (a row: \`.tj-emoji\` chip + \`.tj-htext\` with \`.tj-title\`/\`.tj-sub\`, optional \`.tj-spacer\` then a right slot).
-- \`.tj-btn\` (candy primary) + \`.tj-btn-ghost\` / \`.tj-btn-yellow\` / \`.tj-btn-green\` / \`.tj-btn-blue\` variants, \`.tj-btn-block\` (full width). \`.tj-input\` (text/textarea).
+- \`.tj-btn\` (primary) + \`.tj-btn-ghost\` / \`.tj-btn-yellow\` / \`.tj-btn-green\` / \`.tj-btn-blue\` variants, \`.tj-btn-block\` (full width). \`.tj-input\` (text/textarea).
 - \`.tj-choices\` (+ \`.tj-cols-2\`) wrapping \`.tj-choice\` buttons — a segmented picker; set \`aria-pressed={selected}\` on the chosen one to fill it accent (use this for this-or-that / multiple-choice).
 - \`.tj-bar\` > \`.tj-bar-fill\` (style \`width:\${pct}%\`) + optional \`.tj-bar-label\` — an animated result/progress bar (poll tallies, quiz scores, meters). Use this instead of a hand-built div.
 - \`.tj-stat\` (big number), \`.tj-badge\` / \`.tj-pill\` (chips), \`.tj-list\`, \`.tj-row\`, \`.tj-grid2\`, \`.tj-center\`, \`.tj-empty\` (empty state), \`.tj-spin\` (loader), \`.tj-pop\`/\`.tj-shake\` (juice). Full-bleed games: \`.tj-stage\` + \`.tj-hud\`.
-- Give your FIRST screen its OWN look — open with a \`.tj-hero\` band (or a full-width section class you add in globals.css) carrying a candy gradient, a baked \`/hero.png\`, or a tinted panel, so each jam feels distinct instead of a generic cream card. Need another one-off style? Add a NEW class in globals.css or an inline style for layout. The PAGE itself still stays cream + ink: NEVER set a dark page/body/\`.tj-app\` background and never put dark text on a dark fill — a vivid hero band with light-on-color text is fine, a dark *page* is not. Never edit theme.css or its \`:root\` tokens. (A green build with an unreadable or off-theme UI is a FAILURE and will be rejected.)
+- Give your FIRST screen its OWN look — open with a \`.tj-hero\` band (or a full-width section class you add in globals.css) carrying a vivid gradient, a baked \`/hero.png\`, or a tinted panel, so each jam feels distinct instead of a generic cream card. Need another one-off style? Add a NEW class in globals.css or an inline style for layout. The PAGE itself still stays cream + ink: NEVER set a dark page/body/\`.tj-app\` background and never put dark text on a dark fill — a vivid hero band with light-on-color text is fine, a dark *page* is not. Never edit theme.css or its \`:root\` tokens. (A green build with an unreadable or off-theme UI is a FAILURE and will be rejected.)
 - Anatomy (imitate this shape):
   \`\`\`tsx
   <main className="tj-app">

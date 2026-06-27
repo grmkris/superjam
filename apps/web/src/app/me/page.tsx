@@ -105,11 +105,11 @@ export default function ProfilePage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="screen items-center justify-center text-center">
-        <div className="text-5xl">🙂</div>
-        <div className="font-extrabold text-h3">sign in to see your profile</div>
+      <div className="screen items-center justify-center text-center gap-4">
+        <EmojiToken emoji="🙂" color="green" size={72} rounded="toy" />
+        <div className="font-extrabold text-h3 tracking-tight">sign in to see your profile</div>
         <StickerButton color="pink" size="lg" onClick={() => openLogin()}>
-          Hop in →
+          Sign in →
         </StickerButton>
       </div>
     );
@@ -121,7 +121,7 @@ export default function ProfilePage() {
       <div className="flex items-center gap-3">
         <EmojiToken emoji="🙂" color="green" size={56} rounded="toy" tilt={-5} />
         <div className="flex flex-col gap-1 min-w-0">
-          <span className="font-extrabold text-h3">@{me?.username ?? "you"}</span>
+          <span className="font-extrabold text-h3 tracking-tight">@{me?.username ?? "you"}</span>
         </div>
       </div>
 
@@ -151,7 +151,7 @@ export default function ProfilePage() {
               <div className="ml-auto flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => router.push(`/build?d=${d.id}&step=${d.step}`)}
-                  className="focus-ring whitespace-nowrap border-2 border-ink rounded-full bg-pink text-white px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                  className="focus-ring whitespace-nowrap border-[1.5px] border-ink rounded-full bg-pink text-white px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
                 >
                   Resume →
                 </button>
@@ -183,13 +183,13 @@ export default function ProfilePage() {
                   <div className="flex flex-col min-w-0">
                     <div className="font-extrabold text-body truncate">{j.name}</div>
                     <div className="text-small font-semibold text-muted">
-                      {live ? "live ✓" : failed ? "didn't finish" : "making… ⛏"}
+                      {live ? "live ✓" : failed ? "didn't finish" : "making…"}
                     </div>
                   </div>
                   {live ? (
                     <button
                       onClick={() => router.push(`/app/${j.slug}`)}
-                      className="ml-auto shrink-0 focus-ring whitespace-nowrap border-2 border-ink rounded-full bg-green text-ink px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+                      className="ml-auto shrink-0 focus-ring whitespace-nowrap border-[1.5px] border-ink rounded-full bg-green text-ink px-3 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
                     >
                       ▸ Play
                     </button>

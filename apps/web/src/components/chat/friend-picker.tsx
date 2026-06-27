@@ -69,8 +69,8 @@ export function FriendPicker({
       }}
       title={title ?? (challenge ? "Challenge a friend" : "Send to a friend")}
     >
-      <div className="text-h3 font-extrabold">
-        {title ?? (challenge ? "⚔ Challenge a friend" : "Send to a friend")}
+      <div className="text-h3 font-extrabold tracking-tight">
+        {title ?? (challenge ? "Challenge a friend" : "Send to a friend")}
       </div>
       {shareUrl && (
         <button onClick={copyLink} className={actionRowButton}>
@@ -85,23 +85,25 @@ export function FriendPicker({
           <Skeleton className="h-14" />
         </div>
       ) : friends.length === 0 ? (
-        <div className="text-muted font-semibold py-4 text-center">
+        <div className="prose-body text-muted py-4 text-center">
           add a friend first (Inbox → Friends)
         </div>
       ) : (
-        friends.map((f) => (
-          <StickerCard key={f.id} className="p-3 flex items-center gap-3">
-            <EmojiToken emoji="🙂" color="green" size={36} />
-            <span className="font-extrabold">@{f.username}</span>
-            <button
-              onClick={() => send(f.username)}
-              disabled={sentTo === f.username}
-              className="focus-ring ml-auto bg-pink text-white border-2 border-ink rounded-full px-4 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
-            >
-              {sentTo === f.username ? "sent ✓" : challenge ? "Challenge" : "Send"}
-            </button>
-          </StickerCard>
-        ))
+        <div className="flex flex-col gap-2.5 stagger">
+          {friends.map((f) => (
+            <StickerCard key={f.id} className="p-3 flex items-center gap-3">
+              <EmojiToken emoji="🙂" color="green" size={36} />
+              <span className="font-extrabold tracking-tight">@{f.username}</span>
+              <button
+                onClick={() => send(f.username)}
+                disabled={sentTo === f.username}
+                className="focus-ring ml-auto bg-pink text-white border-[1.5px] border-ink rounded-full px-4 py-1.5 text-small font-extrabold shadow-sticker-sm sticker-press"
+              >
+                {sentTo === f.username ? "sent ✓" : challenge ? "Challenge" : "Send"}
+              </button>
+            </StickerCard>
+          ))}
+        </div>
       )}
       <StickerButton color="white" size="md" block onClick={onClose}>
         Cancel

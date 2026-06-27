@@ -177,7 +177,7 @@ export default function UserProfilePage({
     return (
       <div className="screen items-center justify-center">
         <EmptyState
-          emoji="🧸"
+          emoji="🔍"
           title="we couldn't find that human"
           action={
             <StickerButton color="white" size="sm" onClick={() => router.push("/")}>
@@ -206,7 +206,7 @@ export default function UserProfilePage({
 
       {/* hero — accent band + overlapping avatar */}
       <StickerCard color="white" className="relative overflow-hidden p-0 shadow-sticker-md">
-        <div className={cx("h-20 border-b-2 border-ink", ACCENT_BG[accent])} />
+        <div className={cx("h-20 border-b-[1.5px] border-ink", ACCENT_BG[accent])} />
         <div className="flex flex-col gap-2 px-4 pb-4 -mt-10">
           <EmojiToken
             emoji="🙂"
@@ -217,7 +217,7 @@ export default function UserProfilePage({
             className="animate-pop shadow-sticker-md"
           />
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-extrabold text-h2">@{profile.username}</span>
+            <span className="font-extrabold tracking-display text-h2">@{profile.username}</span>
           </div>
           <div className="text-small font-semibold text-muted">
             joined {joinedLabel(profile.createdAt)} · 👥 {profile.friendsCount}{" "}
@@ -293,7 +293,7 @@ export default function UserProfilePage({
           </>
         ) : jams.length === 0 ? (
           <div className="text-small font-semibold text-muted">
-            @{profile.username} hasn't shipped a jam yet 🌱
+            @{profile.username} hasn't shipped a jam yet
           </div>
         ) : (
           <div className="flex flex-col gap-2 stagger">

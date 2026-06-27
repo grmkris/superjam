@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
+import { SparkMark } from "../../components/ui/nav-icons";
 import { JamBackdrop } from "../../components/ui/jam-backdrop";
 import { signInWithGoogle, useLogin } from "../../components/login";
 import { useHostAuth } from "../../lib/use-host-auth";
@@ -174,10 +175,12 @@ function EmailBeat({
 }) {
   return (
     <>
-      <div className="flex flex-col items-center gap-2.5">
-        <EmojiToken emoji="⚡" color="yellow" size={84} tilt={-6} className="shadow-sticker-lg" />
-        <div className="flex flex-col items-center gap-0.5">
-          <div className="text-h1 font-extrabold">superjam</div>
+      <div className="flex flex-col items-center gap-3">
+        <span className="inline-flex size-[84px] -rotate-3 items-center justify-center rounded-toy-lg border-[1.5px] border-ink bg-card shadow-sticker-lg">
+          <SparkMark width={42} height={42} aria-hidden />
+        </span>
+        <div className="flex flex-col items-center gap-1">
+          <div className="text-hero font-extrabold tracking-display leading-none">SuperJam</div>
           <div className="text-pink text-body font-semibold">
             make a jam. share the jam.
           </div>
@@ -216,7 +219,7 @@ function EmailBeat({
             placeholder="your email…"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="bg-cream border-2 border-ink rounded-toy px-4 py-3.5 text-body font-semibold placeholder:text-muted outline-none focus:border-pink"
+            className="bg-cream border-[1.5px] border-ink rounded-toy px-4 py-3.5 text-body font-semibold placeholder:text-muted outline-none focus:border-pink"
           />
           <StickerButton type="submit" color="pink" size="lg" block disabled={!ready}>
             Continue →
@@ -263,7 +266,7 @@ function ClaimBeat({
         {/* name-tag styled input */}
         <div
           className={cx(
-            "flex items-center bg-cream border-2 rounded-toy px-3.5 py-3 gap-0.5",
+            "flex items-center bg-cream border-[1.5px] rounded-toy px-3.5 py-3 gap-0.5",
             state === "available"
               ? "border-ink"
               : state === "invalid" || state === "taken"
@@ -286,7 +289,7 @@ function ClaimBeat({
         </div>
 
         {/* every jam hangs under it */}
-        <div className="bg-cream border-2 border-ink rounded-xl px-3 py-2.5 flex flex-col gap-2">
+        <div className="bg-cream border-[1.5px] border-ink rounded-xl px-3 py-2.5 flex flex-col gap-2">
           <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             Every jam you make hangs under it
           </div>

@@ -29,7 +29,7 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
     const c = cv.current; if (!c) return;
     const r = c.getBoundingClientRect();
     const g = c.getContext("2d")!;
-    g.fillStyle = "#221A33";
+    g.fillStyle = "#17131F";
     g.beginPath();
     g.arc(((e.clientX - r.left) / r.width) * c.width, ((e.clientY - r.top) / r.height) * c.height, 5, 0, 7);
     g.fill();

@@ -41,7 +41,7 @@ export function PayFriendSheet({
     >
       <div className="flex items-center gap-2.5">
         <EmojiToken emoji={request ? "🙏" : "💸"} color={request ? "yellow" : "green"} size={40} />
-        <div className="text-h3 font-extrabold">{title}</div>
+        <div className="text-h3 font-extrabold tracking-tight">{title}</div>
       </div>
 
       <div className="flex flex-col items-center gap-1">
@@ -51,9 +51,9 @@ export function PayFriendSheet({
             onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
             inputMode="decimal"
             aria-label="Amount in USDC"
-            className="w-28 text-center text-hero font-extrabold bg-transparent outline-none border-b-2 border-ink"
+            className="w-28 text-center text-hero font-extrabold tracking-display tabular-nums bg-transparent outline-none border-b-[1.5px] border-ink transition-colors focus:border-pink"
           />
-          <span className="text-2xl font-extrabold text-muted">USDC</span>
+          <span className="text-2xl font-bold text-muted">USDC</span>
         </div>
         {!valid && (
           <div className="text-pink text-tiny font-bold">enter 0–{CAP} USDC</div>

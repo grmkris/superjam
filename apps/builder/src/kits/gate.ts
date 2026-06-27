@@ -99,7 +99,7 @@ export const genericGate = (
     missing.push("add real interactivity — event handlers + React state");
   }
   // ── Look quality (the anti-"dogshit-UI" checks) ──────────────────────────
-  // The locked theme (cream bg, ink text, candy accents, all .tj-* classes) is
+  // The locked theme (cream bg, ink text, vivid accents, all .tj-* classes) is
   // already loaded — the agent must USE it, not clobber it into dark-on-dark.
   if (ctx.themeSeed != null && ctx.themeNow != null && ctx.themeNow.trim() !== ctx.themeSeed.trim()) {
     missing.push("you edited app/theme.css (the LOCKED theme) — restore it unchanged and put any custom CSS in app/globals.css");

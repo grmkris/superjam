@@ -206,8 +206,8 @@ export type TripStop = {
   blurb?: string;
 };
 
-// Toybox candy palette — one hue per trip day (wraps after 6).
-const DAY_COLORS = ["#4D7CFF", "#FF4D6D", "#FFC940", "#2FD180", "#A66BFF", "#FF8A3D"];
+// Refined Arcade palette — one hue per trip day (wraps after 6).
+const DAY_COLORS = ["#3E63F2", "#FF4767", "#FFC23D", "#18C480", "#9B7BFF", "#FF8A3D"];
 // Free, keyless vector basemap (CORS-enabled). No API token required.
 const STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
@@ -245,7 +245,7 @@ export function TripMap({ stops, height = 320 }: { stops: TripStop[]; height?: n
           id: "route",
           type: "line",
           source: "route",
-          paint: { "line-color": "#221A33", "line-width": 3, "line-dasharray": [2, 1.5], "line-opacity": 0.55 },
+          paint: { "line-color": "#17131F", "line-width": 3, "line-dasharray": [2, 1.5], "line-opacity": 0.55 },
         });
       }
       const bounds = new maplibregl.LngLatBounds();
@@ -255,7 +255,7 @@ export function TripMap({ stops, height = 320 }: { stops: TripStop[]; height?: n
         const el = document.createElement("div");
         el.style.cssText =
           "width:26px;height:26px;border-radius:50%;color:#fff;display:flex;align-items:center;" +
-          "justify-content:center;font:700 13px/1 'Baloo 2',ui-rounded,system-ui,sans-serif;border:2px solid #fff;cursor:pointer;" +
+          "justify-content:center;font:700 13px/1 'Bricolage Grotesque',ui-sans-serif,system-ui,sans-serif;border:2px solid #fff;cursor:pointer;" +
           "box-shadow:0 2px 6px rgba(0,0,0,.3);background:" + color;
         el.textContent = String(n);
         const popup = new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(
@@ -332,7 +332,7 @@ ${spec.features.map((f) => `        <li>${f.replace(/</g, "&lt;")}</li>`).join("
 `;
 
 // Root layout — ships the Toybox theme so a framed jam looks native in the host
-// (same Baloo 2 font + tokens as apps/web). theme.css is the LOCKED design system
+// (same Bricolage Grotesque font + tokens as apps/web). theme.css is the LOCKED design system
 // (DO-NOT-EDIT); globals.css is the agent's scratch sheet, imported AFTER so its
 // additions layer on top without being able to replace the theme's tokens/body.
 const layout = (spec: AppSpec): string => `import "./theme.css";
@@ -348,7 +348,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&display=swap"
         />
       </head>
       <body>{children}</body>
@@ -366,28 +366,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 // The agent is told NOT to edit this file (gate-enforced) — custom CSS goes in the
 // globals.css scratch sheet — so the theme can never be clobbered into dark-on-dark.
 const themeCss = (): string => `:root {
-  --bg: #FFF4E3;     /* cream paper */
+  --bg: #F6F4EC;     /* cream paper */
   --card: #FFFFFF;   /* card face */
-  --text: #221A33;   /* ink — text AND outlines/shadows */
-  --muted: #6B6478;
-  --accent: #FF4D6D; /* candy pink (primary) */
-  --yellow: #FFC940;
-  --green: #2FD180;
-  --blue: #4D7CFF;
+  --text: #17131F;   /* ink — text AND outlines/shadows */
+  --muted: #6A6475;
+  --accent: #FF4767; /* primary */
+  --yellow: #FFC23D;
+  --green: #18C480;
+  --blue: #3E63F2;
   --danger: #E5484D;
-  --radius: 16px;
-  /* solid sticker offset + a soft ambient drop for depth (never a flat slab) */
-  --shadow: 0 4px 0 var(--text), 0 12px 26px -10px rgba(34, 26, 51, 0.30);
+  --radius: 14px;
+  /* layered depth: a crisp ink offset + a soft ambient drop (never a flat slab) */
+  --shadow: 0 3px 0 var(--text), 0 12px 24px -10px rgba(23, 19, 31, 0.24);
 }
 * { box-sizing: border-box; }
 html, body { -webkit-tap-highlight-color: transparent; }
 body {
   margin: 0;
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   color: var(--text);
   background-color: var(--bg);
-  /* faint dot-grid for paper depth — keeps the cream from reading as a flat fill */
-  background-image: radial-gradient(rgba(34, 26, 51, 0.05) 1.4px, transparent 1.4px);
+  /* whisper-quiet dot-grid for paper depth — never a busy pattern */
+  background-image: radial-gradient(rgba(23, 19, 31, 0.03) 1px, transparent 1.7px);
   background-size: 22px 22px;
   background-position: -11px -11px;
   min-height: 100dvh;
@@ -396,7 +398,7 @@ body {
 .tj-app { max-width: 560px; margin: 0 auto; padding: 20px 16px 32px; }
 
 /* ── Hero / first-page band — gives a jam's FIRST screen its own identity instead
-   of a bare card. Bleeds full-width past the .tj-app padding; white text on a candy
+   of a bare card. Bleeds full-width past the .tj-app padding; white text on a vivid
    gradient stays high-contrast. Drop a .tj-title + .tj-sub (or a baked
    <img src="/hero.png">) inside. This is a contained band, NOT a dark page
    background — the page itself stays cream. Override the gradient with an inline
@@ -407,14 +409,14 @@ body {
   color: #fff;
   text-align: center;
   background: linear-gradient(135deg, var(--accent), var(--blue));
-  box-shadow: 0 4px 0 var(--text);
+  box-shadow: 0 3px 0 var(--text);
 }
 .tj-hero .tj-sub { color: #fff; opacity: .92; }
 
 /* ── Surfaces ───────────────────────────────────────────────────────────── */
 .tj-card {
   background: var(--card);
-  border: 2px solid var(--text);
+  border: 1.5px solid var(--text);
   border-radius: var(--radius);
   padding: 20px;
   width: 100%;
@@ -429,33 +431,34 @@ body {
 .tj-emoji {
   flex: none; display: grid; place-items: center;
   width: 46px; height: 46px; font-size: 26px;
-  background: var(--bg); border: 2px solid var(--text); border-radius: 14px;
-  box-shadow: 0 3px 0 var(--text);
+  background: var(--bg); border: 1.5px solid var(--text); border-radius: 13px;
+  box-shadow: 0 2px 0 var(--text);
 }
 .tj-htext { min-width: 0; }
 .tj-spacer { margin-left: auto; }
 
-.tj-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.12; }
-.tj-sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; font-weight: 600; }
+.tj-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+.tj-sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; font-weight: 500; }
 .tj-muted { color: var(--muted); }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 .tj-btn {
   background: var(--accent);
   color: #fff;
-  border: 2px solid var(--text);
+  border: 1.5px solid var(--text);
   border-radius: 12px;
   padding: 12px 16px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   font-size: 15px;
   font-family: inherit;
-  box-shadow: 0 3px 0 var(--text);
-  transition: transform .05s ease, box-shadow .05s ease, filter .1s ease;
+  letter-spacing: -0.01em;
+  box-shadow: 0 2px 0 var(--text), 0 6px 14px -6px rgba(23, 19, 31, 0.26);
+  transition: transform .12s cubic-bezier(0.23,1,0.32,1), box-shadow .12s cubic-bezier(0.23,1,0.32,1), filter .12s ease;
 }
 .tj-btn:hover { filter: brightness(1.04); }
-.tj-btn:active { transform: translateY(3px); box-shadow: 0 0 0 var(--text); }
-.tj-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: 0 3px 0 var(--text); transform: none; filter: none; }
+.tj-btn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--text); }
+.tj-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: 0 2px 0 var(--text); transform: none; filter: none; }
 .tj-btn-ghost { background: var(--card); color: var(--text); }
 .tj-btn-yellow { background: var(--yellow); color: var(--text); }
 .tj-btn-green { background: var(--green); color: #fff; }
@@ -466,13 +469,13 @@ body {
 .tj-input {
   width: 100%;
   background: #fff;
-  border: 2px solid var(--text);
+  border: 1.5px solid var(--text);
   color: var(--text);
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 11px 13px;
   font-size: 14px;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 500;
 }
 .tj-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
@@ -483,21 +486,22 @@ body {
 .tj-choice {
   appearance: none; cursor: pointer; text-align: center;
   background: var(--card); color: var(--text);
-  border: 2px solid var(--text); border-radius: 12px;
-  padding: 12px 14px; font-family: inherit; font-weight: 800; font-size: 15px;
-  box-shadow: 0 3px 0 var(--text);
-  transition: transform .05s ease, box-shadow .05s ease;
+  border: 1.5px solid var(--text); border-radius: 12px;
+  padding: 12px 14px; font-family: inherit; font-weight: 700; font-size: 15px;
+  letter-spacing: -0.01em;
+  box-shadow: 0 2px 0 var(--text), 0 5px 12px -6px rgba(23, 19, 31, 0.22);
+  transition: transform .12s cubic-bezier(0.23,1,0.32,1), box-shadow .12s cubic-bezier(0.23,1,0.32,1);
 }
-.tj-choice:active { transform: translateY(3px); box-shadow: 0 0 0 var(--text); }
+.tj-choice:active { transform: translateY(2px); box-shadow: 0 0 0 var(--text); }
 .tj-choice[aria-pressed="true"], .tj-choice.is-on { background: var(--accent); color: #fff; }
 .tj-choice:disabled { cursor: default; }
 
-/* ── Result / progress bar — ink-bordered track with an animated candy fill.
+/* ── Result / progress bar — ink-bordered track with an animated fill.
    <div class="tj-bar"><div class="tj-bar-fill" style="width:60%"></div>
      <div class="tj-bar-label"><span>Cats</span><span>60%</span></div></div> ── */
 .tj-bar {
   position: relative; height: 32px;
-  background: var(--bg); border: 2px solid var(--text); border-radius: 10px;
+  background: var(--bg); border: 1.5px solid var(--text); border-radius: 10px;
   overflow: hidden;
 }
 .tj-bar-fill {
@@ -509,7 +513,7 @@ body {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; padding: 0 10px;
-  font-weight: 800; font-size: 13px;
+  font-weight: 700; font-size: 13px;
 }
 
 /* ── Layout helpers ─────────────────────────────────────────────────────── */
@@ -520,18 +524,18 @@ body {
 .tj-list > li { display: flex; gap: 8px; align-items: center; }
 
 /* ── Bits ───────────────────────────────────────────────────────────────── */
-.tj-stat { font-size: 40px; font-weight: 800; line-height: 1; }
+.tj-stat { font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
 .tj-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  background: var(--bg); border: 2px solid var(--text); border-radius: 999px;
-  padding: 2px 10px; font-size: 12px; font-weight: 700;
+  background: var(--bg); border: 1.5px solid var(--text); border-radius: 999px;
+  padding: 2px 10px; font-size: 12px; font-weight: 600;
 }
 .tj-pill {
   display: inline-flex; align-items: center; gap: 4px;
   background: var(--accent); color: #fff; border-radius: 999px;
-  padding: 3px 10px; font-size: 12px; font-weight: 800;
+  padding: 3px 10px; font-size: 12px; font-weight: 700;
 }
-.tj-empty { display: grid; place-items: center; gap: 6px; padding: 28px 12px; color: var(--muted); font-weight: 600; text-align: center; }
+.tj-empty { display: grid; place-items: center; gap: 6px; padding: 28px 12px; color: var(--muted); font-weight: 500; text-align: center; }
 
 /* ── Spinner ────────────────────────────────────────────────────────────── */
 .tj-spin { width: 22px; height: 22px; border: 3px solid var(--bg); border-top-color: var(--accent); border-radius: 50%; animation: tj-rot .7s linear infinite; }
@@ -555,7 +559,7 @@ body {
 const globalsScratch = (): string => `/* Your app-specific CSS goes here.
  *
  * The Toybox theme is ALREADY loaded from theme.css — cream --bg, ink --text,
- * candy --accent, Baloo 2, and every .tj-* component class (.tj-card, .tj-btn,
+ * --accent, Bricolage Grotesque, and every .tj-* component class (.tj-card, .tj-btn,
  * .tj-input, .tj-header, .tj-choice, .tj-bar, .tj-stat, .tj-badge, .tj-pill, …).
  * Compose with those. Add only NEW classes here.
  *

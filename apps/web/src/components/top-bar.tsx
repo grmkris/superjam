@@ -14,6 +14,7 @@ import { useHostAuth } from "../lib/use-host-auth";
 import { useLogin } from "./login";
 import { usePlatformClient } from "./use-platform-client";
 import { accentFor, avatarEmoji } from "./ui/identity";
+import { SparkMark } from "./ui/nav-icons";
 import { EmojiToken } from "./ui/sticker";
 
 // Desktop-left page title (mobile shows the wordmark instead). Dynamic routes fall
@@ -49,14 +50,14 @@ export function TopBar({ overlay = false }: { overlay?: boolean }) {
   }
 
   return (
-    <header className="shrink-0 flex h-14 items-center justify-between gap-2 border-b-2 border-ink bg-cream px-4">
+    <header className="shrink-0 flex h-14 items-center justify-between gap-2 border-b-[1.5px] border-ink bg-cream px-4">
       {/* mobile → wordmark; desktop → page title (sidebar already brands) */}
       <Link
         href="/"
         className="focus-ring flex items-center gap-1.5 rounded-toy no-underline text-ink lg:hidden"
       >
-        <span className="text-xl leading-none">⚡</span>
-        <span className="text-h3 font-extrabold ink-drop">SuperJam</span>
+        <SparkMark aria-hidden />
+        <span className="text-h3 font-extrabold tracking-display">SuperJam</span>
       </Link>
       <div className="hidden text-h3 font-extrabold lg:block">
         {TITLES[pathname] ?? ""}
@@ -71,7 +72,7 @@ function LoginButton() {
   return (
     <button
       onClick={() => openLogin()}
-      className="focus-ring sticker-press shrink-0 rounded-full border-2 border-ink bg-pink px-4 py-1.5 text-small font-extrabold text-white shadow-sticker-sm"
+      className="focus-ring sticker-press shrink-0 rounded-full border-[1.5px] border-ink bg-pink px-4 py-1.5 text-small font-extrabold text-white shadow-sticker-sm"
     >
       Log in
     </button>
@@ -117,7 +118,10 @@ function ProfileMenu({ username }: { username: string }) {
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
-          <Menu.Popup className="animate-pop min-w-[210px] rounded-toy border-2 border-ink bg-cream p-1.5 shadow-sticker outline-none">
+          <Menu.Popup
+            style={{ transformOrigin: "var(--transform-origin)" }}
+            className="animate-pop min-w-[210px] rounded-toy border-[1.5px] border-ink bg-card p-1.5 shadow-sticker-md outline-none"
+          >
             <div className="flex items-center gap-2 px-2 py-1.5">
               {avatar(28)}
               <span className="truncate text-body font-extrabold">@{username}</span>

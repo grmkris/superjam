@@ -1,35 +1,37 @@
-/* SuperJam — Toybox theme (DESIGN_BRIEF §2/§7). Hard tokens: paper #E9E9EE,
-   cream #FFF4E3, ink #221A33, 2px ink outlines, 0 3px 0 sticker shadows,
-   Baloo 2, candy primaries. These are constraints, not suggestions. */
+/* SuperJam — "Refined Arcade" theme. The evolution of the old Toybox look:
+   still confident and playful, but grown-up. Modern grotesque type (Bricolage),
+   a deeper, more sophisticated palette, ink outlines paired with LAYERED depth
+   (a crisp offset + a soft ambient drop, never a flat cartoon slab), and motion
+   tuned with real easing curves. Token + class names are a contract used across
+   the app — only their values evolve here. */
 @import "tailwindcss";
 
 @theme {
-  /* surfaces + ink */
-  --color-paper: #e9e9ee;
-  --color-cream: #fff4e3;
+  /* surfaces + ink — warmer, cleaner neutrals (less yellow than the old cream) */
+  --color-paper: #eceae3;
+  --color-cream: #f6f4ec;
   --color-card: #ffffff;
-  --color-ink: #221a33;
-  --color-muted: #6b6478;
-  --color-faint: #76778a;
+  --color-ink: #17131f;
+  --color-muted: #6a6475;
+  --color-faint: #9a95a4;
+  --color-line: #e4e1d8; /* hairline divider on cream surfaces */
 
-  /* candy primaries */
-  --color-pink: #ff4d6d;
-  --color-yellow: #ffc940;
-  --color-green: #2fd180;
-  --color-blue: #4d7cff;
-  --color-lavender: #c9b6ff; /* slide-1 backdrop tile (🎨) */
+  /* refined vivid accents — deeper + more confident than the old candy set */
+  --color-pink: #ff4767; /* primary */
+  --color-yellow: #ffc23d;
+  --color-green: #18c480;
+  --color-blue: #3e63f2;
+  --color-lavender: #bfa9ff;
 
   /* darker variants — text-on-color + accents */
-  --color-amber-ink: #e8a300;
-  --color-green-ink: #1f9d5f;
-  --color-green-deep: #1a5c38;
+  --color-amber-ink: #d9930a;
+  --color-green-ink: #129766;
+  --color-green-deep: #145239;
 
-  /* type */
-  --font-display: "Baloo 2", ui-sans-serif, system-ui, sans-serif;
-  /* Refined body companion for LONG-FORM prose only (taglines, descriptions,
-     reviews) via `.prose-body`. Baloo 2 stays the voice for everything
-     structural — headings, buttons, nav, labels — so the Toybox identity holds. */
-  --font-body: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  /* type — a distinctive modern grotesque carries the whole product voice;
+     Hanken Grotesk is the calm reading companion for long-form prose. */
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 
   /* type scale — the only sizes the product should use. Weight stays explicit
@@ -39,40 +41,52 @@
   --text-small: 13px;
   --text-small--line-height: 18px;
   --text-body: 15px;
-  --text-body--line-height: 1.35;
+  --text-body--line-height: 1.4;
   --text-h3: 20px;
   --text-h3--line-height: 1.2;
-  --text-h2: 26px;
-  --text-h2--line-height: 1.15;
-  --text-h1: 30px;
-  --text-h1--line-height: 1.1;
-  --text-hero: 44px; /* /me + confirm balance amount */
-  --text-hero--line-height: 1;
+  --text-h2: 27px;
+  --text-h2--line-height: 1.12;
+  --text-h1: 33px;
+  --text-h1--line-height: 1.05;
+  --text-hero: 48px; /* /me + confirm balance amount */
+  --text-hero--line-height: 0.98;
 
-  /* toy-like radii */
-  --radius-toy: 16px;
-  --radius-toy-lg: 22px;
+  /* tracking — display faces want a hair of negative tracking to read crisp */
+  --tracking-display: -0.02em;
 
-  /* hard offset "sticker" shadows — no blur */
-  --shadow-sticker-sm: 0 2px 0 var(--color-ink);
-  --shadow-sticker: 0 3px 0 var(--color-ink);
-  --shadow-sticker-md: 0 4px 0 var(--color-ink);
-  --shadow-sticker-lg: 0 5px 0 var(--color-ink);
+  /* crisper, more modern radii */
+  --radius-toy: 14px;
+  --radius-toy-lg: 20px;
 
-  /* hard ink text-shadow — the headline "drop" (was hardcoded #221A33) */
-  --shadow-text-ink: 0 3px 0 var(--color-ink);
+  /* Layered "sticker" depth: a crisp ink offset for identity + a soft ambient
+     drop for real depth. Never the old flat cartoon slab. */
+  --shadow-sticker-sm: 0 1px 0 var(--color-ink), 0 2px 6px -3px rgba(23, 19, 31, 0.22);
+  --shadow-sticker: 0 2px 0 var(--color-ink), 0 8px 18px -8px rgba(23, 19, 31, 0.24);
+  --shadow-sticker-md: 0 3px 0 var(--color-ink), 0 12px 24px -10px rgba(23, 19, 31, 0.26);
+  --shadow-sticker-lg: 0 4px 0 var(--color-ink), 0 20px 38px -14px rgba(23, 19, 31, 0.3);
+  /* soft, blurred elevation for floating UI that should NOT carry the ink offset */
+  --shadow-soft: 0 1px 2px rgba(23, 19, 31, 0.06), 0 10px 30px -12px rgba(23, 19, 31, 0.22);
+
+  /* subtle headline depth — a soft lift, not a comic-book drop */
+  --shadow-text-ink: 0 1px 1px rgba(23, 19, 31, 0.22);
+
+  /* motion — strong custom curves (CSS built-ins are too weak) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @layer base {
   :root {
-    /* Whisper-quiet "sticker-sheet" dot grid — a faint ink polka layered UNDER
-       the solid candy surfaces so screens read with depth, never as flat fills.
-       6% ink keeps it subliminal; it must never compete with the stickers. */
+    /* Whisper-quiet "sticker-sheet" dot grid — kept as a texture under the solid
+       surfaces, but dialled right down (3% ink) so it reads as paper grain, never
+       as a busy pattern. */
     --dots: radial-gradient(
-      color-mix(in srgb, var(--color-ink) 6%, transparent) 1px,
-      transparent 1.6px
+      color-mix(in srgb, var(--color-ink) 3%, transparent) 1px,
+      transparent 1.7px
     );
-    --dots-size: 20px 20px;
+    --dots-size: 22px 22px;
   }
   html,
   body {
@@ -86,10 +100,16 @@
     color: var(--color-ink);
     font-family: var(--font-display);
     font-weight: 500;
+    letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* lock the app to a phone-shaped column on big screens */
     overscroll-behavior-y: none;
+  }
+  /* display headings get the tighter tracking + optical weight */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: var(--tracking-display);
   }
   /* never let user-generated text break the layout */
   * {
@@ -98,46 +118,44 @@
 }
 
 @layer components {
-  /* The signature: a chunky ink-outlined sticker that presses down on tap. */
+  /* The signature: a crisp ink-outlined surface with layered depth that presses
+     down on tap. Thinner outline than before (1.5px) reads sharper + less toy. */
   .sticker {
-    border: 2px solid var(--color-ink);
+    border: 1.5px solid var(--color-ink);
     border-radius: var(--radius-toy);
     box-shadow: var(--shadow-sticker);
   }
   .sticker-press {
-    transition: transform 0.04s ease, box-shadow 0.04s ease;
+    transition: transform 0.12s var(--ease-out), box-shadow 0.12s var(--ease-out),
+      filter 0.12s var(--ease-out);
   }
   .sticker-press:active {
     transform: translateY(2px);
     box-shadow: var(--shadow-sticker-sm);
   }
 
-  /* The one padding rhythm every product screen uses (replaces the per-page
-     `px-5 pt-5 pb-6` strings). Bottom respects the iOS home-indicator inset. */
+  /* The one padding rhythm every product screen uses. Bottom respects the iOS
+     home-indicator inset. */
   .screen {
     display: flex;
     flex-direction: column;
-    gap: 1rem; /* gap-4 — the default screen rhythm */
+    gap: 1rem;
     min-height: 100%;
     padding: 1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
-    /* transparent: the cream + dot texture comes from the parent .app-shell, so
-       there's a single texture layer (no misaligned dot seam when centered on
-       desktop). .screen only ever renders inside the cream .app-shell. */
   }
 
-  /* Headline "drop" shadow — token, not a hardcoded hex. */
+  /* Headline depth — a soft lift token, not a hardcoded hex offset. */
   .ink-drop {
     text-shadow: var(--shadow-text-ink);
   }
 
-  /* Long-form prose — the refined body companion. Apply ONLY to paragraphs of
-     real text (taglines, descriptions, reviews), never to UI chrome. A hair
-     lighter + looser than Baloo body so blocks of text breathe. */
+  /* Long-form prose — the calm reading companion. Apply ONLY to paragraphs of
+     real text (taglines, descriptions, reviews), never to UI chrome. */
   .prose-body {
     font-family: var(--font-body);
     font-weight: 450;
-    letter-spacing: 0.005em;
-    line-height: 1.45;
+    letter-spacing: 0;
+    line-height: 1.5;
   }
 
   /* Keyboard focus ring in the ink color (pointer taps stay clean). */
@@ -147,7 +165,7 @@
   }
 }
 
-/* Bottom-sheet slide-up — shared by every ToyboxSheet (was inline per sheet). */
+/* Bottom-sheet slide-up — shared by every ToyboxSheet. */
 @keyframes slideup {
   from {
     transform: translateY(100%);
@@ -172,8 +190,8 @@
 }
 
 /* The app lives in a phone-width column on mobile; on desktop it fills the
-   viewport (see the lg block). The cream + dot texture lives here so it's the one
-   canvas behind every screen. */
+   viewport. The cream canvas + a soft warm top glow + quiet dot grain live here
+   so it's the one atmospheric surface behind every screen. */
 .app-shell {
   width: 100%;
   max-width: 460px;
@@ -181,32 +199,27 @@
   min-height: 100dvh;
   position: relative;
   background-color: var(--color-cream);
-  background-image: var(--dots);
-  background-size: var(--dots-size);
+  background-image: radial-gradient(
+      120% 70% at 50% -10%,
+      color-mix(in srgb, var(--color-yellow) 12%, transparent),
+      transparent 60%
+    ),
+    var(--dots);
+  background-size: 100% 100%, var(--dots-size);
 }
 
 @media (min-width: 480px) {
   .app-shell {
-    border-inline: 2px solid var(--color-ink);
+    border-inline: 1.5px solid var(--color-ink);
   }
 }
 
-/* ── Desktop (lg ≥1024px) ───────────────────────────────────────────────────
-   Keep the Toybox column centered, but make room for the left sidebar (rendered
-   in AppChrome) and widen the content column modestly. The ink-outline frame
-   stays — the sidebar carries the left ink border, the column keeps its right. */
+/* ── Desktop (lg ≥1024px) ──────────────────────────────────────────────────── */
 @media (min-width: 1024px) {
-  /* Fill the whole viewport: the cream canvas runs edge to edge, the SideNav pins
-     left (its right border is the only divider), and <main> takes the rest via
-     flex-1. No outer frame — that's what created the centered "strip" with paper
-     gutters. */
   .app-shell.has-sidenav {
     max-width: none;
     border-inline: none;
   }
-  /* Keep content readable on the wide canvas: a centered ~768px column with a bit
-     more breathing room on the sides. The Discover feed doesn't use .screen, so it
-     keeps filling <main> full-bleed. */
   .app-shell.has-sidenav .screen {
     width: 100%;
     max-width: 48rem;
@@ -214,41 +227,31 @@
     padding-inline: 2rem;
   }
 
-  /* Headings look tiny at desktop scale — bump the display end of the ramp. */
+  /* Headings scale up on the wide canvas. */
   :root {
-    --text-hero: 56px;
-    --text-h1: 40px;
-    --text-h2: 32px;
+    --text-hero: 60px;
+    --text-h1: 44px;
+    --text-h2: 34px;
   }
 }
 
-/* ── Pointer hover affordances ──────────────────────────────────────────────
-   The whole app was tap-only (no :hover). Desktop has a pointer, so give the
-   sticker press-targets a tasteful lift on hover: the hard shadow grows a touch
-   and the element rises 1px (the inverse of the :active press-down). */
-@media (hover: hover) {
-  .sticker-press {
-    transition: transform 0.08s ease, box-shadow 0.08s ease;
-  }
+/* ── Pointer hover affordances ─────────────────────────────────────────────── */
+@media (hover: hover) and (pointer: fine) {
   .sticker-press:hover {
     transform: translateY(-1px);
     box-shadow: var(--shadow-sticker-md);
   }
-  /* re-assert the press-down so hover→active still reads as a tap */
   .sticker-press:active {
     transform: translateY(2px);
     box-shadow: var(--shadow-sticker-sm);
   }
 }
 
-/* ── Motion (polish pass) ──────────────────────────────────────────────────
-   Route entrance reuses the existing `fadein` keyframe (applied as
-   motion-safe:animate-[fadein…] on <main>). Adds a list `rise` cascade and a
-   springy `pop` for emphasis moments. */
+/* ── Motion ────────────────────────────────────────────────────────────────── */
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -258,10 +261,10 @@
 @keyframes pop {
   0% {
     opacity: 0;
-    transform: scale(0.8);
+    transform: scale(0.9);
   }
   60% {
-    transform: scale(1.06);
+    transform: scale(1.04);
   }
   100% {
     opacity: 1;
@@ -269,8 +272,8 @@
   }
 }
 
-/* Gentle vertical bob for the slide-1 landing backdrop tiles (sjfloat = up,
-   sjfloat2 = down). Translate-only so each tile's static rotate(tilt) composes. */
+/* Gentle vertical bob for the landing backdrop tiles (translate-only so each
+   tile's static rotate(tilt) composes). */
 @keyframes sjfloat {
   0%,
   100% {
@@ -293,34 +296,42 @@
 @layer components {
   /* Springy emphasis — Reveal "is live!", "sent ✓", celebratory bits. */
   .animate-pop {
-    animation: pop 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation: pop 0.36s var(--ease-spring) both;
+  }
+  /* Route entrance — a soft rise+fade applied to the scroll region. */
+  .animate-screen-in {
+    animation: rise 0.34s var(--ease-out) both;
   }
   /* Staggered list cascade — add `stagger` to a flex/grid list container. */
   .stagger > * {
-    animation: rise 0.32s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+    animation: rise 0.36s var(--ease-out) both;
+  }
+  .stagger > *:nth-child(1) {
+    animation-delay: 0ms;
   }
   .stagger > *:nth-child(2) {
-    animation-delay: 0.04s;
+    animation-delay: 45ms;
   }
   .stagger > *:nth-child(3) {
-    animation-delay: 0.08s;
+    animation-delay: 90ms;
   }
   .stagger > *:nth-child(4) {
-    animation-delay: 0.12s;
+    animation-delay: 135ms;
   }
   .stagger > *:nth-child(5) {
-    animation-delay: 0.16s;
+    animation-delay: 180ms;
   }
   .stagger > *:nth-child(6) {
-    animation-delay: 0.2s;
+    animation-delay: 225ms;
   }
   .stagger > *:nth-child(n + 7) {
-    animation-delay: 0.24s;
+    animation-delay: 270ms;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-pop,
+  .animate-screen-in,
   .stagger > * {
     animation: none !important;
   }

@@ -10,8 +10,9 @@ import { useMemo } from "react";
 
 export type MapStop = { name: string; lat: number; lng: number; day?: number };
 
-// Toybox candy palette — one hue per trip day (wraps after 6).
-const DAY_COLORS = ["#4D7CFF", "#FF4D6D", "#FFC940", "#2FD180", "#A66BFF", "#FF8A3D"];
+// Refined Arcade palette — one hue per trip day (wraps after 6).
+const DAY_COLORS = ["#3E63F2", "#FF4767", "#FFC23D", "#18C480", "#9B7BFF", "#FF8A3D"];
+const INK = "#17131F";
 
 const W = 600;
 const H = 360;
@@ -38,24 +39,46 @@ export function MiniMap({ stops, height = 260 }: { stops: MapStop[]; height?: nu
   const route = proj.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
 
   return (
-    <div style={{ borderRadius: 16, overflow: "hidden", background: "linear-gradient(160deg,#DDEBFF,#EAF7EE)" }}>
+    <div
+      style={{
+        borderRadius: 14,
+        overflow: "hidden",
+        border: `1.5px solid ${INK}`,
+        background: "linear-gradient(165deg,#E7EDF5,#F1EFE7)",
+        boxShadow: "0 3px 0 " + INK + ", 0 12px 24px -10px rgba(23,19,31,0.24)",
+      }}
+    >
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} preserveAspectRatio="xMidYMid slice">
-        {/* graticule — a faint grid for map feel */}
+        <defs>
+          <filter id="mm-shadow" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor={INK} floodOpacity="0.3" />
+          </filter>
+        </defs>
+        {/* graticule — a whisper-quiet ink grid for map feel */}
         {Array.from({ length: 7 }, (_, i) => (
-          <line key={`v${i}`} x1={(i / 6) * W} y1={0} x2={(i / 6) * W} y2={H} stroke="#FFFFFF" strokeWidth={1} opacity={0.5} />
+          <line key={`v${i}`} x1={(i / 6) * W} y1={0} x2={(i / 6) * W} y2={H} stroke={INK} strokeWidth={1} opacity={0.06} />
         ))}
         {Array.from({ length: 5 }, (_, i) => (
-          <line key={`h${i}`} x1={0} y1={(i / 4) * H} x2={W} y2={(i / 4) * H} stroke="#FFFFFF" strokeWidth={1} opacity={0.5} />
+          <line key={`h${i}`} x1={0} y1={(i / 4) * H} x2={W} y2={(i / 4) * H} stroke={INK} strokeWidth={1} opacity={0.06} />
         ))}
         {proj.length >= 2 && (
-          <path d={route} fill="none" stroke="#221A33" strokeWidth={2.5} strokeDasharray="6 5" opacity={0.5} />
+          <path
+            d={route}
+            fill="none"
+            stroke={INK}
+            strokeWidth={2.5}
+            strokeDasharray="2 7"
+            strokeLinecap="round"
+            opacity={0.5}
+          />
         )}
         {proj.map((p, i) => {
           const n = p.day ?? i + 1;
           const color = DAY_COLORS[(n - 1) % DAY_COLORS.length];
           return (
-            <g key={i}>
-              <circle cx={p.x} cy={p.y} r={13} fill={color} stroke="#fff" strokeWidth={2.5} />
+            <g key={i} filter="url(#mm-shadow)">
+              <circle cx={p.x} cy={p.y} r={14} fill={color} stroke="#fff" strokeWidth={3} />
+              <circle cx={p.x} cy={p.y} r={15.5} fill="none" stroke={INK} strokeWidth={1.5} opacity={0.85} />
               <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={13} fontWeight={700} fill="#fff">{n}</text>
             </g>
           );

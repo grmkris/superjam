@@ -18,7 +18,7 @@ import { actionRowButton, EmojiToken, StickerButton } from "./ui/sticker";
 import { cx } from "./ui/cx";
 
 const PILL =
-  "inline-flex items-center bg-white/85 backdrop-blur border-2 border-ink rounded-full text-small font-bold shadow-sticker-sm sticker-press focus-ring";
+  "inline-flex items-center bg-white/85 backdrop-blur border-[1.5px] border-ink rounded-full text-small font-bold shadow-sticker-sm sticker-press focus-ring";
 const ICON_PILL = cx(PILL, "size-8 shrink-0 justify-center text-body");
 // emoji + count pill (like / comment)
 const COUNT_PILL = cx(PILL, "shrink-0 gap-1 px-2.5 py-1 text-tiny");

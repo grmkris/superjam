@@ -129,7 +129,7 @@ export default function App({ sdk }: { sdk: SuperJamSdk; ctx: AppContext }) {
     <div className="tj-card">
       {/* hero */}
       <div style={{ borderRadius: 16, padding: "28px 18px", marginBottom: 12, color: "#fff",
-        background: "linear-gradient(135deg,#FF4D6D,#A66BFF 55%,#4D7CFF)", textAlign: "center" }}>
+        background: "linear-gradient(135deg,#FF4767,#9B7BFF 55%,#3E63F2)", textAlign: "center" }}>
         <div style={{ fontSize: 40 }}>🗾</div>
         <h1 className="tj-title" style={{ color: "#fff", margin: "4px 0" }}>{TRIP.title}</h1>
         <p style={{ opacity: 0.95, margin: 0, fontWeight: 600 }}>
@@ -154,7 +154,7 @@ export default function App({ sdk }: { sdk: SuperJamSdk; ctx: AppContext }) {
                   <div className="tj-muted" style={{ fontSize: 13 }}>{s.transit}</div>
                 </div>
                 <button className="tj-btn" onClick={(e) => { e.stopPropagation(); toggleFav(s.name); }}
-                  style={{ background: faved ? "#FFC940" : "#ECE6F6", padding: "6px 10px" }}
+                  style={{ background: faved ? "#FFC23D" : "#ECE6F6", padding: "6px 10px" }}
                   aria-label="bookmark">{faved ? "★" : "☆"}</button>
               </div>
               {isOpen && (
@@ -175,7 +175,7 @@ export default function App({ sdk }: { sdk: SuperJamSdk; ctx: AppContext }) {
       <div className="tj-row">
         <input className="tj-input" value={q} onChange={(e) => setQ(e.target.value)}
           placeholder="Vegetarian food in Kyoto?" style={{ flex: 1 }} />
-        <button className="tj-btn" onClick={ask} disabled={asking} style={{ background: "#2FD180" }}>
+        <button className="tj-btn" onClick={ask} disabled={asking} style={{ background: "#18C480" }}>
           {asking ? "…" : "Ask"}
         </button>
       </div>

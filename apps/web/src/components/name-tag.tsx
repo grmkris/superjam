@@ -33,7 +33,7 @@ export function NameTag({
     <span
       className={cx(
         // tag shape: punched hole on the left, rounded on the right
-        "inline-flex items-center gap-1.5 border-2 border-ink bg-card",
+        "inline-flex items-center gap-1.5 border-[1.5px] border-ink bg-card",
         "rounded-l-md rounded-r-full pl-2 pr-2.5 py-1 max-w-full",
         state === "pending" && "opacity-70",
         className
