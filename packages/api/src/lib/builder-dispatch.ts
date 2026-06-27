@@ -20,6 +20,10 @@ export interface DeployRequest {
   /** Presigned GET URLs for user-attached reference files (images/CSV/Excel/PDF).
    *  Time-limited + public so the off-box builder agent can fetch them (§17). */
   attachmentUrls?: string[];
+  /** The platform's JWKS url for the CALLING env — baked into the jam so its SDK auth
+   *  verifies app-tokens against the right keys (one shared box can build dev + prod).
+   *  Absent ⇒ the builder uses its own env default. */
+  jwksUrl?: string;
   /** Called on each poll with the builder's latest step events, so the caller can
    *  persist them to build.events (live timeline + history). In-process only —
    *  NOT serialized to the builder (the POST body picks data fields explicitly). */
@@ -66,11 +70,11 @@ export const createRemoteDeployer = (
     "content-type": "application/json",
   };
 
-  return async ({ spec, buildId, appId, attachmentUrls, onProgress }) => {
+  return async ({ spec, buildId, appId, attachmentUrls, jwksUrl, onProgress }) => {
     const accept = await doFetch(`${base}/builds`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ spec, buildId, appId, attachmentUrls }),
+      body: JSON.stringify({ spec, buildId, appId, attachmentUrls, jwksUrl }),
     });
     if (accept.status === 429) {
       // Builder busy — surface so the platform FIFO holds + retries.

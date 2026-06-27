@@ -131,11 +131,13 @@ export const runBuild = async (
     /** Presigned GET URLs for the user's reference attachments (§17) — forwarded
      *  to the builder agent's prompt so it can fetch images/CSV/Excel/PDF. */
     attachmentUrls?: string[];
+    /** The calling env's JWKS url — baked into the jam so its SDK auth uses the right keys. */
+    jwksUrl?: string;
   },
   /** Passed to finalize for the best-effort ENS mint (§16). Omitted in tests. */
   onchain?: Onchain
 ): Promise<void> => {
-  const { buildId, appId, spec, attachmentUrls } = args;
+  const { buildId, appId, spec, attachmentUrls, jwksUrl } = args;
   try {
     await db.update(build).set({ status: "generating" }).where(eq(build.id, buildId));
     const result = await deploy({
@@ -143,6 +145,7 @@ export const runBuild = async (
       buildId,
       appId,
       attachmentUrls,
+      jwksUrl,
       // Mirror the builder's live step timeline into build.events as it runs, so
       // the workshop + history read real progress from the DB. Best-effort: a
       // persist hiccup never fails the build.
@@ -365,6 +368,7 @@ export const createBuildsRouter = (deps: BuildsRouterDeps = {}) => {
             appId: allocated.id,
             spec: input.spec,
             attachmentUrls: attachmentUrls.length ? attachmentUrls : undefined,
+            jwksUrl: context.jwksUrl,
           },
           context.onchain
         );

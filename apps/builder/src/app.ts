@@ -32,6 +32,9 @@ const BuildRequest = z.object({
   appId: z.string().min(1),
   // Presigned GET URLs for user reference attachments (§17) — fetched by the agent.
   attachmentUrls: z.array(z.string().url()).max(8).optional(),
+  // The calling env's JWKS url — baked into the jam so its SDK verifies app-tokens
+  // against the right keys (one box serves dev + prod). Absent ⇒ box env default.
+  jwksUrl: z.string().url().optional(),
 });
 
 const TeardownRequest = z.object({
@@ -100,8 +103,8 @@ export const createBuilderApp = (deps: BuilderAppDeps): Hono => {
     if (deps.runner.atCapacity()) {
       return c.json({ error: "at capacity" }, 429);
     }
-    const { spec, buildId, appId, attachmentUrls } = parsed.data;
-    deps.runner.start({ spec, buildId, appId, attachmentUrls });
+    const { spec, buildId, appId, attachmentUrls, jwksUrl } = parsed.data;
+    deps.runner.start({ spec, buildId, appId, attachmentUrls, jwksUrl });
     return c.json({ buildId, status: "running" }, 202);
   });
 

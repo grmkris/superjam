@@ -96,7 +96,7 @@ const backendFactory =
 const runBuild: Parameters<typeof createBuildRunner>[0]["runBuild"] = harnessModel
   ? (a) =>
       runHarnessBuild(
-        { ...a, port: env.PORT, jwksUrl: env.SUPERJAM_JWKS_URL },
+        { ...a, port: env.PORT, jwksUrl: a.jwksUrl ?? env.SUPERJAM_JWKS_URL },
         {
           backendFactory,
           model: harnessModel,
@@ -105,7 +105,7 @@ const runBuild: Parameters<typeof createBuildRunner>[0]["runBuild"] = harnessMod
           googleKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
         }
       )
-  : (a) => runAgentBuild({ ...a, port: env.PORT, jwksUrl: env.SUPERJAM_JWKS_URL });
+  : (a) => runAgentBuild({ ...a, port: env.PORT, jwksUrl: a.jwksUrl ?? env.SUPERJAM_JWKS_URL });
 
 const runner = createBuildRunner({
   runBuild,

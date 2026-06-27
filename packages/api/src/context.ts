@@ -43,6 +43,10 @@ export interface ApiContext {
    *  spec here. Set from BUILDER_URL/BUILDER_TOKEN; absent ⇒ builds.create rejects. */
   builderEndpoint?: string;
   builderToken?: string;
+  /** The platform's JWKS url for THIS env (derived from APP_ENV/SERVICE_URLS) — sent
+   *  per build so the builder bakes the RIGHT env's JWKS into the jam (one shared box
+   *  can serve dev + prod). Absent ⇒ the builder falls back to its own env default. */
+  jwksUrl?: string;
   /** Platform treasury — recipient of the publish fee (§15). */
   treasuryAddress?: Address;
   /** Server-signs-as-user (Dynamic Delegated Access). Absent ⇒ delegated paths reject. */
@@ -66,6 +70,8 @@ export interface CreateContextDeps {
   /** The house builder dispatch creds (BUILDER_URL/BUILDER_TOKEN). Absent ⇒ builds reject. */
   builderEndpoint?: string;
   builderToken?: string;
+  /** This env's JWKS url (SERVICE_URLS[APP_ENV].web + /.well-known/jwks.json) — baked per build. */
+  jwksUrl?: string;
   treasuryAddress?: Address;
   /** Optional — absent ⇒ delegated-pay paths reject with "delegate first". */
   delegatedSigner?: DelegatedSigner;
@@ -85,6 +91,7 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
     objectStore: deps.objectStore ?? nullObjectStore,
     builderEndpoint: deps.builderEndpoint,
     builderToken: deps.builderToken,
+    jwksUrl: deps.jwksUrl,
     treasuryAddress: deps.treasuryAddress,
     delegatedSigner: deps.delegatedSigner,
     headers: deps.headers,

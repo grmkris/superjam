@@ -302,6 +302,9 @@ const makeContext = (headers: Headers): ApiContext =>
     objectStore,
     builderEndpoint: env.BUILDER_URL,
     builderToken: env.BUILDER_TOKEN,
+    // The jam bakes THIS env's JWKS (so prod jams verify against prod keys) — sent
+    // per build, letting one shared builder box serve both dev and prod.
+    jwksUrl: `${SERVICE_URLS[env.APP_ENV].web}/.well-known/jwks.json`,
     treasuryAddress,
     delegatedSigner,
     headers,

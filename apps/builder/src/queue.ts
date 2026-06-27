@@ -25,6 +25,8 @@ export interface BuildRunnerDeps {
     reportToken: string;
     /** Presigned GET URLs for user reference attachments (§17). */
     attachmentUrls?: string[];
+    /** The calling env's JWKS url — baked into the jam (overrides the box default). */
+    jwksUrl?: string;
   }) => Promise<void>;
   maxConcurrent?: number;
   /** Injected clock (durationMs); defaults to Date.now. */
@@ -83,6 +85,8 @@ export interface StartArgs {
   appId: string;
   /** Presigned GET URLs for user reference attachments (§17), forwarded to the agent. */
   attachmentUrls?: string[];
+  /** The calling env's JWKS url — baked into the jam (overrides the box default). */
+  jwksUrl?: string;
 }
 
 export interface BuildRunner {
@@ -121,7 +125,7 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
   return {
     atCapacity: () => active >= max,
 
-    start({ spec, buildId, appId, attachmentUrls }): BuildState {
+    start({ spec, buildId, appId, attachmentUrls, jwksUrl }): BuildState {
       const reportToken = mintToken();
       const state: BuildState = { buildId, status: "running", events: [], reportToken };
       builds.set(buildId, state);
@@ -129,7 +133,7 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
       active += 1;
 
       const job = deps
-        .runBuild({ spec, buildId, appId, reportToken, attachmentUrls })
+        .runBuild({ spec, buildId, appId, reportToken, attachmentUrls, jwksUrl })
         .then(() => {
           // The agent process ended. A `done`/`failed` report should have set the
           // terminal status; if it's still running, the agent never signalled.
