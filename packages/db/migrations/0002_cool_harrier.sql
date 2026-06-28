@@ -1,0 +1,1 @@
+ALTER TABLE "builder_agent" ADD COLUMN "capabilities" jsonb DEFAULT '[]'::jsonb NOT NULL;

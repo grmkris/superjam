@@ -17,6 +17,14 @@
 // is what lets the app use its own cookies/storage/backend session — needed for
 // a real web app. (For the old platform-hosted static bundles it was correctly
 // OMITTED; the pivot inverts that. See SPEC §6.)
+//
+// Two SEPARATE concerns, two effects (this matters):
+//  1. a one-time framing watchdog (deps []) + the iframe's declarative onLoad —
+//     load-detection must NEVER be re-armed by a parent re-render, or a
+//     successfully-loaded jam (whose iframe won't fire `load` again) gets falsely
+//     marked "blocked".
+//  2. the host bridge, created once from STABLE inputs (the `getToken` resolver,
+//     not a token snapshot) so identity churn doesn't tear it down.
 import type { AppContext, Json } from "@superjam/sdk";
 import type { Capability } from "@superjam/shared";
 import { useEffect, useRef, useState } from "react";
@@ -56,27 +64,38 @@ export function AppFrame({
   app,
   user,
   rpcUrl,
-  authToken,
+  getToken,
   getAddress,
 }: {
   app: ViewerApp;
   user: HostUser;
   rpcUrl: string;
-  authToken: string | null;
+  /** Resolve the viewer's Bearer at request time — stable across renders. */
+  getToken: () => Promise<string | null>;
   /** Viewer's wallet address resolver (Dynamic embedded wallet). */
   getAddress?: () => Promise<string>;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "blocked">("loading");
 
+  // (1) Framing watchdog — ONE-TIME, decoupled from the bridge/identity. The
+  // iframe's declarative onLoad flips to "ready"; if it never loads (e.g.
+  // X-Frame-Options) the app refused to frame. Functional setPhase means a real
+  // load already settled it → no false block; and deps [] means it can never be
+  // re-armed by a parent re-render.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPhase((p) => (p === "loading" ? "blocked" : p));
+    }, 8000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // (2) Host bridge — created once for the framed window, from stable inputs.
   useEffect(() => {
     const iframe = ref.current;
     if (!iframe) return;
 
-    const client = createPlatformClient({
-      url: rpcUrl,
-      getToken: () => authToken,
-    });
+    const client = createPlatformClient({ url: rpcUrl, getToken });
     const bridge = createHostBridge(
       makeHostHandlers(client, window.location.origin, {
         getAddress,
@@ -104,31 +123,21 @@ export function AppFrame({
           capabilities: app.capabilities,
           context: ctx,
           window: win,
+          expectedOrigin: app.entryOrigin ?? undefined,
         });
       }
     };
     register(); // the child posts host.hello after navigating; same Window object
-
-    let settled = false;
-    const onLoad = () => {
-      settled = true;
-      setPhase("ready");
-      register();
-    };
-    iframe.addEventListener("load", onLoad);
-    // Watchdog: an app that refuses to be framed (X-Frame-Options) never loads.
-    const wd = setTimeout(() => {
-      if (!settled) setPhase("blocked");
-    }, 8000);
+    // Re-register after a (re)navigation — purely registry upkeep, NOT phase.
+    iframe.addEventListener("load", register);
 
     return () => {
-      clearTimeout(wd);
-      iframe.removeEventListener("load", onLoad);
+      iframe.removeEventListener("load", register);
       const win = iframe.contentWindow;
       if (win) bridge.unregister(win);
       detach();
     };
-  }, [app, user, rpcUrl, authToken, getAddress]);
+  }, [app, user, rpcUrl, getToken, getAddress]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -146,8 +155,11 @@ export function AppFrame({
         ref={ref}
         src={app.entryUrl}
         title={app.name}
+        onLoad={() => setPhase("ready")}
         sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
-        allow=""
+        // Delegate the Clipboard API so a jam's "Challenge a Friend" can copy the
+        // share link from inside the cross-origin frame (else it's blocked silently).
+        allow="clipboard-write"
         referrerPolicy="no-referrer"
         style={{ width: "100%", height: "100%", border: 0, display: "block" }}
       />

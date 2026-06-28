@@ -30,7 +30,12 @@ export const RESERVED_LABELS = [
 // --- builds / trial ---
 export const FREE_BUILDS = 1;
 export const BUILD_ATTACH_MAX = 4; // user file attachments per make
-export const ATTACH_MAX_MB = 2; // per attachment
+// A non-terminal build whose row hasn't been touched in this long is treated as
+// orphaned (the in-memory poller died on a server redeploy) and reaped → failed.
+// Generous: a live build bumps updatedAt every poll, but a long silent step can go
+// minutes without a write — 20min avoids false-failing a live build.
+export const STALE_BUILD_MS = 20 * 60 * 1000;
+export const ATTACH_MAX_MB = 10; // per attachment (images are downscaled server-side before storage)
 
 // --- payments (USDC, decimal strings) ---
 export const PUBLISH_FEE_USDC = "1";
@@ -40,17 +45,19 @@ export const TOPUP_PER_HUMAN_PER_DAY = 1;
 export const AGENT_PRICE_MAX_USDC = "5";
 export const POT_STAKE_MAX_USDC = "10";
 export const POT_TOTAL_MAX_USDC = "100";
-export const X402_MAX_USDC = "2";
 
 // --- AI (in-app sdk.ai + refine) ---
 export const AI_CALLS_PER_USER_APP_DAY = 25;
 export const AI_MAX_OUTPUT_TOKENS = 1000;
-export const AI_APP_MODEL = "claude-haiku-4-5";
+// In-app AI runs on Google Gemini (never Anthropic — that's builder-only). flash-lite
+// is the fastest GA 2.5 model (still multimodal) — the judge is latency-visible.
+export const AI_APP_MODEL = "gemini-2.5-flash-lite";
+export const AI_IMAGES_MAX = 4; // images per sdk.ai.chat call
+export const AI_MESSAGES_MAX = 32; // messages per sdk.ai.chat call
 export const REFINE_CALLS_PER_USER_DAY = 20;
-export const X402_CALLS_PER_USER_APP_DAY = 10;
 
 // --- discovery ---
-export const LIST_MAX = 100;
+export const LIST_MAX = 500;
 export const SIMILAR_MAX = 3;
 export const CATEGORIES = [
   "game",
@@ -70,6 +77,7 @@ export const MSG_DATA_MAX_BYTES = 1024;
 export const INBOX_CAP = 200; // evict oldest READ first
 export const MSG_PER_PAIR_PER_MIN = 5;
 export const MSG_PER_SENDER_PER_MIN = 20;
+export const CHAT_TEXT_MAX = 1024; // user↔user chat text (longer than app msgs)
 
 // --- deeplinks (?d=) ---
 export const DEEPLINK_JSON_MAX_BYTES = 2 * 1024; // 2KiB JSON before base64url
@@ -82,9 +90,7 @@ export const BRIDGE_HELLO_TIMEOUT_MS = 5000; // no reply ⇒ standalone mode
 // --- reserved counter names (reuse app_counter, §7) ---
 export const PLAYS_COUNTER = "_plays";
 export const AI_QUOTA_COUNTER = "_ai_quota";
-export const X402_QUOTA_COUNTER = "_x402_quota";
 export const RESERVED_COUNTERS = [
   PLAYS_COUNTER,
   AI_QUOTA_COUNTER,
-  X402_QUOTA_COUNTER,
 ] as const;

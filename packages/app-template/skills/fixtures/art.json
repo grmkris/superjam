@@ -13,7 +13,7 @@
   ],
   "data": {
     "collections": [
-      { "name": "stickers", "doc": { "caption": "string" }, "writtenWhen": "the user posts a sticker" }
+      { "name": "stickers", "fields": [{ "name": "caption", "type": "string" }], "writtenWhen": "the user posts a sticker" }
     ],
     "counters": [],
     "storage": []

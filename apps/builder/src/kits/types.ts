@@ -1,0 +1,46 @@
+// Use-case kits — per-use-case scaffolding that hand-holds the build model so a
+// cheap model produces a REAL app instead of coasting on the seeded stub. A kit
+// bundles: tailored clarifying questions (refine), a FILLED build plan (prompt +
+// user UI), starter files the model fills marked gaps in, and an acceptance gate
+// that rejects an unfinished app. Kits ride on the existing recipe/skill/generate
+// machinery.
+import type { AppSpec, SkillName } from "@superjam/shared";
+
+export interface GateResult {
+  ok: boolean;
+  /** Human-readable, actionable gaps fed back to the model when ok=false. */
+  missing: string[];
+}
+
+export interface KitContext {
+  appId: string;
+  buildId: string;
+  jwksUrl: string;
+}
+
+/** Build-time signals a kit can match on beyond the spec (e.g. maker uploads). */
+export interface MatchOpts {
+  /** Number of IMAGE attachments the maker uploaded (→ media kits like photo-album). */
+  imageCount?: number;
+}
+
+export interface Kit {
+  id: string;
+  title: string;
+  /** Skills this kit REQUIRES — the builder merges them into the spec before generateApp
+   *  so per-skill scaffolding seeds (e.g. "map" → the seeded <TripMap> component). */
+  skills?: SkillName[];
+  /** Does this kit apply? (keyword/skill/category + optional build-time signals, like selectRecipes.) */
+  match(spec: AppSpec, opts?: MatchOpts): boolean;
+  /** Tailored clarifying questions for refine (Phase C; unused until refine is kit-aware). */
+  questions: { q: string; options: string[] }[];
+  /** A FILLED, ordered build checklist — injected into the build prompt (and the user UI). */
+  plan(spec: AppSpec): string;
+  /** Starter files seeded into the workspace: a working app/page.tsx with `// TODO:` gaps. */
+  starterFiles(spec: AppSpec, ctx: KitContext): Record<string, string>;
+  /**
+   * Acceptance probes over the produced files — reject the stub / an unfilled template.
+   * Receives the files the builder pre-read (at least { "app/page.tsx": ... }).
+   */
+  gate(files: Record<string, string>): GateResult;
+}

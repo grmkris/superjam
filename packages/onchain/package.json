@@ -6,14 +6,12 @@
     "./money": "./src/money.ts",
     "./chains": "./src/chains.ts",
     "./transfer-auth": "./src/transfer-auth.ts",
-    "./payment-intent": "./src/payment-intent.ts",
-    "./staking": "./src/staking/index.ts"
+    "./payment-intent": "./src/payment-intent.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@superjam/contracts": "workspace:*",
     "@superjam/shared": "workspace:*",
     "viem": "catalog:",
     "zod": "catalog:"

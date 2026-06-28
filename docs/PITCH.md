@@ -10,32 +10,35 @@ hears the story.)
 ## The 10-second universal opener
 
 > "I'm building **SuperJam — Telegram Mini Apps for the open web, built by
-> AI**. You describe a **jam** — a mini app or game — and it's built and
-> deployed in under a minute, running sandboxed with wallet, identity,
-> payments, and social baked in through an SDK. You discover jams in a
+> AI**. You describe a **jam** — a mini app or a **real on-chain game** (the
+> agent deploys a game contract per jam; the SDK reads/writes it, gas relayed) —
+> and it's built and deployed in under a minute, running sandboxed with wallet,
+> identity, payments, and social baked in through an SDK. You discover jams in a
 > TikTok-style feed and **play them right there**. Want to see one get made
 > right now?"
 
 ## ENS (track #1 — visit Friday AND Sunday AM booth)
 
-**30s:** "Every user claims their name — `kris.superjam.fun` — at signup, and
-every **jam** they make hangs **under it**: `tipjar.kris.superjam.fun`, minted
-as an ENS subname with url, icon, category, and **remix parent** as text records
-on Base via Durin. Provenance is readable from the name itself. The whole
-catalog is rebuildable **from ENS records alone** — delete my database, the jam
-store survives (chain facts are inline — tap any name tag → Basescan, no toggle
-needed). And the builder itself is a first-class ENS citizen:
-`builder.superjam.fun` implements **ENSIP-25 + ENSIP-26** — ERC-8004
-registration verified through a resolver lookup, agent-context + endpoint
-records for discovery — and **anyone can register their own builder** the same
-way, with on-chain feedback and a revenue share."
+**30s:** "Every user claims their name — `kris.superjam.eth` — at signup, and
+every **jam** they make hangs **under it**: `tipjar.kris.superjam.eth`, minted
+as an **ENSv2 subname** with url, icon, category, and **remix parent** as text
+records on **Sepolia L1** — and it **resolves in any standard ENS tool**
+(`app.ens.domains`, viem/ethers), not a closed registry. Provenance is readable
+from the name itself. The whole catalog is rebuildable **from ENS records
+alone** — delete my database, the jam store survives (tap any name tag → it
+opens in a real ENS resolver). And the builder itself is a first-class ENS
+citizen — **ERC-8004 registration** (on-chain agent identity + reputation)
+surfaced through its records — and **anyone can register their own builder** the
+same way, with on-chain feedback and a revenue share."
 
-**Q→A:** L1 or L2? → *Durin L2 registry on Base, L1Resolver wired; mint = one
-tx with a setText multicall.* · Indexing? → *getLogs(SubnodeCreated) + direct
-L2 reads for the demo; **ENSNode is the production path**.* · ENSIP-25 real? →
-*one tx into the ERC-8004 mainnet registry, then the `agent-registration`
-record (ERC-7930 registry address in the key); verification = a single
-resolver lookup, shown live in the agent identity panel.*
+**Q→A:** L1 or L2? → *ENSv2-native on **Sepolia L1** — one self-contained
+IRegistry+resolver under `superjam.eth`; mint = one `setSubname` tx. Nested
+`slug.user.superjam.eth` resolves via **ENSIP-10 wildcard**, verified live
+through the **canonical UniversalResolver** (the one `app.ens.domains` uses).* ·
+Indexing? → *direct registry reads + text records for the demo; **ENSNode is the
+production path**.* · ERC-8004 real? → *one tx into the canonical ERC-8004
+identity registry (agent NFT) + reputation feedback; surfaced live in the agent
+identity panel, human-backed via World ID.*
 
 **Read for:** AI-agents track vs Most Creative (catalog-as-ENS + remix
 provenance tree). Ask them which of their tracks fits better — free judging
@@ -60,8 +63,8 @@ their own World App — exactly what judges do Sunday.
 honored.* · What breaks without it? → *"spam apps, bot leaderboards, sybil
 remix farms, inbox spam, astroturfed reviews. A constraint, not a checkbox."*
 · AgentKit usage? → *agent registered via CLI, bound to my World App; identity
-panel shows human-backed next to its ENS records; x402 on the agent endpoint
-if time.*
+panel shows human-backed next to its ENS records; **AgentKit free-trial is wired
+onto the agent's x402 endpoint (live).***
 
 **Read for:** AgentKit ($7.5K) vs World ID. If they lean in at "human-backed
 builder agent", AgentKit it is; World ID is the zero-cost fallback.
@@ -96,10 +99,13 @@ depth or story? One-HTTP-call publishing → strongest slot-3 candidate.
 SuperJam **every tip is confidential by default** — Unlink shielded transfer
 on Arc, relayed so the sender pays no gas, the Dynamic wallet as the key root.
 The only payments we keep public are the ones we must verify on-chain (publish
-fee, pot escrow). Two rails, one rule. And jams can make private *nanopayments*
+fee, pot escrow). Two rails, one rule. **Funding the private rail is itself a
+Circle flow: Add funds does a fast CCTP burn/mint (Sepolia → Arc) straight into
+the confidential balance** — Circle's bridge AND its gasless USDC in one
+product. And jams can make private *nanopayments*
 too: `sdk.payments.payX402` pays a paywalled resource via Circle Gateway from a
-shielded Arc balance — all four (Dynamic+Unlink+Circle+Arc) in one call (gated;
-tips alone already cover 3)." Asks: recipient note-discovery latency
+shielded Arc balance — all four (Dynamic+Unlink+Circle+Arc) in one call (**proven
+live — Circle settlement header confirmed**)." Asks: recipient note-discovery latency
 (how fast does a judge SEE the tip?) · deterministic `personal_sign` for key
 derivation (also ask Dynamic) · does Arc-as-chain satisfy the "all three
 technologies" rule or is the Circle Gateway/x402 leg required? SDK is

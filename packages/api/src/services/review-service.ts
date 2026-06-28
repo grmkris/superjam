@@ -6,18 +6,9 @@ import { schema } from "@superjam/db";
 import { type AppId, LIST_MAX, type UserId } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
 import { and, desc, eq } from "drizzle-orm";
+import { decodeCursor, encodeCursor } from "../lib/cursor.ts";
 
 const { appReview, app, user } = schema;
-
-const encodeCursor = (offset: number): string =>
-  Buffer.from(String(offset), "utf8").toString("base64url");
-const decodeCursor = (cursor?: string): number => {
-  if (!cursor) {
-    return 0;
-  }
-  const n = Number.parseInt(Buffer.from(cursor, "base64url").toString("utf8"), 10);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-};
 
 export const createReviewService = ({ db }: { db: Database }) => ({
   // PUBLIC: rows newest-first; every reviewer is World-verified by construction.

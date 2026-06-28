@@ -1,8 +1,9 @@
 import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { baseEntityFields, typeIdPk } from "../utils/db-utils.ts";
 
-// One human = one account. ensName minted at World-verify (username.superjam.eth,
-// §11/§14). worldNullifierHash ties one human to one publisher/reviewer.
+// One account per login. ensName is minted on username claim
+// (username.superjam.eth, §11/§14). worldVerified is surfaced to mini-apps over
+// the SDK bridge (kept even though the verify flow was removed).
 export const user = pgTable("user", {
   id: typeIdPk("user"),
   ensName: text("ens_name"),
@@ -11,9 +12,7 @@ export const user = pgTable("user", {
   username: text("username").notNull().unique(),
   walletAddress: text("wallet_address"),
   worldVerified: boolean("world_verified").notNull().default(false),
-  worldNullifierHash: text("world_nullifier_hash").unique(),
   freeBuildsUsed: integer("free_builds_used").notNull().default(0),
-  unlinkAddress: text("unlink_address"),
   lastTopupAt: timestamp("last_topup_at", { withTimezone: true, mode: "date" }),
   ...baseEntityFields,
 });

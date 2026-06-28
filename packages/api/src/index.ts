@@ -1,7 +1,12 @@
 // @superjam/api — oRPC routers + context (§4). The server imports the impl
 // (appRouter, createContext, verifier); the web app imports types (./client).
 export { appRouter, type AppRouter } from "./router.ts";
-export { createContext, type ApiContext, type CreateContextDeps } from "./context.ts";
+export {
+  createContext,
+  type ApiContext,
+  type CreateContextDeps,
+  type DelegatedSigner,
+} from "./context.ts";
 export {
   type AuthVerifier,
   type DynamicClaims,
@@ -20,26 +25,6 @@ export {
   nullAppTokenIssuer,
 } from "./auth/app-token.ts";
 export {
-  type WorldVerifier,
-  type WorldProof,
-  type WorldVerifyResult,
-  createWorldVerifier,
-  nullWorldVerifier,
-  WorldNotConfiguredError,
-} from "./auth/world.ts";
-export {
-  type AgentIdentity,
-  type AgentIdentityInput,
-  type AgentIdentityResult,
-  nullAgentIdentity,
-} from "./lib/agent-identity.ts";
-export { createAgentIdentity } from "./lib/agent-identity-impl.ts";
-export {
-  findEligibleBuilders,
-  selectEligibleBuilder,
-  type SelectedBuilder,
-} from "./routers/agents.ts";
-export {
   allocateExternalApp,
   type AllocateExternalAppInput,
   finalizeExternalApp,
@@ -48,6 +33,9 @@ export {
   type CreateExternalAppInput,
 } from "./routers/apps.ts";
 export { commonErrors, type CommonErrorCode } from "./errors.ts";
+// PAT resolution (§MCP) — so the composition root can validate a `sjat_…` token
+// (e.g. before emitting the install one-liner).
+export { PAT_PREFIX, resolveUserFromPat } from "./auth/pat.ts";
 // Onchain wiring re-exported so the composition root (apps/server) gets it
 // without a second direct dependency (§15).
 export {
@@ -55,7 +43,6 @@ export {
   nullOnchain,
   type Onchain,
   type OnchainConfig,
-  loadLiveUnlinkTransport,
 } from "@superjam/onchain";
 export { type PotOracle, nullOracle } from "./lib/oracle.ts";
 export { createRateLimiter, type RateLimiter } from "./lib/rate-limit.ts";
@@ -67,6 +54,5 @@ export {
   base,
   publicProcedure,
   protectedProcedure,
-  worldVerifiedProcedure,
 } from "./orpc.ts";
 export type { AppRouterClient } from "./client.ts";

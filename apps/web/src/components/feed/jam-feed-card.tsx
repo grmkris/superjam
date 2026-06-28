@@ -1,142 +1,176 @@
 "use client";
 
-// JamFeedCard (DESIGN_BRIEF §3b) — one full-screen feed cell. Two modes:
-//   poster   the play surface, maker, remix chip, tagline, ▸ Play now, rail
-//   playing  the jam runs LIVE in-feed via %67's <AppHost> (a real app, not a
-//            video — the differentiator vs TikTok)
-// The ENS name tag lives on the jam PAGE, not the card (design round 6).
-import { useState } from "react";
+// JamFeedCard (DESIGN_BRIEF §3b) — one full-screen feed cell. Cells inside the
+// mount window (active ± 1) play the jam LIVE via <AppHost> so neighbours are
+// preloaded off-screen (no spinner on swipe); others render a cheap poster
+// placeholder. The shared JamChrome top bar carries identity + all actions
+// (like/comment/share/remix/menu) and a ⛶ that expands the SAME iframe to
+// fullscreen (CSS only — no reload). Signed-out viewers see a sign-in CTA.
+import type { AppId } from "@superjam/shared";
+import { useEffect, useMemo, useState } from "react";
+import { useLogin } from "../login";
+import { usePlatformClient } from "../use-platform-client";
+import { useHostAuth } from "../../lib/use-host-auth";
+import Link from "next/link";
 import { AppHost } from "../app-host";
-import { Handle } from "../verified-badge";
+import { JamChrome } from "../jam-chrome";
+import { ProfileControl } from "../top-bar";
 import { cx } from "../ui/cx";
-import { EmojiToken } from "../ui/sticker";
-import { FeedActionRail } from "./feed-action-rail";
+import { EmojiToken, StickerButton } from "../ui/sticker";
+import { avatarEmoji } from "../ui/identity";
 import { type FeedJam, toViewerApp } from "./jam";
 
-const ACCENT_BG: Record<FeedJam["accent"], string> = {
-  blue: "bg-blue",
-  pink: "bg-pink",
-  green: "bg-green",
-  yellow: "bg-yellow",
-};
-// title colour that stays legible on each accent
-const ACCENT_TITLE: Record<FeedJam["accent"], string> = {
-  blue: "text-white",
-  pink: "text-white",
-  green: "text-ink",
-  yellow: "text-ink",
+// A low-opacity wash from the jam's content accent — the only color on an
+// otherwise editorial white poster card (identity, not decoration).
+const ACCENT_TINT: Record<FeedJam["accent"], string> = {
+  blue: "bg-blue/10",
+  pink: "bg-pink/10",
+  green: "bg-green/10",
+  yellow: "bg-yellow/10",
 };
 
 export function JamFeedCard({
   jam,
-  next,
-  onComments,
-  onShare,
-  onRemix,
+  active,
+  mounted,
+  onFullscreenChange,
 }: {
   jam: FeedJam;
-  next: FeedJam | null;
-  onComments: (j: FeedJam) => void;
-  onShare: (j: FeedJam) => void;
-  onRemix: (j: FeedJam) => void;
+  /** the cell snapped into view — drives URL + is the only one that can fullscreen */
+  active: boolean;
+  /** within the preload window (active ± 1) — mounts the live game off-screen */
+  mounted: boolean;
+  onFullscreenChange?: (fullscreen: boolean) => void;
 }) {
-  const [playing, setPlaying] = useState(false);
-  const [liked, setLiked] = useState(false);
+  const { isLoggedIn } = useHostAuth();
+  const { openLogin } = useLogin();
+  const client = usePlatformClient();
+  const [liked, setLiked] = useState(jam.likedByMe);
+  const [likes, setLikes] = useState(jam.likes);
+  const [fullscreen, setFullscreen] = useState(false);
 
-  if (playing) {
-    return (
-      <section className={cx("relative h-full snap-start flex flex-col", ACCENT_BG[jam.accent])}>
-        <div className="flex items-center gap-2.5 px-4 pt-14 pb-2">
-          <span className="inline-flex items-center gap-2 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-[13.5px] font-bold">
-            <span>{jam.iconEmoji}</span>
-            <span>{jam.name}</span>
-            <Handle username={jam.maker.username} verified={jam.maker.verified} muted />
-          </span>
-          <button
-            onClick={() => setPlaying(false)}
-            aria-label="Close jam"
-            className="ml-auto flex items-center justify-center w-[38px] h-[38px] rounded-full bg-card border-2 border-ink text-[15px] font-extrabold sticker-press"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="flex-1 min-h-0 mx-3 mb-3 border-2 border-ink rounded-toy-lg overflow-hidden bg-card">
-          <AppHost app={toViewerApp(jam)} />
-        </div>
-      </section>
-    );
-  }
+  // Stable ViewerApp identity so AppHost/AppFrame don't re-run their effects each
+  // render (jam is stable while the feed list is).
+  const viewerApp = useMemo(() => toViewerApp(jam), [jam]);
+
+  // Preloaded cells (active or neighbour) play live; the jam's SDK needs a token.
+  const live = mounted && isLoggedIn;
+
+  // A cell that scrolls away while fullscreen must drop fullscreen.
+  useEffect(() => {
+    if (!active && fullscreen) setFullscreen(false);
+  }, [active, fullscreen]);
+
+  // Notify the page (hide tabs) + lock body scroll while fullscreen; Esc exits.
+  useEffect(() => {
+    onFullscreenChange?.(fullscreen);
+    if (!fullscreen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [fullscreen, onFullscreenChange]);
+
+  // Like requires identity. Optimistic toggle, reconciled with the server.
+  const onLike = () => {
+    if (!isLoggedIn) {
+      openLogin();
+      return;
+    }
+    const nextLiked = !liked;
+    setLiked(nextLiked);
+    setLikes((n) => n + (nextLiked ? 1 : -1));
+    client.apps
+      .like({ appId: jam.id as AppId })
+      .then((r) => {
+        setLiked(r.liked);
+        setLikes(r.likes);
+      })
+      .catch(() => {
+        setLiked(!nextLiked);
+        setLikes((n) => n + (nextLiked ? -1 : 1));
+      });
+  };
 
   return (
     <section
-      className={cx(
-        "relative h-full snap-start flex flex-col items-center justify-center gap-4 px-6 pt-24 pb-28 overflow-hidden",
-        ACCENT_BG[jam.accent]
-      )}
+      data-slug={jam.slug}
+      className="relative h-full snap-start overflow-hidden bg-paper"
     >
-      <EmojiToken emoji={jam.iconEmoji} color="yellow" size={140} rounded="toy" tilt={-5} className="shadow-sticker-lg" />
-
-      <div className="flex flex-col items-center gap-1.5">
-        <div className={cx("text-[32px] font-extrabold [text-shadow:0_3px_0_#221A33]", ACCENT_TITLE[jam.accent])}>
-          {jam.name}
-        </div>
-        <span className="inline-flex items-center gap-1.5 bg-card border-2 border-ink rounded-full px-3.5 py-1.5 text-[13.5px] font-bold">
-          <EmojiToken emoji="🦊" color="green" size={20} />
-          <Handle username={jam.maker.username} verified={jam.maker.verified} />
-        </span>
-        {jam.remixOf && (
-          <span className="inline-flex items-center gap-1 bg-card/90 border-2 border-ink rounded-full px-2.5 py-1 text-[10.5px] font-extrabold">
-            🔁 remix of {jam.remixOf.name} <span className="text-blue">↗</span>
-          </span>
-        )}
-      </div>
-
-      <div className="max-w-[280px] bg-card/95 border-2 border-ink rounded-2xl shadow-sticker px-4 py-2.5 text-center text-[14.5px] font-semibold leading-snug">
-        “{jam.tagline}”
-      </div>
-
-      <button
-        onClick={() => setPlaying(true)}
-        className="inline-flex items-center gap-2 bg-pink text-white border-[2.5px] border-ink rounded-full px-9 py-3.5 text-lg font-extrabold shadow-sticker-lg sticker-press"
-      >
-        ▸ Play now
-      </button>
-
-      {jam.friendsPlayed > 0 && (
-        <div className="flex items-center gap-1.5 text-[13px] font-bold text-white [text-shadow:0_1px_0_#221A33]">
-          <span className="w-2 h-2 rounded-full bg-green border-[1.5px] border-ink" />
-          {jam.friendsPlayed} friends played today
-        </div>
-      )}
-
-      {/* right action rail */}
-      <div className="absolute right-3.5 bottom-32 z-10">
-        <FeedActionRail
-          likes={jam.likes}
-          comments={jam.comments}
-          liked={liked}
-          onLike={() => setLiked((v) => !v)}
-          onComments={() => onComments(jam)}
-          onShare={() => onShare(jam)}
-          onRemix={() => onRemix(jam)}
-        />
-      </div>
-
-      {/* next jam peeking in from below */}
-      {next && (
-        <button
-          onClick={() => onComments(next)}
-          className="absolute left-3.5 right-3.5 bottom-0 z-[5] flex items-center gap-3 bg-green border-[2.5px] border-b-0 border-ink rounded-t-toy-lg px-4 pt-3 pb-5 text-left"
+      {live ? (
+        // Mobile: the jam fills the cell edge-to-edge. Desktop: the SAME subtree
+        // becomes a centered "stage" card (rounded, hairline, soft shadow) on the
+        // light canvas — so the jam gets real width instead of a phone column in a
+        // black void. Fullscreen flips to fixed inset-0 (no remount → keeps state).
+        <div
+          className={cx(
+            "flex flex-col",
+            fullscreen
+              ? "fixed inset-0 z-[100] bg-cream"
+              : "absolute inset-0 lg:items-center lg:justify-center lg:p-5 xl:p-7"
+          )}
         >
-          <EmojiToken emoji={next.iconEmoji} color="cream" size={40} rounded="toy" />
-          <span className="flex flex-col">
-            <span className="font-extrabold text-[15px] text-ink">
-              {next.name}{" "}
-              <span className="font-semibold text-green-deep">· @{next.maker.username} ✓</span>
-            </span>
-            <span className="text-xs font-bold text-green-deep">↑ swipe for the next jam</span>
-          </span>
-        </button>
+          <div
+            className={cx(
+              "flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-card",
+              !fullscreen &&
+                "lg:h-full lg:max-h-full lg:flex-none lg:max-w-[960px] lg:rounded-toy-lg lg:border lg:border-line lg:shadow-sticker-lg"
+            )}
+          >
+            <div className="border-b border-line bg-cream/95">
+              <JamChrome
+                app={viewerApp}
+                maker={{ username: jam.maker.username }}
+                fullscreen={fullscreen}
+                onFullscreen={() => setFullscreen(true)}
+                onClose={() => setFullscreen(false)}
+                likes={likes}
+                liked={liked}
+                onLike={onLike}
+                comments={jam.comments}
+                profile={active && !fullscreen ? <ProfileControl /> : undefined}
+              />
+            </div>
+            <div className="relative min-h-0 flex-1 bg-card">
+              <AppHost key="app-host" app={viewerApp} />
+            </div>
+          </div>
+        </div>
+      ) : (
+        // Poster placeholder — no iframe. Mobile: full-bleed card. Desktop: the
+        // same framed stage so it matches the live player (no stranded mini-card).
+        <div className="absolute inset-0 flex flex-col lg:items-center lg:justify-center lg:p-5 xl:p-7">
+          <div className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-5 overflow-hidden bg-card px-8 text-center lg:h-full lg:flex-none lg:max-w-[960px] lg:rounded-toy-lg lg:border lg:border-line lg:shadow-sticker-lg">
+            <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
+              <div className={cx("absolute inset-0", ACCENT_TINT[jam.accent])} />
+              <span className="absolute -right-10 -top-8 rotate-12 select-none text-[11rem] leading-none opacity-[0.04]">
+                {jam.iconEmoji}
+              </span>
+            </div>
+            <EmojiToken emoji={jam.iconEmoji} color="white" size={104} rounded="toy" className="shadow-sticker" />
+            <div className="text-h2 font-extrabold tracking-display text-ink">
+              {jam.name}
+            </div>
+            <Link
+              href={`/u/${jam.maker.username}`}
+              className="focus-ring inline-flex items-center gap-1.5 bg-card border border-line rounded-full px-3.5 py-1.5 text-small font-bold shadow-sticker-sm sticker-press"
+            >
+              <EmojiToken emoji={avatarEmoji(jam.maker.username)} color="green" size={20} />
+              <span className="font-bold">@{jam.maker.username}</span>
+            </Link>
+            {active && !isLoggedIn && (
+              <StickerButton size="lg" onClick={() => openLogin()}>
+                Sign in to play
+              </StickerButton>
+            )}
+          </div>
+        </div>
       )}
     </section>
   );

@@ -1,6 +1,7 @@
-// Toybox sticker primitives (DESIGN_BRIEF §2): chunky 2px ink outlines, hard
-// `0 3px 0` offset shadows, candy fills, press-down on tap. Everything looks
-// like a sticker you could peel off the screen.
+// Sticker primitives — the "Studio" surface: white cards with a 1px hairline +
+// soft ambient shadow, solid clean buttons (no contrasting outline), a subtle
+// scale on press. Refined and editorial, never toy-like. (Names kept as a
+// contract; only the look evolved.)
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cx } from "./cx";
 
@@ -9,19 +10,31 @@ export type StickerColor =
   | "yellow"
   | "green"
   | "blue"
+  | "lavender"
   | "white"
   | "cream"
   | "ink";
 
-const FILL: Record<StickerColor, string> = {
+// Solid fills. `ink` is the default primary (near-black, Studio); `pink` is the
+// one accent (hero CTAs, key highlights). white/cream are quiet secondaries that
+// carry a hairline so they read on the near-white canvas. The colour fills
+// (yellow/green/blue/lavender) are for per-content identity, used sparingly.
+export const FILL: Record<StickerColor, string> = {
+  ink: "bg-ink text-white",
   pink: "bg-pink text-white",
   yellow: "bg-yellow text-ink",
-  green: "bg-green text-ink",
+  green: "bg-green text-white",
   blue: "bg-blue text-white",
-  white: "bg-card text-ink",
-  cream: "bg-cream text-ink",
-  ink: "bg-ink text-cream",
+  lavender: "bg-lavender text-ink",
+  white: "bg-card text-ink border border-line",
+  cream: "bg-paper text-ink border border-line",
 };
+
+// A list/menu row: emoji + label on a hairline card.
+export const actionRow =
+  "flex items-center gap-3 rounded-toy border border-line bg-card p-3 shadow-sticker-sm";
+// Interactive variant — button/link rows that press on tap.
+export const actionRowButton = cx(actionRow, "focus-ring sticker-press w-full text-left");
 
 export interface StickerButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -31,7 +44,7 @@ export interface StickerButtonProps
 }
 
 export function StickerButton({
-  color = "pink",
+  color = "ink",
   size = "md",
   block,
   className,
@@ -39,15 +52,15 @@ export function StickerButton({
   ...rest
 }: StickerButtonProps) {
   const sizes = {
-    sm: "text-sm px-3 py-1.5 rounded-xl shadow-sticker-sm",
-    md: "text-base px-4 min-h-[48px] rounded-toy shadow-sticker-md",
-    lg: "text-lg px-6 min-h-[54px] rounded-toy shadow-sticker-md",
+    sm: "text-sm px-3.5 py-2 rounded-toy",
+    md: "text-base px-5 min-h-[48px] rounded-toy",
+    lg: "text-lg px-7 min-h-[54px] rounded-toy",
   }[size];
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-2 border-2 border-ink font-extrabold",
-        "sticker-press disabled:opacity-50 disabled:active:translate-y-0",
+        "inline-flex items-center justify-center gap-2 font-bold shadow-sticker-sm",
+        "focus-ring sticker-press disabled:opacity-50",
         sizes,
         FILL[color],
         block && "w-full",
@@ -76,7 +89,7 @@ export function StickerCard({
   return (
     <div
       className={cx(
-        "border-2 border-ink rounded-toy-lg shadow-sticker",
+        "border border-line rounded-toy-lg shadow-sticker",
         FILL[color],
         className
       )}
@@ -100,7 +113,7 @@ export function Pill({
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1.5 border-2 border-ink rounded-full px-3 py-1 text-xs font-bold",
+        "inline-flex items-center gap-1.5 border border-line rounded-full px-3 py-1 text-xs font-bold",
         FILL[color],
         className
       )}
@@ -129,8 +142,8 @@ export function EmojiToken({
   return (
     <span
       className={cx(
-        "inline-flex items-center justify-center border-2 border-ink shadow-sticker shrink-0",
-        rounded === "full" ? "rounded-full" : "rounded-2xl",
+        "inline-flex items-center justify-center border border-line shadow-sticker shrink-0",
+        rounded === "full" ? "rounded-full" : "rounded-toy",
         FILL[color],
         className
       )}

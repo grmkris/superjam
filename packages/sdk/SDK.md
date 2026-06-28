@@ -1,24 +1,35 @@
 # SuperJam SDK — how your mini app talks to the platform
 
-You are building ONE screen: a React component that gets `{ sdk, ctx }` as
-props. `sdk` is the bridge to SuperJam; `ctx` is the signed-in player + launch
-context. Everything is async (a `postMessage` round-trip to the host). The SDK
-works identically in the real host and in **standalone mode** (opened outside
-SuperJam — methods fall back to an in-browser mock so the app still runs).
+You are building ONE screen: a `"use client"` Next.js page. It obtains the `sdk`
+by calling `await SuperJam.connect()` (the bridge to SuperJam); `sdk.app.context()`
+returns the signed-in player + launch context. Everything is async (a
+`postMessage` round-trip to the host). The SDK works identically in the real host
+and in **standalone mode** (opened outside SuperJam — methods fall back to an
+in-browser mock so the app still runs).
 
 ```tsx
-import type { SuperJamSdk, AppContext } from "@superjam/sdk";
+"use client";
+import { useEffect, useState } from "react";
+import SuperJam, { type SuperJamSdk, type AppContext } from "@superjam/sdk";
 
-export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext }) {
+export default function Page() {
+  const [sdk, setSdk] = useState<SuperJamSdk | null>(null);
+  const [ctx, setCtx] = useState<AppContext | null>(null);
+  useEffect(() => {
+    // Connect once on mount; ctx comes from the connected sdk.
+    SuperJam.connect().then((s) => { setSdk(s); setCtx(s.app.context()); });
+  }, []);
+  if (!sdk || !ctx) return <main>Loading…</main>;
   // ctx.user.username      — the signed-in player ("kris")
   // ctx.user.walletAddress — their address ("0x…")
   // ctx.user.worldVerified — true if World-ID verified (gate pots on this)
   // ctx.launch             — UNTRUSTED payload from a share link (validate it!)
+  // … your app …
 }
 ```
 
-Allowed imports: `react`, `@superjam/sdk` (types only — the instance comes via
-props), and the curated extras documented in your loaded `skills/*.md`
+Allowed imports: `react`, `@superjam/sdk` (the **default export** `SuperJam` +
+its types), and the curated extras documented in your loaded `skills/*.md`
 (`@react-three/fiber`, `@react-three/drei`, `recharts`, `motion`,
 `canvas-confetti`, `react-qr-code`, `./lib/sfx`, `./lib/game`). **Nothing else
 exists** — never import another package, never `fetch`, never `localStorage`.
@@ -40,6 +51,7 @@ The SDK is your only IO.
 | Generate text / JSON / judge an image | `sdk.ai.chat` |
 | Let the user upload a photo / take a camera shot | `sdk.files.upload` |
 | An escrowed group wager (predictions, match pots, sweepstakes) | `sdk.pot` |
+| Read/write THIS game's own on-chain Arc contract (the builder deployed it) | `sdk.onchain` |
 | A quick host toast | `sdk.ui.toast` |
 | 3D, canvas games, charts, animation, generated art | your loaded `skills/*.md` |
 
@@ -213,6 +225,29 @@ Creator must be `worldVerified`. `resolver:"ai"` ⇒ at the deadline the PLATFOR
 resolves from live data (search-grounded) and auto-pays winners pro-rata + inbox
 "you won X USDC 🎉"; the creator can override any time. Unresolved 48h past
 deadline ⇒ void = full refunds. Requires capability **"payments"**.
+
+## sdk.onchain — read/write THIS game's own Arc contract (onchain games)
+
+Only for jams the builder deployed a contract for (skill `onchain`, capability
+**"onchain"**). The platform resolves YOUR contract by appId — you never pass an
+address. Writes are **gasless** (the platform server wallet, the contract's
+operator, signs + pays Arc gas) and **player-stamped** (it injects the caller as
+the contract fn's first `address player` arg — you pass only the trailing args).
+
+```tsx
+// write a move — returns a real tx hash. fn(address player, …yourArgs); pass only yourArgs.
+const { hash } = await sdk.onchain.write({ fn: "flip", args: [/* guess */ 1] });
+
+// read a view fn — pass any args yourself (these are NOT stamped).
+const [last, won] = await sdk.onchain.read<[string, string]>({
+  fn: "statsOf", args: [ctx.user.walletAddress],
+});
+const wins = BigInt(won);   // big integers come back as decimal STRINGS
+```
+Writes take seconds (server relays) — show a pending state, then re-`read` the new
+state. Wrap in try/catch (`USER_REJECTED`/`BAD_REQUEST`). Gate value-ish or mint
+actions on `ctx.user.worldVerified`. In standalone mode reads/writes hit a local
+mock (fake hashes) so the app still runs.
 
 ## sdk.ui.toast — a quick host-rendered toast
 
@@ -400,6 +435,8 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
 | `pot.stake` | `{ txHash: string }` |
 | `pot.get` | `Pot = { question, options:string[], totals:Record<string,string>, myStake:{option,amount}\|null, status:"open"\|"resolved"\|"void", resolvedOption:string\|null }` |
 | `pot.resolve` | `null` (void) |
+| `onchain.read` | the decoded view result (bigints stringified; tuples as arrays). Params `{ fn, args }` — `appId` host-injected, the contract resolved server-side |
+| `onchain.write` | `{ hash: string }`. Params `{ fn, args }` — the server prepends the verified player as the contract fn's first arg |
 | `ui.toast` | `null` (fire-and-forget) |
 
 Request params per method are defined by `makeBridgeSdk` in `src/index.ts`; the

@@ -7,7 +7,7 @@
     "./deploy": "./src/deploy/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@superjam/shared": "workspace:*",

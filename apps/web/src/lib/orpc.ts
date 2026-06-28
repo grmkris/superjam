@@ -22,15 +22,21 @@ export const serverRpcUrl = (): string =>
 
 export interface ClientOpts {
   url: string;
-  /** Bearer token for protected procedures (the viewer's Dynamic JWT). */
-  getToken?: () => string | null | undefined;
+  /** Bearer token for protected procedures (the viewer's Dynamic JWT). May be
+   *  async: the browser resolver awaits Dynamic init so a request fired before
+   *  the SDK is ready WAITS for the token instead of going out tokenless (401). */
+  getToken?: () =>
+    | string
+    | null
+    | undefined
+    | Promise<string | null | undefined>;
 }
 
 export const createPlatformClient = (opts: ClientOpts): AppRouterClient => {
   const link = new RPCLink({
     url: opts.url,
-    headers: () => {
-      const t = opts.getToken?.();
+    headers: async () => {
+      const t = await opts.getToken?.();
       return t ? { authorization: `Bearer ${t}` } : {};
     },
   });

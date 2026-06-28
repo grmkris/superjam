@@ -1,14 +1,12 @@
-// reviews router (§12/§14). list = PUBLIC; upsert = worldVerified (the gate IS
-// the feature: one review per human per jam, nullifier-backed — no astroturfing);
-// remove = own review only. rating 1-5; ≤280-char text. Wired into appRouter by
-// the integrator.
+// reviews router (§12/§14). list = PUBLIC; upsert = logged-in (one review per
+// user per jam); remove = own review only. rating 1-5; ≤280-char text. Wired into
+// appRouter by the integrator.
 import { AppId, REVIEW_TEXT_MAX } from "@superjam/shared";
 import { z } from "zod";
 import { requireApp } from "../lib/app-context.ts";
 import {
   protectedProcedure,
   publicProcedure,
-  worldVerifiedProcedure,
 } from "../orpc.ts";
 import { createReviewService } from "../services/review-service.ts";
 
@@ -19,7 +17,7 @@ export const reviewsRouter = {
       createReviewService({ db: context.db }).list(input.appId, input.cursor)
     ),
 
-  upsert: worldVerifiedProcedure
+  upsert: protectedProcedure
     .input(
       z.object({
         appId: AppId,

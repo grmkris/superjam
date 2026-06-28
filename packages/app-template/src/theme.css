@@ -1,116 +1,272 @@
-/* SuperJam "Toybox" jam theme — light/playful, ink outlines, sticker shadows,
-   Baloo 2. The CSS var names (--bg --card --text --muted --accent --danger
-   --radius) and the .tj-* class names are the SDK contract: keep them; only
-   values change. --text doubles as the ink color for outlines/shadows
-   (#221A33). Candy accent siblings (use as inline hex when you need variety):
-   #FF4D6D pink (primary) · #FFC940 yellow · #2FD180 green · #4D7CFF blue. */
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap');
+/* SuperJam "Stage" jam theme — immersive, atmospheric DARK. A deep ink-indigo stage
+   with a fixed glow-mesh + faint grain, translucent glass cards, accent glow, and
+   entrance motion. The CSS var names (--bg --card --text --muted --accent --danger
+   --radius) and the .tj-* class names are the SDK contract: keep them; only values
+   change. KEEP IN SYNC with the deployed-tier theme in apps/builder/src/generate.ts
+   (themeCss). Accent siblings (--yellow/--green/--blue) are for per-content identity
+   (chart series, option colors). This PREVIEW tier centers a single card; the deployed
+   tier flows content — that layout delta is the only intended difference. */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&display=swap');
 
 :root {
-  --bg: #FFF4E3;     /* cream paper */
-  --card: #FFFFFF;   /* card face */
-  --text: #221A33;   /* ink — text AND outlines/shadows */
-  --muted: #6B6478;
-  --accent: #FF4D6D; /* candy pink (primary) */
-  --danger: #E5484D;
+  /* Immersive dark stage — not pure black; an ink-indigo with depth. */
+  --bg: #0A0A12;
+  --bg-2: #12121E;
+  /* Glass surfaces — translucent light over the stage. */
+  --card: rgba(255, 255, 255, 0.045);
+  --card-border: rgba(255, 255, 255, 0.10);
+  --card-highlight: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.10);
+  /* Ink — light on dark. */
+  --text: #F5F4FA;
+  --muted: #9B97AD;
+  /* Accents — brand pink kept; the rest brightened so they glow on dark. */
+  --accent: #FF4767;
+  --yellow: #F5B53C;
+  --green: #18C480;
+  --blue: #5B7BFF;
+  --danger: #FF5A5F;
   --radius: 16px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 24px 60px -22px rgba(0, 0, 0, 0.65);
+  --glow-accent: 0 10px 30px -6px rgba(255, 71, 103, 0.55), 0 0 0 1px rgba(255, 71, 103, 0.28);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 * { box-sizing: border-box; }
 html, body { -webkit-tap-highlight-color: transparent; }
 body {
   margin: 0;
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
-  background: var(--bg);
+  font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   color: var(--text);
   display: grid;
   place-items: center;
   min-height: 100vh;
   min-height: 100dvh;
   padding: 16px;
+  /* The atmosphere: a fixed glow-mesh over the ink stage + a faint film grain. */
+  background-color: var(--bg);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E"),
+    radial-gradient(60% 50% at 12% -5%, rgba(255, 71, 103, 0.22), transparent 70%),
+    radial-gradient(55% 45% at 100% 8%, rgba(91, 123, 255, 0.20), transparent 72%),
+    radial-gradient(60% 50% at 50% 108%, rgba(24, 196, 128, 0.12), transparent 72%);
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed, fixed;
+  background-size: 140px 140px, auto, auto, auto;
 }
 #root { width: 100%; display: grid; place-items: center; }
+
+/* Responsive readable column — mobile-first, widens on desktop. Wrap a content
+   jam's screen in this so it uses the space instead of a skinny phone strip. */
+.tj-app { width: 100%; max-width: 480px; margin: 0 auto; }
+@media (min-width: 768px) {
+  .tj-app { max-width: 720px; }
+}
 
 /* ── Surfaces ───────────────────────────────────────────────────────────── */
 .tj-card {
   background: var(--card);
-  border: 2px solid var(--text);
+  border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 24px;
   width: 100%;
-  max-width: 380px;
-  box-shadow: 0 4px 0 var(--text);
+  max-width: 480px;
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--shadow), inset 0 1px 0 var(--card-highlight);
 }
-.tj-title { margin: 0 0 4px; font-size: 24px; font-weight: 800; line-height: 1.1; }
-.tj-sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; font-weight: 600; }
+/* a card placed inside a wide .tj-app should fill the column, not re-cap itself */
+.tj-app .tj-card { max-width: none; }
+@media (min-width: 768px) {
+  .tj-card { max-width: 560px; }
+}
+.tj-card + .tj-card { margin-top: 14px; }
+
+/* Opening toolkit — pick the one that FITS the app (never a bright full-bleed banner):
+   • .tj-hero     — a glowing TITLE on the dark stage (no slab): gradient-clipped title
+     + a soft radial glow that melts into --bg. Title-screen open for generators/quizzes.
+   • .tj-hero-art — a baked image whose edges FADE into the dark (mask), title overlaid.
+   • (no opening) — games & polls open on the HUD / ballot with a compact .tj-header. */
+.tj-hero {
+  position: relative;
+  margin: 4px 0 18px;
+  padding: 22px 12px 8px;
+  text-align: center;
+  background: radial-gradient(60% 78% at 50% 22%, rgba(255, 71, 103, 0.16), rgba(91, 123, 255, 0.09) 50%, transparent 72%);
+}
+.tj-hero .tj-title {
+  font-size: 34px; line-height: 1.04; letter-spacing: -0.03em;
+  background: linear-gradient(120deg, #fff 8%, var(--accent) 52%, var(--blue));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 22px rgba(255, 71, 103, 0.30));
+}
+.tj-hero .tj-sub { color: var(--muted); margin-top: 6px; }
+@media (min-width: 768px) {
+  .tj-hero { padding: 32px 12px 10px; }
+  .tj-hero .tj-title { font-size: 44px; }
+}
+
+/* Art opening — a baked hero image that melts into the stage at its edges. Put an
+   <img src="/hero.png"> (or a .tj-hero-bg div) as the FIRST child, then .tj-title/.tj-sub. */
+.tj-hero-art {
+  position: relative; overflow: hidden;
+  margin: -24px -24px 18px;
+  min-height: 200px;
+  display: grid; align-content: end; justify-items: center; gap: 2px;
+  padding: 22px 20px 18px; text-align: center;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.tj-hero-art > img, .tj-hero-art > .tj-hero-bg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; z-index: 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 35%, transparent 97%);
+  mask-image: linear-gradient(to bottom, #000 35%, transparent 97%);
+}
+.tj-hero-art > .tj-title, .tj-hero-art > .tj-sub { position: relative; z-index: 1; }
+.tj-hero-art .tj-title { color: #fff; font-size: 32px; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6); }
+.tj-hero-art .tj-sub { color: rgba(255, 255, 255, 0.85); }
+
+/* Header row — emoji chip + title/sub (+ optional right slot via .tj-spacer). */
+.tj-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.tj-emoji {
+  flex: none; display: grid; place-items: center;
+  width: 46px; height: 46px; font-size: 26px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border); border-radius: 13px;
+  box-shadow: inset 0 1px 0 var(--card-highlight);
+}
+.tj-htext { min-width: 0; }
+.tj-spacer { margin-left: auto; }
+
+.tj-title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.1; letter-spacing: -0.025em; }
+.tj-sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; font-weight: 500; }
 .tj-muted { color: var(--muted); }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
-/* tj-btn = the default candy button. tj-btn-primary is an explicit alias (same
-   look). tj-btn-ghost = outline-only secondary. Combine: class="tj-btn tj-btn-ghost". */
+/* tj-btn = the accent primary (glow). tj-btn-ghost = glass secondary.
+   tj-btn-yellow/green/blue = content-color variants. */
 .tj-btn {
   background: var(--accent);
   color: #fff;
-  border: 2px solid var(--text);
+  border: none;
   border-radius: 12px;
-  padding: 12px 16px;
-  font-weight: 800;
+  padding: 13px 18px;
+  font-weight: 700;
   cursor: pointer;
   font-size: 15px;
   font-family: inherit;
-  box-shadow: 0 3px 0 var(--text);
-  transition: transform .04s ease, box-shadow .04s ease;
+  letter-spacing: -0.01em;
+  box-shadow: var(--glow-accent);
+  transition: transform .16s var(--ease-spring), box-shadow .16s var(--ease-out), filter .14s ease;
 }
-.tj-btn:active { transform: translateY(3px); box-shadow: 0 0 0 var(--text); }
-.tj-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: 0 3px 0 var(--text); transform: none; }
+.tj-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.tj-btn:active { transform: scale(0.97); }
+.tj-btn:disabled { background: rgba(255, 255, 255, 0.07); color: var(--muted); cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
 .tj-btn-primary { background: var(--accent); color: #fff; }
-.tj-btn-ghost { background: var(--card); color: var(--text); }
-.tj-btn-ghost:active { transform: translateY(3px); }
+.tj-btn-ghost { background: rgba(255, 255, 255, 0.05); color: var(--text); border: 1px solid var(--card-border); box-shadow: inset 0 1px 0 var(--card-highlight); }
+.tj-btn-ghost:hover { background: rgba(255, 255, 255, 0.09); }
+.tj-btn-yellow { background: var(--yellow); color: #1a1410; box-shadow: 0 10px 30px -6px rgba(245, 181, 60, 0.5); }
+.tj-btn-green { background: var(--green); color: #042016; box-shadow: 0 10px 30px -6px rgba(24, 196, 128, 0.5); }
+.tj-btn-blue { background: var(--blue); color: #fff; box-shadow: 0 10px 30px -6px rgba(91, 123, 255, 0.5); }
+.tj-btn-block { display: block; width: 100%; }
 
 /* ── Inputs ─────────────────────────────────────────────────────────────── */
 .tj-input {
   width: 100%;
-  background: #fff;
-  border: 2px solid var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border);
   color: var(--text);
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   font-size: 14px;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 500;
+  transition: border-color .12s ease, box-shadow .12s ease, background .12s ease;
 }
-.tj-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tj-input::placeholder { color: var(--muted); }
+.tj-input:focus { outline: none; border-color: var(--accent); background: rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* ── Segmented choice picker — a row/grid of glass options; the picked one fills with
+   accent + glow. Use aria-pressed={selected} (or add .is-on) on each .tj-choice. ── */
+.tj-choices { display: grid; gap: 8px; }
+.tj-choices.tj-cols-2 { grid-template-columns: 1fr 1fr; }
+.tj-choice {
+  appearance: none; cursor: pointer; text-align: center;
+  background: rgba(255, 255, 255, 0.05); color: var(--text);
+  border: 1px solid var(--card-border); border-radius: 12px;
+  padding: 14px; font-family: inherit; font-weight: 600; font-size: 15px;
+  letter-spacing: -0.01em;
+  box-shadow: inset 0 1px 0 var(--card-highlight);
+  transition: transform .16s var(--ease-spring), box-shadow .16s var(--ease-out), border-color .12s ease, background .12s ease;
+}
+.tj-choice:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.2); }
+.tj-choice:active { transform: scale(0.98); }
+.tj-choice[aria-pressed="true"], .tj-choice.is-on { background: var(--accent); color: #fff; border-color: transparent; box-shadow: var(--glow-accent); }
+.tj-choice:disabled { cursor: default; }
+
+/* ── Result / progress bar — dark track with a glowing gradient fill. ──────── */
+.tj-bar {
+  position: relative; height: 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border); border-radius: 11px;
+  overflow: hidden;
+}
+.tj-bar-fill {
+  position: absolute; inset: 0 auto 0 0; width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--blue));
+  box-shadow: 0 0 24px -2px var(--accent);
+  transition: width .55s var(--ease-out);
+}
+.tj-bar-label {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 0 12px;
+  font-weight: 700; font-size: 13px;
+}
 
 /* ── Layout helpers ─────────────────────────────────────────────────────── */
 .tj-row { display: flex; gap: 8px; align-items: center; }
 .tj-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Responsive collection grid — 1 col on phones, auto-fills more as it widens.
+   The responsive default for galleries / item lists / card decks. */
+.tj-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .tj-center { display: grid; place-items: center; text-align: center; gap: 8px; }
-.tj-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.tj-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
 .tj-list > li { display: flex; gap: 8px; align-items: center; }
 
 /* ── Bits ───────────────────────────────────────────────────────────────── */
-.tj-stat { font-size: 40px; font-weight: 800; line-height: 1; }
+/* Big stat reads as a glowing gradient numeral — a small wow moment. */
+.tj-stat {
+  font-size: 46px; font-weight: 800; line-height: 1; letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #fff, var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
 .tj-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  background: var(--bg);
-  border: 2px solid var(--text);
-  border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 12px;
-  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--card-border); border-radius: 999px;
+  padding: 3px 11px; font-size: 12px; font-weight: 600;
+}
+.tj-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--accent); color: #fff; border-radius: 999px;
+  padding: 3px 11px; font-size: 12px; font-weight: 700;
+  box-shadow: var(--glow-accent);
 }
 .tj-empty {
   display: grid; place-items: center; gap: 6px;
   padding: 28px 12px;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 500;
   text-align: center;
 }
 
 /* ── Spinner ────────────────────────────────────────────────────────────── */
 .tj-spin {
   width: 22px; height: 22px;
-  border: 3px solid var(--bg);
+  border: 3px solid rgba(255, 255, 255, 0.12);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: tj-rot .7s linear infinite;
@@ -123,8 +279,35 @@ body {
 .tj-hud { position: absolute; inset: 0; pointer-events: none; }
 .tj-hud > * { pointer-events: auto; }
 
+/* ── Entrance choreography — content RISES in; .tj-stagger cascades its children. ── */
+@keyframes tj-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.tj-rise { animation: tj-rise .55s var(--ease-out) both; }
+.tj-stagger > * { animation: tj-rise .55s var(--ease-out) both; }
+.tj-stagger > *:nth-child(1) { animation-delay: .04s; }
+.tj-stagger > *:nth-child(2) { animation-delay: .10s; }
+.tj-stagger > *:nth-child(3) { animation-delay: .16s; }
+.tj-stagger > *:nth-child(4) { animation-delay: .22s; }
+.tj-stagger > *:nth-child(5) { animation-delay: .28s; }
+.tj-stagger > *:nth-child(6) { animation-delay: .34s; }
+.tj-stagger > *:nth-child(n+7) { animation-delay: .40s; }
+
+.tj-glow { box-shadow: var(--glow-accent); }
+@keyframes tj-shimmer { to { background-position: 200% 0; } }
+.tj-shimmer {
+  background-image: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: tj-shimmer 2.4s linear infinite;
+}
+
 /* ── Juice (event-driven one-shots; key the element to replay) ──────────── */
 @keyframes tj-pop { 50% { transform: scale(1.25); } }
 .tj-pop { animation: tj-pop 0.18s ease; }
 @keyframes tj-shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 .tj-shake { animation: tj-shake 0.15s linear 2; }
+@keyframes tj-celebrate { 0% { transform: scale(.8); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+.tj-celebrate { animation: tj-celebrate .5s var(--ease-spring) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tj-rise, .tj-stagger > *, .tj-celebrate { animation: none; }
+  .tj-shimmer { animation: none; }
+}

@@ -6,8 +6,8 @@ import { cx } from "./ui/cx";
 export type NameTagState = "minted" | "pending" | "absent";
 
 const HOLE_COLOR: Record<Exclude<NameTagState, "absent">, string> = {
-  minted: "bg-yellow border-ink",
-  pending: "bg-card border-muted border-dashed",
+  minted: "bg-ink border-line",
+  pending: "bg-card border-line border-dashed",
 };
 
 export function NameTag({
@@ -33,7 +33,7 @@ export function NameTag({
     <span
       className={cx(
         // tag shape: punched hole on the left, rounded on the right
-        "inline-flex items-center gap-1.5 border-2 border-ink bg-card",
+        "inline-flex items-center gap-1.5 border border-line bg-card",
         "rounded-l-md rounded-r-full pl-2 pr-2.5 py-1 max-w-full",
         state === "pending" && "opacity-70",
         className
@@ -41,11 +41,11 @@ export function NameTag({
     >
       <span
         className={cx(
-          "w-[7px] h-[7px] rounded-full border-[1.5px] shrink-0",
+          "w-[7px] h-[7px] rounded-full border shrink-0",
           HOLE_COLOR[state]
         )}
       />
-      <span className="font-mono text-[11px] font-bold truncate">
+      <span className="font-mono text-tiny font-bold truncate">
         {label}
         {rest && <span className="text-muted font-medium">{rest}</span>}
       </span>

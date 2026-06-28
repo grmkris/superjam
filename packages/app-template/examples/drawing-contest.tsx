@@ -29,7 +29,7 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
     const c = cv.current; if (!c) return;
     const r = c.getBoundingClientRect();
     const g = c.getContext("2d")!;
-    g.fillStyle = "#221A33";
+    g.fillStyle = "#18151D";
     g.beginPath();
     g.arc(((e.clientX - r.left) / r.width) * c.width, ((e.clientY - r.top) / r.height) * c.height, 5, 0, 7);
     g.fill();
@@ -90,7 +90,7 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
       </ul>
 
       {gallery.length > 0 && (
-        <div className="tj-grid2" style={{ marginTop: 12 }}>
+        <div className="tj-gallery" style={{ marginTop: 12 }}>
           {gallery.map((d) => (
             <div key={d.id} className="tj-card" style={{ padding: 8, maxWidth: "unset" }}>
               <img src={String(d.data.url)} alt="" style={{ width: "100%", borderRadius: 8, display: "block" }} />

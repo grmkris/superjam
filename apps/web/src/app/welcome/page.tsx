@@ -4,14 +4,18 @@
 //   1) email in → a wallet appears (Dynamic, %67's seam — we open setShowAuthFlow)
 //   2) claim your name → kris.superjam.fun, and every jam hangs under it
 // Machinery hidden: no "wallet" jargon, no seed phrase, no crypto talk.
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useInitStatus } from "@dynamic-labs-sdk/react-hooks";
 import { RESERVED_LABELS } from "@superjam/shared";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ROOT, userEns } from "../../components/ui/brand";
 import { cx } from "../../components/ui/cx";
+import { Badge } from "../../components/ui/badge";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
+import { SparkMark } from "../../components/ui/nav-icons";
+import { JamBackdrop } from "../../components/ui/jam-backdrop";
+import { signInWithGoogle, useLogin } from "../../components/login";
 import { useHostAuth } from "../../lib/use-host-auth";
+import { usePlatformClient } from "../../components/use-platform-client";
 
 type Step = "email" | "claim";
 
@@ -30,16 +34,32 @@ function nameState(raw: string): NameState {
 
 export default function WelcomePage() {
   const router = useRouter();
-  const { setShowAuthFlow, sdkHasLoaded } = useDynamicContext();
+  const { openLogin: startLogin } = useLogin();
+  const { data: initStatus } = useInitStatus();
   const { isLoggedIn, hostUser } = useHostAuth();
+  const client = usePlatformClient();
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   // did the user drive a fresh login in THIS session? distinguishes a
   // first-timer (→ claim) from a returning user (→ straight to Discover).
   const droveLogin = useRef(false);
+  // Where to land after sign-in — the route the gate bounced them from
+  // (?next=). Internal paths only (no open-redirect, no /welcome loop).
+  const nextRef = useRef<string>("/");
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("next");
+    nextRef.current =
+      raw && raw.startsWith("/") && !raw.startsWith("//") && raw !== "/welcome"
+        ? raw
+        : "/";
+  }, []);
   const [name, setName] = useState("");
   const [claiming, setClaiming] = useState(false);
+  // server-checked availability for the typed handle (format-gated, debounced).
+  const [avail, setAvail] = useState<
+    "idle" | "checking" | "available" | "taken"
+  >("idle");
 
   // Route on auth changes.
   useEffect(() => {
@@ -47,7 +67,7 @@ export default function WelcomePage() {
     if (droveLogin.current) {
       setStep("claim");
     } else {
-      router.replace("/");
+      router.replace(nextRef.current);
     }
   }, [isLoggedIn, router]);
 
@@ -58,43 +78,81 @@ export default function WelcomePage() {
 
   const openLogin = () => {
     droveLogin.current = true;
-    setShowAuthFlow(true);
+    startLogin(email);
   };
 
-  const state = nameState(name);
-  const fullEns = userEns(name.trim().toLowerCase() || "your-name");
+  // Live availability — debounced, server-authoritative (format gate first).
+  useEffect(() => {
+    const n = name.trim().toLowerCase();
+    if (nameState(n) !== "available") {
+      setAvail("idle");
+      return;
+    }
+    setAvail("checking");
+    let cancelled = false;
+    const t = setTimeout(() => {
+      client.profile
+        .usernameAvailable({ username: n })
+        .then((r) => {
+          if (!cancelled) setAvail(r.ok ? "available" : "taken");
+        })
+        .catch(() => {
+          if (!cancelled) setAvail("idle");
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [name, client]);
+
+  // Effective chip/claim state: format first, then the server verdict — don't
+  // flash "✓ free" until the server confirms uniqueness.
+  const fmt = nameState(name);
+  const state: NameState =
+    fmt !== "available"
+      ? fmt
+      : avail === "available"
+        ? "available"
+        : avail === "taken"
+          ? "taken"
+          : "typing";
+  const handle = name.trim().toLowerCase() || "your-name";
 
   const claim = async () => {
     if (state !== "available") return;
     setClaiming(true);
-    // TODO(seam %67/C): persist a custom handle + trigger the ENS mint
-    // (profile.claimName → ensureUserNode). The handle is auto-derived on first
-    // login today, so the name is already usable; we proceed into Discover.
-    router.push("/");
+    try {
+      await client.profile.claimUsername({
+        username: name.trim().toLowerCase(),
+      });
+      router.push(nextRef.current);
+    } catch {
+      // taken / invalid — surface on the chip and let them pick another.
+      setAvail("taken");
+      setClaiming(false);
+    }
   };
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col bg-cream text-ink overflow-hidden">
-      {/* floating toy stickers */}
-      <span className="pointer-events-none absolute top-28 left-8 text-xl rotate-[-12deg]">🧸</span>
-      <span className="pointer-events-none absolute top-40 right-9 text-lg rotate-[10deg]">🎯</span>
-      <span className="pointer-events-none absolute top-64 left-12 text-sm rotate-[8deg]">✨</span>
-      <span className="pointer-events-none absolute bottom-40 right-10 text-lg rotate-[-8deg]">🏷️</span>
+      {/* slide-1 floating jam tiles + sparkles, behind the sign-in card */}
+      <JamBackdrop />
 
-      <div className="relative flex flex-1 flex-col justify-center gap-6 px-7 py-16">
+      <div className="relative z-10 mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center gap-6 px-5 py-16">
         {step === "email" ? (
           <EmailBeat
             email={email}
             setEmail={setEmail}
             onContinue={openLogin}
-            ready={sdkHasLoaded}
+            ready={initStatus === "finished"}
           />
         ) : (
           <ClaimBeat
             name={name}
             setName={setName}
             state={state}
-            fullEns={fullEns}
+            handle={handle}
             onClaim={claim}
             claiming={claiming}
           />
@@ -117,19 +175,34 @@ function EmailBeat({
 }) {
   return (
     <>
-      <div className="flex flex-col items-center gap-2.5">
-        <EmojiToken emoji="⚡" color="yellow" size={84} tilt={-6} className="shadow-sticker-lg" />
-        <div className="flex flex-col items-center gap-0.5">
-          <div className="text-3xl font-extrabold">superjam</div>
-          <div className="text-pink text-[15px] font-semibold">
+      <div className="flex flex-col items-center gap-4">
+        <span className="inline-flex size-[84px] items-center justify-center rounded-toy-lg border border-line bg-card shadow-sticker-lg">
+          <SparkMark width={42} height={42} aria-hidden />
+        </span>
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="text-hero font-extrabold tracking-display leading-none">SuperJam</div>
+          <div className="text-muted text-body font-medium">
             make a jam. share the jam.
           </div>
         </div>
       </div>
 
-      <StickerCard className="p-5 flex flex-col gap-3 shadow-sticker-lg" tilt={0}>
-        <div className="text-center text-[14.5px] font-bold">
-          Hop in — just your email
+      <StickerCard className="p-6 flex flex-col gap-4 shadow-sticker-lg" tilt={0}>
+        <div className="text-center text-body font-bold">Hop in</div>
+        <StickerButton
+          type="button"
+          color="white"
+          size="lg"
+          block
+          disabled={!ready}
+          onClick={() => void signInWithGoogle()}
+        >
+          Continue with Google
+        </StickerButton>
+        <div className="flex items-center gap-3 text-tiny font-bold uppercase tracking-wide text-faint">
+          <span className="h-px flex-1 bg-line" />
+          or
+          <span className="h-px flex-1 bg-line" />
         </div>
         <form
           onSubmit={(e) => {
@@ -142,16 +215,17 @@ function EmailBeat({
             type="email"
             inputMode="email"
             autoComplete="email"
+            aria-label="Email address"
             placeholder="your email…"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="bg-cream border-2 border-ink rounded-toy px-4 py-3.5 text-[15px] font-semibold placeholder:text-muted outline-none focus:border-pink"
+            className="bg-cream border border-line rounded-toy px-4 py-3.5 text-body font-semibold placeholder:text-muted outline-none focus:border-pink"
           />
-          <StickerButton type="submit" color="pink" size="lg" block disabled={!ready}>
+          <StickerButton type="submit" size="lg" block disabled={!ready}>
             Continue →
           </StickerButton>
         </form>
-        <div className="text-center text-xs font-medium text-muted leading-snug px-1">
+        <div className="text-center text-tiny font-medium text-muted leading-snug px-1">
           a wallet appears with it — nothing to install, no seed phrase, no
           extension.
         </div>
@@ -164,14 +238,14 @@ function ClaimBeat({
   name,
   setName,
   state,
-  fullEns,
+  handle,
   onClaim,
   claiming,
 }: {
   name: string;
   setName: (v: string) => void;
   state: NameState;
-  fullEns: string;
+  handle: string;
   onClaim: () => void;
   claiming: boolean;
 }) {
@@ -180,77 +254,72 @@ function ClaimBeat({
     <>
       <div className="flex flex-col items-center gap-2">
         <EmojiToken emoji="🙂" color="green" size={72} rounded="toy" tilt={-6} />
-        <div className="text-[30px] font-extrabold leading-tight text-center">
+        <div className="text-h1 font-extrabold text-center">
           Claim your name
         </div>
-        <div className="text-[14.5px] font-medium text-muted text-center">
-          it's yours on the chain — forever
+        <div className="text-body font-medium text-muted text-center">
+          it's yours — your @handle on SuperJam
         </div>
       </div>
 
-      <StickerCard className="p-5 flex flex-col gap-3 shadow-sticker-lg">
+      <StickerCard className="p-6 flex flex-col gap-4 shadow-sticker-lg">
         {/* name-tag styled input */}
         <div
           className={cx(
-            "flex items-center bg-cream border-2 rounded-toy px-3.5 py-3 gap-0.5",
-            state === "available"
-              ? "border-ink"
-              : state === "invalid" || state === "taken"
-                ? "border-pink"
-                : "border-ink"
+            "flex items-center bg-cream border rounded-toy px-3.5 py-3 gap-0.5",
+            state === "invalid" || state === "taken"
+              ? "border-pink"
+              : "border-line"
           )}
         >
+          <span className="font-mono text-body font-medium text-muted">@</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value.toLowerCase())}
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
+            aria-label="Your name"
             placeholder="your-name"
-            className="font-mono text-[14.5px] font-bold bg-transparent outline-none w-[7.5ch] min-w-0"
+            className="font-mono text-body font-bold bg-transparent outline-none flex-1 min-w-0"
           />
-          <span className="inline-block w-0.5 h-4 bg-pink" />
-          <span className="font-mono text-[14.5px] font-medium text-muted">
-            .{ROOT}
-          </span>
           <span className="ml-auto">{availChip(state)}</span>
         </div>
 
         {/* every jam hangs under it */}
-        <div className="bg-cream border-2 border-ink rounded-xl px-3 py-2.5 flex flex-col gap-2">
-          <div className="text-[11px] font-extrabold uppercase tracking-wide text-muted">
+        <div className="bg-cream border border-line rounded-toy px-3 py-2.5 flex flex-col gap-2">
+          <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             Every jam you make hangs under it
           </div>
           {previews.map((p, i) => (
             <div key={p} className="flex items-center gap-1.5">
               <span
                 className={cx(
-                  "w-1.5 h-1.5 rounded-full border-[1.5px] border-ink shrink-0",
+                  "size-1.5 rounded-full border border-line shrink-0",
                   i === 0 ? "bg-yellow" : "bg-blue"
                 )}
               />
-              <span className="font-mono text-[12px] font-semibold">
+              <span className="font-mono text-small font-semibold">
+                <span className="text-muted">@{handle}/</span>
                 {p}
-                <span className="text-muted">.{fullEns}</span>
               </span>
             </div>
           ))}
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full border-[1.5px] border-dashed border-muted bg-card shrink-0" />
-            <span className="font-mono text-[12px] font-semibold text-muted">
-              your-next-jam.{fullEns}
+            <span className="size-1.5 rounded-full border border-dashed border-muted bg-card shrink-0" />
+            <span className="font-mono text-small font-semibold text-muted">
+              @{handle}/your-next-jam
             </span>
           </div>
         </div>
 
         <StickerButton
-          color="blue"
           size="lg"
           block
           onClick={onClaim}
           disabled={state !== "available" || claiming}
         >
-          {claiming ? "Claiming…" : "That's me! ⛓️"}
+          {claiming ? "Claiming…" : "That's me!"}
         </StickerButton>
       </StickerCard>
     </>
@@ -260,20 +329,12 @@ function ClaimBeat({
 function availChip(state: NameState) {
   switch (state) {
     case "available":
-      return (
-        <span className="inline-flex items-center gap-1 bg-green border-2 border-ink rounded-full px-2.5 py-0.5 text-[11px] font-extrabold">
-          ✓ free
-        </span>
-      );
+      return <Badge color="green">✓ free</Badge>;
     case "taken":
-      return (
-        <span className="inline-flex items-center gap-1 bg-pink text-white border-2 border-ink rounded-full px-2.5 py-0.5 text-[11px] font-extrabold">
-          taken
-        </span>
-      );
+      return <Badge color="pink">taken</Badge>;
     case "invalid":
       return (
-        <span className="text-[11px] font-bold text-pink">a–z, 0–9, –</span>
+        <span className="text-tiny font-bold text-pink">a–z, 0–9, –</span>
       );
     default:
       return null;

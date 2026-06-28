@@ -19,7 +19,7 @@ const result: DeployResult = {
     category: "tool",
     capabilities: [],
   },
-  vercelProjectId: "prj_1",
+  vercelProject: "prj_1",
   durationMs: 1,
 };
 
@@ -90,9 +90,9 @@ describe("createRemoteTeardowner", () => {
       return new Response(JSON.stringify(teardownResult), { status: 200 });
     };
     const teardown = createRemoteTeardowner({ url: "http://builder", token: "t", fetchImpl });
-    const out = await teardown({ vercelProjectId: "prj_1" });
+    const out = await teardown({ vercelProject: "prj_1" });
     expect(out).toEqual(teardownResult);
-    expect(sentBody).toEqual({ vercelProjectId: "prj_1" });
+    expect(sentBody).toEqual({ vercelProject: "prj_1" });
   });
 
   test("a non-2xx response rejects", async () => {

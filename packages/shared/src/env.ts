@@ -8,8 +8,6 @@
 import { z } from "zod";
 import { ENVIRONMENTS } from "./service-urls.ts";
 
-export const BUILDER_MODES = ["remote", "agent", "oneshot"] as const;
-
 const optionalStr = z.string().min(1).optional();
 
 export const serverEnvSchema = z.object({
@@ -29,10 +27,9 @@ export const serverEnvSchema = z.object({
   // AI — platform is Gemini-only (refine + in-app sdk.ai). No Anthropic key:
   // builder codegen rides the subscription-authed `claude` CLI on the VPS (§18).
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
-  FAL_KEY: optionalStr,
 
-  // builder
-  BUILDER_MODE: z.enum(BUILDER_MODES).default("remote"),
+  // builder dispatch — the house builder's endpoint + token (builds.create POSTs
+  // the spec here). Absent ⇒ builds.create rejects ("no builder configured").
   BUILDER_URL: optionalStr,
   BUILDER_TOKEN: optionalStr,
 
@@ -40,6 +37,11 @@ export const serverEnvSchema = z.object({
   // server-wallet signer) stays optional until the chain lane provisions it.
   DYNAMIC_ENVIRONMENT_ID: z.string().min(1),
   DYNAMIC_API_TOKEN: optionalStr,
+  // Delegated access (server signs AS the user): RSA PKCS8 PEM that decrypts the
+  // webhook key shares + the HMAC secret that authenticates the webhook. Absent ⇒
+  // the delegation webhook + delegated-pay paths stay disabled (degrade, never crash).
+  DYNAMIC_DELEGATION_PRIVATE_KEY: optionalStr,
+  DYNAMIC_WEBHOOK_SECRET: optionalStr,
 
   // app identity token — the platform MINTS these (ES256) so an external,
   // developer-hosted mini-app's backend can verify the SuperJam user against
@@ -48,31 +50,22 @@ export const serverEnvSchema = z.object({
   APP_JWT_PUBLIC_KEY: z.string().min(1), // ES256 SPKI PEM (published in the JWKS)
   APP_JWT_KID: z.string().min(1).default("sj-app"), // stable key id for rotation
 
-  // World
-  WORLD_APP_ID: optionalStr,
-  WORLD_ACTION: z.string().default("publish-app"),
-
   // ENS / onchain
-  ENS_L2_REGISTRY: optionalStr,
-  ENS_PARENT_NODE: optionalStr,
-  ERC8004_REGISTRY: optionalStr,
+  // ENSv2-native (resolvable in standard ENS tooling): SuperjamRegistry on
+  // Sepolia L1 + the dedicated ENS-admin signer that owns it (distinct from the
+  // Dynamic payment wallet). Absent ⇒ the v2 mint degrades (build unaffected).
+  ENS_V2_REGISTRY: optionalStr,
+  ENS_V2_SIGNER_KEY: optionalStr,
   TREASURY_ADDRESS: optionalStr,
-  BASE_SEPOLIA_RPC_URL: optionalStr,
+  // Sepolia L1 RPC — the identity chain (ENSv2 naming).
   SEPOLIA_RPC_URL: optionalStr,
   ARC_RPC_URL: optionalStr,
-
-  // privacy rail (gated)
-  UNLINK_API_KEY: optionalStr,
-  UNLINK_APP_ID: optionalStr,
-  CIRCLE_GATEWAY_API_KEY: optionalStr,
-  ARC_PAYER_EOA_KEY: optionalStr,
 });
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
 export const webEnvSchema = z.object({
   NEXT_PUBLIC_APP_ENV: z.enum(ENVIRONMENTS),
   NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: optionalStr,
-  NEXT_PUBLIC_WORLD_APP_ID: optionalStr,
 });
 export type WebEnv = z.infer<typeof webEnvSchema>;
 

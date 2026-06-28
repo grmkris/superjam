@@ -12,26 +12,27 @@ import { z } from "zod";
 import { requireApp } from "../lib/app-context.ts";
 import { isUniqueViolation } from "../lib/db-errors.ts";
 import { tryOnchain } from "../lib/onchain-errors.ts";
-import { worldVerifiedProcedure } from "../orpc.ts";
+import { TxHash } from "../lib/validators.ts";
+import { protectedProcedure } from "../orpc.ts";
 
 const { app, publishPayment } = schema;
-const TxHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid tx hash");
 
 export const publishRouter = {
-  submit: worldVerifiedProcedure
+  submit: protectedProcedure
     .input(z.object({ appId: AppId, txHash: TxHash }))
     .handler(async ({ context, input }) => {
       const row = await requireApp(context.db, input.appId);
       if (row.ownerUserId !== context.user.id) {
         throw new ORPCError("FORBIDDEN", { message: "Not your app" });
       }
+      // Verify the publish fee landed on-chain (Transfer log → treasury, from the
+      // owner's wallet) before listing.
       if (!context.treasuryAddress) {
         throw new ORPCError("INTERNAL", { message: "Treasury not configured" });
       }
       if (!context.user.walletAddress) {
         throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
       }
-
       const { from } = await tryOnchain(() =>
         context.onchain.verifyUsdcTransfer({
           hash: input.txHash as Hex,

@@ -7,6 +7,11 @@ import type { Address, Hex } from "viem";
 export interface MockOnchain extends Onchain {
   /** Every sendUsdc call, in order — assert payout count/amounts/idempotency. */
   sends: { to: Address; value: Usdc }[];
+  /** Every game.write (onchain-game move) call, in order — assert the player
+   *  was stamped + the target address pinned to the app's own contract. */
+  gameWrites: { address: Address; functionName: string; args: readonly unknown[] }[];
+  /** Override what game.read returns (default: 0n). */
+  setGameRead(fn: () => unknown): void;
   /** Override the next verifyUsdcTransfer result (or make it throw). */
   setVerify(fn: NonNullable<MockOnchainOptions["verify"]>): void;
 }
@@ -18,7 +23,6 @@ export interface MockOnchainOptions {
     expectedTo: Address;
     minAmount: Usdc;
   }) => Promise<{ from: Address; value: Usdc }>;
-  unlinkAvailable?: boolean;
 }
 
 let sendSeq = 0;
@@ -31,6 +35,8 @@ export const createMockOnchain = (
   opts: MockOnchainOptions = {}
 ): MockOnchain => {
   const sends: { to: Address; value: Usdc }[] = [];
+  const gameWrites: { address: Address; functionName: string; args: readonly unknown[] }[] = [];
+  let gameRead: () => unknown = () => 0n;
   let verify =
     opts.verify ??
     (async () => {
@@ -41,14 +47,19 @@ export const createMockOnchain = (
     serverAddress:
       opts.serverAddress ?? "0x000000000000000000000000000000000000eeee",
     sends,
+    gameWrites,
+    game: {
+      read: async () => gameRead(),
+      write: async ({ address, functionName, args = [] }) => {
+        gameWrites.push({ address, functionName, args });
+        return fakeHash();
+      },
+    },
+    setGameRead(fn) {
+      gameRead = fn;
+    },
     setVerify(fn) {
       verify = fn;
-    },
-    unlink: {
-      available: opts.unlinkAvailable ?? false,
-      privateTransfer: async () => ({ hash: fakeHash() }),
-      faucetPrivateTokens: async () => ({ hash: fakeHash() }),
-      payX402: async () => ({ hash: fakeHash() }),
     },
     verifyUsdcTransfer: (params) =>
       verify({ expectedTo: params.expectedTo, minAmount: params.minAmount }),
@@ -58,17 +69,12 @@ export const createMockOnchain = (
       sends.push({ to, value });
       return fakeHash();
     },
-    ensureUserNode: async (username) => ({
-      name: `${username}.superjam.eth`,
-      node: `0x${"0".repeat(64)}` as Hex,
-      minted: true,
-    }),
-    mintApp: async ({ slug, username }) => ({
-      ensName: `${slug}.${username}.superjam.eth`,
+    mintV2Subname: async ({ slug }) => ({
+      ensName: `${slug}.superjam.eth`,
       node: `0x${"0".repeat(64)}` as Hex,
       txHash: fakeHash(),
     }),
-    listFromEns: async () => [],
+    ensV2Addr: async () => `0x${"0".repeat(40)}` as `0x${string}`,
   };
   return mock;
 };

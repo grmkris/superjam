@@ -7,7 +7,7 @@ import { z } from "zod";
 const TYPEID_SUFFIX_LENGTH = 26;
 
 // §7 prefixes: user→usr, app→app, build→bld, record→rec, publishPayment→pub,
-// review→rvw, message→msg, builderAgent→bag, pot→pot, potStake→pst.
+// review→rvw, message→msg, pot→pot, potStake→pst.
 export const idTypesMapNameToPrefix = {
   user: "usr",
   app: "app",
@@ -16,9 +16,13 @@ export const idTypesMapNameToPrefix = {
   publishPayment: "pub",
   review: "rvw",
   message: "msg",
-  builderAgent: "bag",
   pot: "pot",
   potStake: "pst",
+  friendship: "fnd",
+  directMessage: "dm",
+  userDelegation: "udl",
+  buildDraft: "bdr",
+  userToken: "utk",
 } as const;
 
 type IdTypesMapNameToPrefix = typeof idTypesMapNameToPrefix;
@@ -96,9 +100,13 @@ export const ReviewId = typeIdValidator("review");
 export type ReviewId = z.infer<typeof ReviewId>;
 export const MessageId = typeIdValidator("message");
 export type MessageId = z.infer<typeof MessageId>;
-export const BuilderAgentId = typeIdValidator("builderAgent");
-export type BuilderAgentId = z.infer<typeof BuilderAgentId>;
+export const BuildDraftId = typeIdValidator("buildDraft");
+export type BuildDraftId = z.infer<typeof BuildDraftId>;
 export const PotId = typeIdValidator("pot");
 export type PotId = z.infer<typeof PotId>;
 export const PotStakeId = typeIdValidator("potStake");
 export type PotStakeId = z.infer<typeof PotStakeId>;
+export const FriendshipId = typeIdValidator("friendship");
+export type FriendshipId = z.infer<typeof FriendshipId>;
+export const DirectMessageId = typeIdValidator("directMessage");
+export type DirectMessageId = z.infer<typeof DirectMessageId>;

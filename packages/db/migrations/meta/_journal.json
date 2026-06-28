@@ -15,6 +15,104 @@
       "when": 1781322905600,
       "tag": "0001_daily_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781337846630,
+      "tag": "0002_cool_harrier",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781338235265,
+      "tag": "0003_even_punisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781342635816,
+      "tag": "0004_clever_black_bolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781358885609,
+      "tag": "0005_sparkling_sister_grimm",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781366506331,
+      "tag": "0006_odd_switch",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781380715600,
+      "tag": "0007_clean_vertigo",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781384402771,
+      "tag": "0008_nervous_hellcat",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781391616082,
+      "tag": "0009_black_nightmare",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781393857654,
+      "tag": "0010_boring_quicksilver",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781399472657,
+      "tag": "0011_charming_havok",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781403676065,
+      "tag": "0012_last_angel",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782209073989,
+      "tag": "0013_minor_praxagora",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782241137971,
+      "tag": "0014_sloppy_angel",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1782243848519,
+      "tag": "0015_careless_echo",
+      "breakpoints": true
     }
   ]
 }

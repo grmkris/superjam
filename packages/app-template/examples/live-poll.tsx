@@ -5,7 +5,7 @@ import { sfx } from "./lib/sfx";
 import type { SuperJamSdk, AppContext, Doc } from "@superjam/sdk";
 
 const TEAMS = ["Argentina", "France", "Brazil", "England"] as const;
-const COLORS = ["#4D7CFF", "#FF4D6D", "#FFC940", "#2FD180"];
+const COLORS = ["#3E63F2", "#FF4767", "#F5B53C", "#18B877"];
 
 export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext }) {
   const me = ctx.user.username;
@@ -44,8 +44,8 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data} style={{ marginTop: 12 }}>
-          <XAxis dataKey="name" stroke="#6B6478" fontSize={11} />
-          <YAxis allowDecimals={false} stroke="#6B6478" width={24} />
+          <XAxis dataKey="name" stroke="#6A6475" fontSize={11} />
+          <YAxis allowDecimals={false} stroke="#6A6475" width={24} />
           <Bar dataKey="count" radius={[6, 6, 0, 0]}>
             {data.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
           </Bar>

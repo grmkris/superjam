@@ -74,6 +74,49 @@ export default function Page() {
 > leave the backend unused — simpler and faster. (Boundary note for the generator: a spec
 > that only needs a counter should NOT force a Neon project.)
 
+## Look & feel — the immersive Stage theme (use it, don't reinvent)
+The app already ships the SuperJam **Stage** theme — `app/theme.css` (the LOCKED design
+system, imported in `app/layout.tsx`): a DARK glow stage, light text, translucent glass
+surfaces, accent glow, entrance motion, and the **Bricolage Grotesque** font. **Use its
+classes instead of ad-hoc `system-ui` inline styles. DO NOT edit `theme.css`** — put any
+custom CSS in `app/globals.css`.
+- Wrap your screen in `<main className="tj-app tj-stagger">` (a mobile-first column that
+  rises its children in).
+- Open the way the app PLAYS — don't paste a bright banner. Pick the fitting opening:
+  a **game** drops straight onto the HUD (a big `tj-stat` + the action, no header); a
+  **quiz / personality / roast / generator** opens with `tj-hero` (a GLOWING TITLE on the
+  dark stage — gradient text + soft glow, NOT a slab); a **poll / wall** shows a compact
+  `tj-header` then the ballot/feed; a **travel / photo** jam uses `tj-hero-art` (a baked
+  `<img src="/hero.png">` first child whose edges fade into the dark, then the title).
+  Never repeat the jam's name as a giant slab (the host bar shows it).
+- Surfaces & layout: `tj-card` (translucent glass), `tj-header` (a row:
+  `tj-emoji` chip + `tj-htext` holding `tj-title`/`tj-sub`, optional `tj-spacer`),
+  `tj-row`, `tj-grid2`, `tj-center`, `tj-list`, `tj-muted`.
+- Controls: `tj-btn` (+ `tj-btn-ghost`/`tj-btn-yellow`/`tj-btn-green`/`tj-btn-blue`/
+  `tj-btn-block`), `tj-input`. Pickers: `tj-choices` (+ `tj-cols-2`) of `tj-choice`
+  buttons with `aria-pressed={selected}`. Meters: `tj-bar` > `tj-bar-fill`
+  (`style={{ width: \`\${pct}%\` }}`) + optional `tj-bar-label`.
+- Bits: `tj-stat` (big glowing number), `tj-badge`/`tj-pill` (chips), `tj-empty` (empty state),
+  `tj-spin` (loader). Motion: `tj-rise`/`tj-stagger` (entrance), `tj-celebrate` (result pop-in),
+  `tj-glow`/`tj-shimmer`, `tj-pop`/`tj-shake` (juice). Full-bleed games: `tj-stage`+`tj-hud`.
+- Colors come from CSS vars — `var(--accent)` pink, `var(--yellow)`, `var(--green)`,
+  `var(--blue)`, `var(--text)` light ink, `var(--bg)` dark stage, `var(--card)` glass, `var(--muted)`.
+- The PAGE stays the DARK immersive stage with LIGHT text: NEVER set a LIGHT/white page/body/
+  `tj-app` background or light-on-light text. A glowing `tj-hero` band is encouraged; a light
+  *page* is not. Do NOT set `fontFamily: "system-ui"` or re-declare fonts — Bricolage Grotesque
+  is the font. Inline styles are fine for layout (flex/grid/spacing); pull color/font/buttons/
+  cards from the theme so every jam shares the host's visual language.
+
+## Make it shareable (the viral loop)
+The best jams end in a personal RESULT the player wants to share. Where it fits (a
+score, a personality type, an AI verdict, a ranking, a streak):
+- Make a deep-link with `const { url } = await sdk.share.link({ data })` (data ≤2KiB) and
+  let the player copy it / send it (`sdk.messages.send` needs the "social" capability).
+- Whoever opens that link gets `data` back as `sdk.app.context().launch` — read it
+  (UNTRUSTED → validate + render as plain text) and frame it as "@x got <result> — beat
+  it?" to pull them in.
+- Keep the shared text SPOILER-FREE for puzzles (an emoji grid, not the answer).
+
 ## HARD RULES
 1. `app/page.tsx` starts with `"use client"`. One screen, playable instantly, no routing.
 2. NEVER trust a client-supplied user id — in API routes, take identity ONLY from

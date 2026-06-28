@@ -5,19 +5,26 @@
     "dev": "next dev -p 4700",
     "build": "next build",
     "start": "next start -p 4700",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@base-ui-components/react": "catalog:",
+    "@dynamic-labs-sdk/client": "^1.12.2",
+    "@dynamic-labs-sdk/evm": "^1.12.2",
+    "@dynamic-labs-sdk/react-hooks": "^1.12.2",
+    "@dynamic-labs/sdk-api-core": "0.0.1046",
+    "@orpc/client": "catalog:",
+    "@tanstack/react-query": "catalog:",
     "@superjam/api": "workspace:*",
+    "@superjam/onchain": "workspace:*",
     "@superjam/sdk": "workspace:*",
     "@superjam/shared": "workspace:*",
-    "@orpc/client": "catalog:",
-    "@base-ui-components/react": "catalog:",
-    "@dynamic-labs/sdk-react-core": "^4.0.0",
-    "@dynamic-labs/ethereum": "^4.0.0",
+    "@worldcoin/idkit": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "react-qr-code": "^2.2.0",
+    "vaul": "^1.1.2"
   },
   "devDependencies": {
     "@types/react": "catalog:",

@@ -1,31 +1,28 @@
 "use client";
 
-// Inbox (DESIGN_BRIEF §3e) — two tabs: Notifications · Friends. The only push
-// channel: tips, challenges, friend requests, jam mail. A row with a validated
-// invite link gets an Open button → into the jam. Friends → chat threads where
-// jams/tips/links travel; 💸 opens Pay a friend (same ≤25 USDC confirm-sheet).
-import { useCallback, useEffect, useState } from "react";
+// Inbox (DESIGN_BRIEF §3e) — two tabs: Notifications · Friends. Notifications =
+// app→user mail (inbox.list). Friends = your crew + real chat threads where text,
+// jam cards, challenges, and tips travel; 💸 opens Pay a friend (≤25 USDC confirm
+// sheet) → recorded as a money line both sides.
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "../../components/confirm/confirm-provider";
-import { userEns } from "../../components/ui/brand";
+import { JamPicker } from "../../components/chat/jam-picker";
+import { MessageCard } from "../../components/chat/message-card";
+import { PayFriendSheet } from "../../components/chat/pay-friend-sheet";
 import { cx } from "../../components/ui/cx";
 import { EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
-import { VerifiedBadge } from "../../components/verified-badge";
+import { Badge, Dot } from "../../components/ui/badge";
+import { EmptyState } from "../../components/ui/empty-state";
+import { Skeleton } from "../../components/ui/skeleton";
+import { Input } from "../../components/ui/field";
+import { MicButton } from "../../components/ui/mic-button";
+import { ToyboxTabs } from "../../components/ui/tabs";
+import { HandleLink } from "../../components/handle-link";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
 
 type Tab = "notifications" | "friends";
-
-interface Notif {
-  id: string;
-  from: { username: string };
-  appName: string;
-  appSlug: string;
-  text: string;
-  link: string | null;
-  read: boolean;
-  createdAt: string | number | Date;
-}
 
 function ago(d: string | number | Date): string {
   const t = new Date(d).getTime();
@@ -40,25 +37,29 @@ function ago(d: string | number | Date): string {
 export default function InboxPage() {
   const [tab, setTab] = useState<Tab>("notifications");
   return (
-    <div className="flex flex-col gap-3 px-5 pt-14 pb-6 bg-cream min-h-full">
-      <div className="text-[26px] font-extrabold">Inbox</div>
-      <div className="flex bg-card border-2 border-ink rounded-full p-1 gap-1">
-        {(["notifications", "friends"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={cx(
-              "flex-1 rounded-full py-2 text-[13.5px] capitalize",
-              tab === t ? "bg-ink text-cream font-extrabold" : "text-muted font-semibold"
-            )}
-          >
-            {t === "notifications" ? "🔔 Notifications" : "👋 Friends"}
-          </button>
-        ))}
-      </div>
+    <div className="screen gap-3">
+      <ToyboxTabs
+        value={tab}
+        onValueChange={setTab}
+        options={[
+          { value: "notifications", label: "Notifications" },
+          { value: "friends", label: "Friends" },
+        ]}
+      />
       {tab === "notifications" ? <Notifications /> : <Friends />}
     </div>
   );
+}
+
+interface Notif {
+  id: string;
+  from: { username: string };
+  appName: string;
+  appSlug: string;
+  text: string;
+  link: string | null;
+  read: boolean;
+  createdAt: string | number | Date;
 }
 
 function Notifications() {
@@ -87,24 +88,27 @@ function Notifications() {
     setRows((rs) => rs?.map((r) => ({ ...r, read: true })) ?? rs);
   };
 
-  if (rows === null) return <div className="text-muted font-semibold py-6">loading…</div>;
+  if (rows === null)
+    return (
+      <div className="flex flex-1 flex-col gap-2.5">
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+      </div>
+    );
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <div className="text-5xl">📭</div>
-        <div className="font-extrabold text-lg">no mail yet</div>
-        <div className="text-muted font-semibold text-sm">
-          jams you play can challenge you
-        </div>
-      </div>
+      <EmptyState emoji="📭" title="no mail yet" emojiColor="pink" className="flex-1">
+        jams you play can challenge you
+      </EmptyState>
     );
   }
 
   const anyUnread = rows.some((r) => !r.read);
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2.5 stagger">
       {anyUnread && (
-        <button onClick={markAll} className="self-end text-[13px] font-bold text-pink">
+        <button onClick={markAll} className="focus-ring self-end text-small font-bold text-pink">
           Mark all read
         </button>
       )}
@@ -112,26 +116,26 @@ function Notifications() {
         <StickerCard
           key={n.id}
           color={n.read ? "white" : "cream"}
-          className={cx("p-3.5 flex items-center gap-3", !n.read && "border-pink")}
+          className="p-3.5 flex items-center gap-3"
         >
-          {!n.read && <span className="w-2 h-2 rounded-full bg-pink border border-ink shrink-0" />}
+          {!n.read && <Dot className="border border-line shrink-0" />}
           <div className="flex flex-col min-w-0 gap-0.5">
-            <div className="flex items-center gap-1.5 text-[13px]">
-              <span className="font-extrabold">@{n.from.username}</span>
-              <VerifiedBadge />
+            <div className="flex items-center gap-1.5 text-small">
+              <HandleLink username={n.from.username} className="font-extrabold" />
               <span className="text-muted font-semibold">· via {n.appName}</span>
             </div>
-            <div className="text-[13.5px] font-semibold leading-snug">{n.text}</div>
+            <div className="text-small font-semibold leading-snug">{n.text}</div>
           </div>
           <div className="ml-auto flex flex-col items-end gap-1.5">
-            <span className="text-[11px] font-semibold text-muted">{ago(n.createdAt)}</span>
+            <span className="text-tiny font-semibold text-muted">{ago(n.createdAt)}</span>
             {n.link && (
-              <button
-                onClick={() => router.push(`/app/${n.appSlug}`)}
-                className="bg-blue text-white border-2 border-ink rounded-full px-3 py-1 text-xs font-extrabold shadow-sticker-sm sticker-press"
+              <StickerButton
+                size="sm"
+                onClick={() => router.push(n.link!)}
+                className="rounded-full"
               >
                 Open
-              </button>
+              </StickerButton>
             )}
           </div>
         </StickerCard>
@@ -140,122 +144,305 @@ function Notifications() {
   );
 }
 
-// ── Friends + chat + pay-a-friend ────────────────────────────────────────────
-// TODO(seam): friends/crew + user-to-user chat have no router yet; presented
-// with a demo crew. Pay-a-friend uses the real confirm sheet (stubbed executor).
 interface Friend {
+  id: string;
   username: string;
-  emoji: string;
-  color: "green" | "blue" | "yellow" | "pink";
 }
-const CREW: Friend[] = [
-  { username: "mira", emoji: "🦊", color: "green" },
-  { username: "theo", emoji: "🐻", color: "blue" },
-  { username: "nika", emoji: "🐸", color: "yellow" },
-];
 
 function Friends() {
+  const client = usePlatformClient();
+  const { isLoggedIn } = useHostAuth();
+  const [friends, setFriends] = useState<Friend[] | null>(null);
+  const [unread, setUnread] = useState<Record<string, number>>({});
   const [open, setOpen] = useState<Friend | null>(null);
-  if (open) return <ChatThread friend={open} onBack={() => setOpen(null)} />;
+  const [handle, setHandle] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const load = useCallback(() => {
+    if (!isLoggedIn) {
+      setFriends([]);
+      return;
+    }
+    client.friends
+      .list()
+      .then((r) => setFriends(r.friends))
+      .catch(() => setFriends([]));
+    client.chat
+      .threads()
+      .then((r) => {
+        const m: Record<string, number> = {};
+        for (const t of r.threads) m[t.withUser.username] = t.unread;
+        setUnread(m);
+      })
+      .catch(() => {});
+  }, [client, isLoggedIn]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const add = async () => {
+    const u = handle.trim().replace(/^@/, "").toLowerCase();
+    if (!u) return;
+    setAdding(true);
+    try {
+      await client.friends.add({ username: u });
+      setHandle("");
+      load();
+    } catch {
+      /* unknown user / self — surfaced by the list not changing */
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  if (open) return <ChatThread friend={open} onBack={() => { setOpen(null); load(); }} />;
+  if (friends === null)
+    return (
+      <div className="flex flex-1 flex-col gap-2.5">
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+      </div>
+    );
+
   return (
-    <div className="flex flex-col gap-2.5">
-      {CREW.map((f) => (
-        <button key={f.username} onClick={() => setOpen(f)} className="text-left">
-          <StickerCard className="p-3.5 flex items-center gap-3">
-            <EmojiToken emoji={f.emoji} color={f.color} size={40} />
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold">@{f.username}</span>
-              <VerifiedBadge />
-            </div>
-            <span className="ml-auto font-mono text-[11px] text-muted truncate max-w-[40%]">
-              {userEns(f.username)}
-            </span>
-          </StickerCard>
-        </button>
-      ))}
-      <StickerButton color="white" size="md" block>
-        + Add friend
-      </StickerButton>
+    <div className="flex flex-1 flex-col gap-2.5">
+      <div className="flex gap-2">
+        <Input
+          value={handle}
+          onChange={(e) => setHandle(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+          placeholder="add a friend by @name…"
+          className="flex-1 rounded-full text-small"
+        />
+        <StickerButton size="md" onClick={add} disabled={adding || !handle.trim()}>
+          + Add
+        </StickerButton>
+      </div>
+
+      {friends.length === 0 ? (
+        <EmptyState emoji="👋" title="no crew yet" emojiColor="green" className="flex-1">
+          add a friend to share jams and challenge them
+        </EmptyState>
+      ) : (
+        <div className="flex flex-col gap-2.5 stagger">
+          {friends.map((f) => (
+            <button key={f.id} onClick={() => setOpen(f)} className="text-left">
+              <StickerCard className="p-3.5 flex items-center gap-3 sticker-press">
+                <EmojiToken emoji="🙂" color="green" size={40} />
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold">@{f.username}</span>
+                </div>
+                {unread[f.username] ? (
+                  <Badge className="ml-auto">{unread[f.username]}</Badge>
+                ) : null}
+              </StickerCard>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-interface Line {
-  mine: boolean;
-  text?: string;
-  money?: number;
+interface Msg {
+  id: string;
+  fromMe: boolean;
+  kind: "text" | "card" | "tip" | "request";
+  text: string | null;
+  card: { title: string; body?: string; icon?: string; cta?: string } | null;
+  link: string | null;
+  amountUsdc: string | null;
+  via: { name: string; iconEmoji: string } | null;
+  createdAt: string | number | Date;
 }
 
 function ChatThread({ friend, onBack }: { friend: Friend; onBack: () => void }) {
+  const client = usePlatformClient();
+  const router = useRouter();
   const { confirm } = useConfirm();
-  const [lines, setLines] = useState<Line[]>([
-    { mine: false, text: "gg on trivia 😤" },
-    { mine: true, text: "rematch?" },
-  ]);
+  const [msgs, setMsgs] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
+  const [picking, setPicking] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
 
-  const pay = async () => {
+  const load = useCallback(async () => {
+    try {
+      const r = await client.chat.history({ withUsername: friend.username });
+      setMsgs((r.messages as Msg[]).toReversed()); // oldest→newest for display
+    } catch {
+      /* not friends / transient */
+    }
+  }, [client, friend.username]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await client.chat.history({ withUsername: friend.username });
+        if (!cancelled) setMsgs((r.messages as Msg[]).toReversed());
+      } catch {
+        /* not friends / transient */
+      }
+    };
+    tick();
+    client.chat.markRead({ withUsername: friend.username }).catch(() => {});
+    const t = setInterval(tick, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [client, friend.username]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [msgs.length]);
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft("");
+    await client.chat.send({ to: friend.username, text }).catch(() => {});
+    load();
+  };
+
+  const pay = async (amountUsdc: number, note: string) => {
+    setPaying(false);
     const res = await confirm({
       kind: "payFriend",
-      to: friend.username,
-      toName: userEns(friend.username),
-      amountUsdc: 1,
-      memo: "coffee ☕",
+      to: `@${friend.username}`,
+      toName: `@${friend.username}`,
+      amountUsdc,
+      memo: note || undefined,
     }).catch(() => ({ approved: false, txHash: undefined as string | undefined }));
-    if (res.approved) setLines((l) => [...l, { mine: true, money: 1 }]);
+    if (res.approved && res.txHash) {
+      // the money line is recorded server-side via payments.recordTip after the
+      // public-rail send
+      load();
+    }
+  };
+
+  const shareJam = async (jamSlug: string, challenge: boolean) => {
+    setPicking(false);
+    await client.chat.shareJam({ to: friend.username, jamSlug, challenge }).catch(() => {});
+    load();
+  };
+
+  const requestMoney = async (amountUsdc: number, note: string) => {
+    setRequesting(false);
+    await client.chat
+      .requestMoney({ to: friend.username, amountUsdc: String(amountUsdc), note: note || undefined })
+      .catch(() => {});
+    load();
   };
 
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center gap-2">
-        <button onClick={onBack} className="text-[15px] font-bold text-muted">
-          ‹
-        </button>
-        <EmojiToken emoji={friend.emoji} color={friend.color} size={32} />
-        <span className="font-extrabold">@{friend.username}</span>
-        <VerifiedBadge />
+        <button onClick={onBack} className="focus-ring text-h3 font-bold text-muted" aria-label="Back">‹</button>
+        <EmojiToken emoji="🙂" color="green" size={32} />
+        <HandleLink
+          username={friend.username}
+          className="font-extrabold"
+        />
       </div>
-      <div className="flex flex-col gap-2 py-2">
-        {lines.map((l, i) => (
-          <div key={i} className={cx("max-w-[78%]", l.mine ? "self-end" : "self-start")}>
-            {l.money != null ? (
-              <div className="flex items-center gap-2 bg-green border-2 border-ink rounded-2xl px-3.5 py-2 text-sm font-extrabold shadow-sticker-sm">
-                💸 sent {l.money.toFixed(2)} USDC
+
+      <div className="flex flex-col gap-2 py-2 min-h-[40dvh]">
+        {msgs.map((m) => (
+          <div key={m.id} className={cx("max-w-[82%]", m.fromMe ? "self-end" : "self-start")}>
+            {m.kind === "tip" ? (
+              <div className="flex items-center gap-2 bg-green border border-line rounded-toy px-3.5 py-2 text-small font-extrabold shadow-sticker-sm">
+                💸 {m.fromMe ? "sent" : "got"} {m.amountUsdc} USDC
               </div>
+            ) : m.kind === "request" ? (
+              <div className="flex flex-col gap-1.5 bg-yellow border border-line rounded-toy px-3.5 py-2.5 shadow-sticker-sm">
+                <div className="text-small font-extrabold">
+                  🙏 {m.fromMe ? "you asked for" : `@${friend.username} asked for`} {m.amountUsdc} USDC
+                </div>
+                {m.text && <div className="text-small font-semibold leading-snug">{m.text}</div>}
+                {!m.fromMe && (
+                  <StickerButton
+                    size="sm"
+                    className="self-start rounded-full"
+                    onClick={() => pay(Number(m.amountUsdc), m.text ?? "")}
+                  >
+                    Pay {m.amountUsdc} USDC →
+                  </StickerButton>
+                )}
+              </div>
+            ) : m.kind === "card" && m.card ? (
+              <MessageCard
+                card={m.card}
+                via={m.via}
+                mine={m.fromMe}
+                onCta={m.link ? () => router.push(m.link!) : undefined}
+              />
             ) : (
               <div
                 className={cx(
-                  "border-2 border-ink rounded-2xl px-3.5 py-2 text-[13.5px] font-semibold shadow-sticker-sm",
-                  l.mine ? "bg-pink text-white rounded-br-sm" : "bg-card rounded-bl-sm"
+                  "border border-line rounded-toy px-3.5 py-2 text-small font-semibold shadow-sticker-sm",
+                  m.fromMe ? "bg-ink text-white rounded-br-sm" : "bg-card rounded-bl-sm"
                 )}
               >
-                {l.text}
+                {m.text}
               </div>
             )}
           </div>
         ))}
+        <div ref={endRef} />
       </div>
-      <div className="flex gap-2">
+
+      <div className="flex gap-2 items-center sticky bottom-0 bg-cream pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
         <button
-          onClick={pay}
-          className="w-12 h-12 bg-green border-2 border-ink rounded-full text-xl font-extrabold shadow-sticker-sm sticker-press"
+          onClick={() => setPaying(true)}
+          className="focus-ring size-11 bg-card border border-line rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
           aria-label="Pay a friend"
         >
           💸
         </button>
-        <input
+        <button
+          onClick={() => setRequesting(true)}
+          className="focus-ring size-11 bg-card border border-line rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          aria-label="Ask for money"
+        >
+          🙏
+        </button>
+        <button
+          onClick={() => setPicking(true)}
+          className="focus-ring size-11 bg-card border border-line rounded-full text-lg shadow-sticker-sm sticker-press shrink-0"
+          aria-label="Share a jam"
+        >
+          🎮
+        </button>
+        <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && draft.trim()) {
-              setLines((l) => [...l, { mine: true, text: draft.trim() }]);
-              setDraft("");
-            }
-          }}
+          onKeyDown={(e) => e.key === "Enter" && send()}
           placeholder="message…"
-          className="flex-1 bg-card border-2 border-ink rounded-full px-4 py-3 text-[13.5px] font-semibold placeholder:text-muted outline-none focus:border-pink"
+          className="flex-1 rounded-full text-small min-w-0"
         />
+        <MicButton value={draft} onChange={setDraft} />
       </div>
+
+      {picking && <JamPicker onPick={shareJam} onClose={() => setPicking(false)} />}
+      {paying && (
+        <PayFriendSheet
+          username={friend.username}
+          onSend={pay}
+          onClose={() => setPaying(false)}
+        />
+      )}
+      {requesting && (
+        <PayFriendSheet
+          username={friend.username}
+          action="request"
+          onSend={requestMoney}
+          onClose={() => setRequesting(false)}
+        />
+      )}
     </div>
   );
 }

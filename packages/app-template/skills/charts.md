@@ -10,9 +10,10 @@ makes these apps feel real.
 2. Compute chart data by reducing `sdk.data.collection(...).list(...)` docs
    client-side — YOUR fields are under `doc.data` (read `v.data.choice`).
    Refresh after your own writes.
-3. Theme the chart to theme.css (Toybox): bars/lines `var(--accent)` → pass the
-   hex `#FF4D6D` (or a candy sibling `#FFC940`/`#2FD180`/`#4D7CFF`), grid/text
-   `#6B6478`, ink axis `#221A33`, never default recharts blue.
+3. Theme the chart to theme.css (the dark Stage): bars/lines `var(--accent)` → pass the
+   hex `#FF4767` (or a sibling `#F5B53C`/`#18C480`/`#5B7BFF`), grid/axis/text the light
+   muted `#9B97AD` (axes + labels must read on the DARK stage), grid lines at low opacity,
+   never default recharts blue or a dark axis (it vanishes on the dark page).
 4. Keep to Bar/Line/Pie — no exotic chart types.
 
 ## The pattern — poll with a live bar chart

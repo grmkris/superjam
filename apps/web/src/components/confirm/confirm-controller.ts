@@ -9,9 +9,10 @@ export type ConfirmKind = "tip" | "publish" | "stake" | "payFriend";
 
 export interface ConfirmIntent {
   kind: ConfirmKind;
-  /** recipient address (or ENS) the money goes to */
-  to: string;
-  /** ENS name tag to show when known (e.g. tipjar.kris.superjam.fun) */
+  /** recipient the money goes to: a 0x address, an "@username", "appTreasury", or
+   *  "potEscrow" (resolved to an address server-side via payments.resolveRecipient). */
+  to?: string;
+  /** name tag to show when known (e.g. the jam name or @username) */
   toName?: string;
   /** plain USDC amount (not base units); capped at TX_CAP_USDC */
   amountUsdc: number;
@@ -23,7 +24,8 @@ export interface ConfirmIntent {
 
 export interface ConfirmResult {
   approved: boolean;
-  txHash?: string;
+  /** the settlement hash (the relayed EIP-3009 tx). */
+  txHash?: string | null;
 }
 
 /** Thrown synchronously when an amount exceeds the single-tx cap — the sheet

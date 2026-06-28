@@ -1,33 +1,32 @@
-// runDeploy — the headless build pipeline (deploy design doc §0): generate →
-// [Neon if needed] → Vercel (env BEFORE deploy) → poll READY → entryUrl. Pure
-// orchestration over the ports in types.ts; both external services are stubbed
-// in tests. Speed (deploy doc §E): the generator emits a PREBUILT tree so the
-// remote Next build (the 60-120s long pole) is skipped — the client ships
-// `.vercel/output` and Vercel only uploads + activates.
+// runDeploy — the headless build pipeline (pivot §6): generate → [Neon if the
+// app declares data] → deploy to Vercel → entryUrl. The deploy is the Vercel
+// CLI (`vercel deploy --prod`, apps/builder/cli-deploy.ts), injected as the
+// `DeployPort` so the orchestration is unit-tested without a live deploy.
+// Identity (SUPERJAM_APP_ID / SUPERJAM_JWKS_URL) is BAKED into the generated
+// source, so there is no env-injection step.
 import type { AppSpec } from "@superjam/shared";
 import type {
   DeployEvent,
+  DeployPort,
   DeployResult,
   Generator,
   NeonClient,
-  VercelClient,
-  VercelEnvVar,
+  VercelTeardown,
 } from "./types.ts";
 
 export interface RunDeployDeps {
   generate: Generator;
-  vercel: VercelClient;
-  /** Required only when the generated app needs data. */
+  /** Ships the generated files to Vercel → public production URL. */
+  deploy: DeployPort;
+  /** `vercel rm <project>` — reaps a failed build's project (idempotent). */
+  teardownVercel?: VercelTeardown;
+  /** Required only when the generated app needs data (its own Neon project). */
   neon?: NeonClient;
-  /** Public JWKS URL injected as SUPERJAM_JWKS_URL (deploy doc §B.2). */
+  /** Platform JWKS, baked into the app's source as SUPERJAM_JWKS_URL. */
   jwksUrl: string;
   onEvent?: (e: DeployEvent) => void;
-  /** Injected clock + sleep so tests don't wait on the poll loop. */
+  /** Injected clock (durationMs). */
   now?: () => number;
-  sleep?: (ms: number) => Promise<void>;
-  /** Poll budget for the deployment to reach READY. */
-  pollIntervalMs?: number;
-  pollTimeoutMs?: number;
 }
 
 export interface RunDeployArgs {
@@ -35,19 +34,16 @@ export interface RunDeployArgs {
   buildId: string;
   /** Pre-generated app id (JWT `aud`); also the row id at registration. */
   appId: string;
-  /** DNS-safe `superjam-<appId>` project name (≤100 chars, deploy doc §C). */
+  /** DNS-safe `superjam-<appId>` project name (≤100 chars). */
   projectName: string;
 }
-
-const defaultSleep = (ms: number): Promise<void> =>
-  new Promise((r) => setTimeout(r, ms));
 
 type Emit = (kind: DeployEvent["kind"], label: string) => void;
 
 /**
- * Delete one project, swallowing + logging any failure. Returns the outcome so
- * teardown (Phase 3) can report what leaked; the reaper ignores the return.
- * Both clients' deleteProject already swallow 404, so re-running is safe.
+ * Run one cleanup op, swallowing + logging any failure. Returns the outcome so
+ * teardown can report what leaked; the reaper ignores the return. `vercel rm`
+ * and Neon delete are idempotent, so re-running is safe.
  */
 export const tryDelete = async (
   label: string,
@@ -65,19 +61,19 @@ export const tryDelete = async (
 };
 
 /**
- * Best-effort, idempotent reap of the projects a failed deploy half-created.
- * NEVER throws — reap errors are swallowed so the ORIGINAL deploy error is what
- * the caller rethrows (the build feed must show the true cause, not a cleanup
- * artifact). Reaps by id (held in runDeploy's scope), not by name.
+ * Best-effort, idempotent reap of what a failed deploy left behind. NEVER throws
+ * — reap errors are swallowed so the ORIGINAL deploy error is what the caller
+ * rethrows (the build feed must show the true cause, not a cleanup artifact).
  */
 const reapPartial = async (
   deps: RunDeployDeps,
-  ids: { vercelProjectId?: string; neonProjectId?: string },
+  ids: { vercelProject?: string; neonProjectId?: string },
   emit: Emit
 ): Promise<void> => {
-  const vid = ids.vercelProjectId;
-  if (vid) {
-    await tryDelete(`vercel ${vid}`, () => deps.vercel.deleteProject(vid), emit);
+  const vp = ids.vercelProject;
+  const teardownVercel = deps.teardownVercel;
+  if (vp && teardownVercel) {
+    await tryDelete(`vercel ${vp}`, () => teardownVercel(vp), emit);
   }
   const nid = ids.neonProjectId;
   const neon = deps.neon;
@@ -87,11 +83,11 @@ const reapPartial = async (
 };
 
 /**
- * Provision + deploy an app. Throws on generation / provisioning / deploy
- * failure (the caller marks the build failed). On a partial failure AFTER a
- * Vercel/Neon project was created, reaps it (by id) before rethrowing — so a
- * failed build never orphans a project (Neon free tier caps at 100, deploy doc
- * §A.4). A generation failure created nothing, so it skips the reap.
+ * Generate + deploy an app. Throws on generation / provisioning / deploy failure
+ * (the caller marks the build failed). On a failure after the deploy was
+ * attempted, reaps the (possibly orphaned) Vercel project — and the Neon project
+ * if one was created — before rethrowing, so a failed build never orphans
+ * resources (Neon free tier caps at 100).
  */
 export const runDeploy = async (
   args: RunDeployArgs,
@@ -99,18 +95,15 @@ export const runDeploy = async (
 ): Promise<DeployResult> => {
   const { spec, buildId, appId, projectName } = args;
   const now = deps.now ?? Date.now;
-  const sleep = deps.sleep ?? defaultSleep;
-  const emit: Emit = (kind, label) => deps.onEvent?.({ kind, label });
+  const emit: Emit = (kind, label) => deps.onEvent?.({ t: Date.now(), kind, label });
   const started = now();
 
   emit("status", "generating");
-  const app = await deps.generate(spec, { buildId, appId });
+  const app = await deps.generate(spec, { buildId, appId, jwksUrl: deps.jwksUrl });
 
-  // Tracked across the try so the catch can reap whatever got created.
   let neonProjectId: string | undefined;
-  let vercelProjectId: string | undefined;
+  let deployAttempted = false;
   try {
-    let databaseUrl: string | undefined;
     if (app.needsData) {
       if (!deps.neon) {
         throw new Error("app declares data but no Neon client is configured");
@@ -118,48 +111,29 @@ export const runDeploy = async (
       emit("status", "provisioning database");
       const project = await deps.neon.createProject(projectName);
       neonProjectId = project.projectId;
-      databaseUrl = project.pooledDsn;
+      // NOTE: the pooled DSN (project.pooledDsn) is a secret → it can't be baked
+      // into source like the app id. Injecting it (`vercel env add DATABASE_URL`)
+      // is a P2 follow-up; the demo path is zero-backend (no Neon).
     }
-
-    emit("status", "creating project");
-    const created = await deps.vercel.createProject(projectName);
-    vercelProjectId = created.projectId;
-    const vid = created.projectId;
-
-    // Env is baked at build time → set BEFORE deploy. Only the app's own
-    // DATABASE_URL is a secret; the SuperJam vars are public.
-    const env: VercelEnvVar[] = [
-      { key: "SUPERJAM_APP_ID", value: appId, type: "plain" },
-      { key: "SUPERJAM_JWKS_URL", value: deps.jwksUrl, type: "plain" },
-    ];
-    if (databaseUrl) {
-      env.push({ key: "DATABASE_URL", value: databaseUrl, type: "encrypted" });
-    }
-    emit("status", "setting env");
-    await deps.vercel.setEnv(vid, env);
 
     emit("status", "deploying");
-    const deployment = await deps.vercel.deploy({
-      projectId: vid,
-      name: projectName,
-      files: app.files,
-      prebuilt: app.prebuilt,
-    });
-
-    await pollUntilReady(deployment.deploymentId, deps, sleep, now, emit);
-
-    const entryUrl = deps.vercel.productionUrl(vid, projectName);
+    deployAttempted = true;
+    const { entryUrl } = await deps.deploy({ files: app.files, name: projectName });
     emit("status", "ready");
 
     return {
       entryUrl,
       manifest: app.manifest,
-      vercelProjectId: vid,
+      vercelProject: projectName,
       neonProjectId,
       durationMs: now() - started,
     };
   } catch (err) {
-    await reapPartial(deps, { vercelProjectId, neonProjectId }, emit);
+    await reapPartial(
+      deps,
+      { vercelProject: deployAttempted ? projectName : undefined, neonProjectId },
+      emit
+    );
     throw err;
   }
 };
@@ -167,7 +141,8 @@ export const runDeploy = async (
 // --- teardown (app delete) ---
 
 export interface TeardownArgs {
-  vercelProjectId?: string;
+  /** The Vercel project NAME (`vercel rm`). */
+  vercelProject?: string;
   neonProjectId?: string;
 }
 
@@ -177,7 +152,7 @@ export interface TeardownResult {
 }
 
 export interface TeardownDeps {
-  vercel: VercelClient;
+  teardownVercel: VercelTeardown;
   neon?: NeonClient;
   onEvent?: (e: DeployEvent) => void;
 }
@@ -187,19 +162,19 @@ export interface TeardownDeps {
  * reaper it does NOT throw — it returns the per-project outcome so the platform
  * can delist the app even when an external delete fails (logging what leaked for
  * a manual sweep; never block delisting on a flaky delete). A missing id ⇒
- * "skipped". Re-running is safe (clients swallow 404).
+ * "skipped". Re-running is safe.
  */
 export const teardownApp = async (
   args: TeardownArgs,
   deps: TeardownDeps
 ): Promise<TeardownResult> => {
-  const emit: Emit = (kind, label) => deps.onEvent?.({ kind, label });
-  const vid = args.vercelProjectId;
+  const emit: Emit = (kind, label) => deps.onEvent?.({ t: Date.now(), kind, label });
+  const vp = args.vercelProject;
   const nid = args.neonProjectId;
   const neon = deps.neon;
   const vercel = await tryDelete(
-    vid ? `vercel ${vid}` : "vercel",
-    vid ? () => deps.vercel.deleteProject(vid) : undefined,
+    vp ? `vercel ${vp}` : "vercel",
+    vp ? () => deps.teardownVercel(vp) : undefined,
     emit
   );
   const neonResult = await tryDelete(
@@ -210,42 +185,30 @@ export const teardownApp = async (
   return { vercel, neon: neonResult };
 };
 
-const pollUntilReady = async (
-  deploymentId: string,
-  deps: RunDeployDeps,
-  sleep: (ms: number) => Promise<void>,
-  now: () => number,
-  emit: (kind: DeployEvent["kind"], label: string) => void
-): Promise<void> => {
-  const interval = deps.pollIntervalMs ?? 2000;
-  const timeout = deps.pollTimeoutMs ?? 180_000;
-  const deadline = now() + timeout;
-
-  for (;;) {
-    const d = await deps.vercel.getDeployment(deploymentId);
-    if (d.readyState === "READY") return;
-    if (d.readyState === "ERROR" || d.readyState === "CANCELED") {
-      emit("error", `deployment ${d.readyState.toLowerCase()}`);
-      throw new Error(`Vercel deployment ${d.readyState}`);
-    }
-    if (now() >= deadline) {
-      throw new Error("Vercel deployment timed out");
-    }
-    await sleep(interval);
-  }
-};
-
 /**
  * Whether the app needs its OWN Neon project. Only `collections` (shared
  * structured docs the template schematizes into Drizzle tables) live in the
  * app's Neon DB. `counters` (leaderboards → app_counter) and `storage`
  * (per-user KV → app_storage) map to the platform's zero-backend bridge
  * (sdk.counter / sdk.storage, §9), so a counter/storage-only app provisions NO
- * Neon project — avoids burning one against the free 100-cap (deploy doc §A.4).
+ * Neon project — avoids burning one against the free 100-cap.
  */
 export const specNeedsData = (spec: AppSpec): boolean =>
   spec.data.collections.length > 0;
 
-/** DNS-safe Vercel/Neon project name, ≤100 chars (deploy doc §C). */
-export const projectNameFor = (appId: string): string =>
-  `superjam-${appId}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 100);
+// DNS-safe Vercel project name — the SINGLE source of truth for every caller
+// (projectNameFor here, vercelProjectName in apps/builder/cli-deploy.ts). Vercel
+// rewrites `_`/`.`→`-` and disallows other punctuation on create, so we normalize
+// the same way: if we reported a name that differs from what Vercel actually made,
+// the entryUrl resolver (vercel-alias.ts) would look up a 404 project and record a
+// dead URL. Keeping ONE function means the two can never drift apart again.
+export const sanitizeProjectName = (raw: string): string =>
+  raw
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-{3,}/g, "--")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90) || "superjam-app";
+
+/** DNS-safe Vercel/Neon project name for an app. */
+export const projectNameFor = (appId: string): string => sanitizeProjectName(`superjam-${appId}`);

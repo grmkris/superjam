@@ -4,15 +4,20 @@
   "scripts": {
     "dev": "bun run --hot src/server.ts",
     "start": "bun run src/server.ts",
-    "typecheck": "tsc --noEmit",
-    "bundle:sdk": "bun scripts/bundle-sdk.ts"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "catalog:",
+    "@ai-sdk/google": "catalog:",
     "@superjam/builder": "workspace:*",
     "@superjam/logger": "workspace:*",
+    "@superjam/onchain": "workspace:*",
     "@superjam/shared": "workspace:*",
     "@hono/node-server": "catalog:",
+    "ai": "catalog:",
+    "exifr": "^7.1.3",
     "hono": "catalog:",
+    "just-bash": "^3.0.2",
     "zod": "catalog:"
   },
   "devDependencies": {

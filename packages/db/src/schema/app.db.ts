@@ -3,6 +3,7 @@ import type {
   AppSpec,
   BuildEvent,
   Capability,
+  DraftState,
 } from "@superjam/shared";
 import {
   type AnyPgColumn,
@@ -17,7 +18,6 @@ import {
   buildStatusEnum,
   categoryEnum,
 } from "./enums.db.ts";
-import { builderAgent } from "./agent.db.ts";
 import { user } from "./user.db.ts";
 
 // A jam. Mints under its owner's user node (appslug.username.superjam.eth, §11);
@@ -49,12 +49,16 @@ export const app = pgTable("app", {
   treasuryAddress: text("treasury_address"),
   ensName: text("ens_name"),
   ensTxHash: text("ens_tx_hash"),
+  // Onchain games (§ builder-deploys-contracts): the bespoke Arc contract the
+  // builder deployed for this jam. sdk.onchain.read/write resolve THIS address
+  // (the bridge pins writes to it so a jam can't make the operator wallet sign
+  // against any other contract); the ABI lets the bridge encode/decode calls.
+  // Null for non-onchain jams.
+  gameContractAddress: text("game_contract_address"),
+  gameContractAbi: jsonb("game_contract_abi").$type<readonly unknown[]>(),
   /** @deprecated pivot §2 — IPFS pinning dropped; left nullable, stop writing. */
   ipfsCid: text("ipfs_cid"),
   currentBuildId: typeId("build", "current_build_id"),
-  builtByAgentId: typeId("builderAgent", "built_by_agent_id").references(
-    () => builderAgent.id
-  ),
   ...baseEntityFields,
 });
 
@@ -66,7 +70,6 @@ export const build = pgTable("build", {
   userId: typeId("user", "user_id")
     .notNull()
     .references(() => user.id),
-  agentId: typeId("builderAgent", "agent_id").references(() => builderAgent.id),
   prompt: text("prompt").notNull(),
   spec: jsonb("spec").$type<AppSpec>(),
   status: buildStatusEnum("status").notNull().default("queued"),
@@ -77,6 +80,28 @@ export const build = pgTable("build", {
   model: text("model"),
   durationMs: integer("duration_ms"),
   costUsd: text("cost_usd"),
+  // The USDC receipt that paid for this build (a paid marketplace agent, §14).
+  // UNIQUE → one receipt can't fund two builds (replay guard, mirrors
+  // publishPayment). Null for free / house-builder builds.
+  paymentTxHash: text("payment_tx_hash").unique(),
+  ...baseEntityFields,
+});
+
+// A resumable make-flow draft (§3c) — the wizard persisted from prompt-start so a
+// reload/redirect resumes instead of resetting. The CLIENT generates the id (typeid)
+// so the URL (/build?d=…) is stable from mount; `step`+`prompt`+`spec` are queryable,
+// `state` is the rest of the wizard blob. `buildId` is set on dispatch (builds.create)
+// → the draft leaves the "pending" feed and the build/app takes over. Owned by userId.
+export const buildDraft = pgTable("build_draft", {
+  id: typeIdPk("buildDraft"),
+  userId: typeId("user", "user_id")
+    .notNull()
+    .references(() => user.id),
+  step: text("step").notNull().default("home"),
+  prompt: text("prompt").notNull().default(""),
+  spec: jsonb("spec").$type<AppSpec>(),
+  state: jsonb("state").$type<DraftState>().notNull().default({}),
+  buildId: typeId("build", "build_id").references(() => build.id),
   ...baseEntityFields,
 });
 
@@ -84,3 +109,5 @@ export type App = typeof app.$inferSelect;
 export type NewApp = typeof app.$inferInsert;
 export type Build = typeof build.$inferSelect;
 export type NewBuild = typeof build.$inferInsert;
+export type BuildDraft = typeof buildDraft.$inferSelect;
+export type NewBuildDraft = typeof buildDraft.$inferInsert;

@@ -4,6 +4,7 @@ import { createPgliteDb } from "@superjam/db/pglite";
 import { schema } from "@superjam/db";
 import { createLogger } from "@superjam/logger";
 import type { AppSpec, RefineResult } from "@superjam/shared";
+import { type Onchain } from "@superjam/onchain";
 import { eq } from "drizzle-orm";
 
 // Fresh pglite + migrations per test — slow under concurrent load.
@@ -18,11 +19,15 @@ import { allocateExternalApp } from "./apps.ts";
 import {
   createBuildsRouter,
   runBuild,
-  type BuildPaymentVerifier,
+  type DeployerFor,
   type RefineFn,
 } from "./builds.ts";
 
 const logger = createLogger({ level: "silent" });
+
+// The house builder dispatch creds (env-driven) the context carries.
+const BUILDER_ENDPOINT = "https://builder.superjam.fun/dispatch";
+const BUILDER_TOKEN = "house-token";
 
 const SPEC: AppSpec = {
   name: "Tip Jar",
@@ -43,12 +48,15 @@ const harness = async () => {
   const { db } = await createPgliteDb();
   const auth = await createTestAuth();
   const rateLimiter = createRateLimiter();
-  const ctxFor = (token?: string) =>
+  const ctxFor = (token?: string, onchain?: Onchain) =>
     createContext({
       db,
       logger,
       auth: auth.verifier,
       rateLimiter,
+      onchain,
+      builderEndpoint: BUILDER_ENDPOINT,
+      builderToken: BUILDER_TOKEN,
       headers: new Headers(token ? { authorization: `Bearer ${token}` } : {}),
     });
   return { db, auth, ctxFor };
@@ -185,7 +193,7 @@ const deployResult: DeployResult = {
     category: "tool",
     capabilities: ["payments"],
   },
-  vercelProjectId: "prj_1",
+  vercelProject: "prj_1",
   durationMs: 1234,
 };
 
@@ -193,10 +201,10 @@ const deployResult: DeployResult = {
 // DB work after a create() test returns.
 const parkedDeploy: BuildDeployer = () => new Promise<DeployResult>(() => {});
 
-describe("builds.create — trial quota", () => {
-  test("first build is free for a non-verified user; inserts + returns ids", async () => {
+describe("builds.create — free builds", () => {
+  test("a build inserts + returns ids and dispatches", async () => {
     const { db, auth, ctxFor } = await harness();
-    const router = createBuildsRouter({ deploy: parkedDeploy });
+    const router = createBuildsRouter({ deployerFor: () => parkedDeploy });
     const token = await auth.sign({ dynamicUserId: "dyn_f", email: "f@test.io" });
 
     const res = await call(
@@ -213,96 +221,24 @@ describe("builds.create — trial quota", () => {
     expect(rows[0]?.spec?.slug).toBe("tip-jar");
   });
 
-  test("second build by a non-verified user without payment is forbidden", async () => {
+  test("builds are unlimited — a second build by the same user succeeds", async () => {
     const { db, auth, ctxFor } = await harness();
     const u = await createTestUser(db, {
       dynamicUserId: "dyn_g",
       email: "g@test.io",
-      worldVerified: false,
     });
     await db
       .insert(schema.build)
       .values({ userId: u.id, prompt: "prior", spec: SPEC, status: "done" });
 
-    const router = createBuildsRouter({ deploy: parkedDeploy });
+    const router = createBuildsRouter({ deployerFor: () => parkedDeploy });
     const token = await auth.sign({ dynamicUserId: "dyn_g", email: "g@test.io" });
-    await expect(
-      call(router.create, { spec: SPEC }, { context: ctxFor(token) })
-    ).rejects.toThrow(/human/);
-  });
-
-  test("a world-verified user builds past the free quota", async () => {
-    const { db, auth, ctxFor } = await harness();
-    const u = await createTestUser(db, {
-      dynamicUserId: "dyn_h",
-      email: "h@test.io",
-      worldVerified: true,
-    });
-    await db
-      .insert(schema.build)
-      .values({ userId: u.id, prompt: "prior", spec: SPEC, status: "done" });
-
-    const router = createBuildsRouter({ deploy: parkedDeploy });
-    const token = await auth.sign({ dynamicUserId: "dyn_h", email: "h@test.io" });
     const res = await call(
       router.create,
       { spec: SPEC },
       { context: ctxFor(token) }
     );
     expect(res.buildId).toMatch(/^bld_/);
-  });
-
-  test("a verified USDC receipt pays past the free quota", async () => {
-    const { db, auth, ctxFor } = await harness();
-    const u = await createTestUser(db, {
-      dynamicUserId: "dyn_p2",
-      email: "p2@test.io",
-      worldVerified: false,
-    });
-    await db
-      .insert(schema.build)
-      .values({ userId: u.id, prompt: "prior", spec: SPEC, status: "done" });
-
-    let verified: string | undefined;
-    const verifyPayment: BuildPaymentVerifier = async (payment) => {
-      verified = payment.txHash;
-    };
-    const router = createBuildsRouter({ deploy: parkedDeploy, verifyPayment });
-    const token = await auth.sign({ dynamicUserId: "dyn_p2", email: "p2@test.io" });
-
-    const res = await call(
-      router.create,
-      { spec: SPEC, payment: { txHash: "0xabc", chain: "base-sepolia" } },
-      { context: ctxFor(token) }
-    );
-    expect(verified).toBe("0xabc");
-    expect(res.buildId).toMatch(/^bld_/);
-  });
-
-  test("a rejected receipt yields PAYMENT_REQUIRED", async () => {
-    const { db, auth, ctxFor } = await harness();
-    const u = await createTestUser(db, {
-      dynamicUserId: "dyn_r",
-      email: "r@test.io",
-      worldVerified: false,
-    });
-    await db
-      .insert(schema.build)
-      .values({ userId: u.id, prompt: "prior", spec: SPEC, status: "done" });
-
-    const verifyPayment: BuildPaymentVerifier = async () => {
-      throw new Error("no matching transfer");
-    };
-    const router = createBuildsRouter({ deploy: parkedDeploy, verifyPayment });
-    const token = await auth.sign({ dynamicUserId: "dyn_r", email: "r@test.io" });
-
-    await expect(
-      call(
-        router.create,
-        { spec: SPEC, payment: { txHash: "0xbad", chain: "base-sepolia" } },
-        { context: ctxFor(token) }
-      )
-    ).rejects.toThrow(/transfer/);
   });
 });
 
@@ -396,5 +332,78 @@ describe("runBuild driver", () => {
     expect(built?.status).toBe("done");
     const app = await db.query.app.findFirst({ where: eq(schema.app.id, allocated.id) });
     expect(app?.status).toBe("building"); // never finalized → stays unlisted
+  });
+});
+
+describe("builds.status", () => {
+  test("returns own build's status; forbids another user's", async () => {
+    const { db, auth, ctxFor } = await harness();
+    const owner = await createTestUser(db, { username: "owner1" });
+    const [b] = await db
+      .insert(schema.build)
+      .values({ userId: owner.id, prompt: "a tip jar", status: "generating" })
+      .returning();
+    const ownerToken = await auth.sign({
+      dynamicUserId: owner.dynamicUserId!,
+      email: owner.email,
+    });
+    const router = createBuildsRouter();
+
+    const res = await call(
+      router.status,
+      { buildId: b!.id },
+      { context: ctxFor(ownerToken) }
+    );
+    expect(res.status).toBe("generating");
+    expect(res.slug).toBeNull();
+    expect(res.appStatus).toBeNull();
+
+    const other = await createTestUser(db, { username: "other1" });
+    const otherToken = await auth.sign({
+      dynamicUserId: other.dynamicUserId!,
+      email: other.email,
+    });
+    await expect(
+      call(router.status, { buildId: b!.id }, { context: ctxFor(otherToken) })
+    ).rejects.toBeInstanceOf(ORPCError);
+  });
+});
+
+describe("builds — env dispatch", () => {
+  test("create dispatches to the env builder endpoint + token", async () => {
+    const { auth, ctxFor } = await harness();
+    const calls: Array<{ endpointUrl: string; token: string }> = [];
+    const deployerFor: DeployerFor = (b) => {
+      calls.push({ endpointUrl: b.endpointUrl, token: b.token });
+      return parkedDeploy;
+    };
+    const router = createBuildsRouter({ deployerFor });
+    const token = await auth.sign({ dynamicUserId: "dyn_r", email: "r@test.io" });
+
+    await call(router.create, { spec: SPEC }, { context: ctxFor(token) });
+    // The deployer is built from the context's BUILDER_URL/BUILDER_TOKEN.
+    expect(calls).toEqual([
+      { endpointUrl: BUILDER_ENDPOINT, token: BUILDER_TOKEN },
+    ]);
+  });
+
+  test("create rejects when no builder is configured", async () => {
+    const { db, auth } = await harness();
+    const rateLimiter = createRateLimiter();
+    // A context with NO builder creds + no deployerFor override ⇒ reject.
+    const ctxNoBuilder = (token: string) =>
+      createContext({
+        db,
+        logger,
+        auth: auth.verifier,
+        rateLimiter,
+        headers: new Headers({ authorization: `Bearer ${token}` }),
+      });
+    const router = createBuildsRouter();
+    const token = await auth.sign({ dynamicUserId: "dyn_s", email: "s@test.io" });
+
+    await expect(
+      call(router.create, { spec: SPEC }, { context: ctxNoBuilder(token) })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });

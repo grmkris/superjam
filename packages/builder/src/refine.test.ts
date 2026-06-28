@@ -63,6 +63,15 @@ describe("buildPrompt", () => {
     expect(withCatalog.system).toContain("tip-jar | Tip Jar");
     expect(withCatalog.system).toContain("poll | Poll");
   });
+
+  test("notes attached files so the model reads them (they ride as content parts)", () => {
+    const { prompt } = buildPrompt({
+      prompt: "an infographic",
+      attachments: [{ mediaType: "text/csv", data: new Uint8Array([1, 2, 3]) }],
+    });
+    expect(prompt).toContain("ATTACHED FILES");
+    expect(prompt).toContain("1 file(s)");
+  });
 });
 
 describe("filterSimilar", () => {

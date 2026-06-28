@@ -128,6 +128,17 @@ export type SuperJamSdk = {
     send(msg: { to: string; text: string; data?: Json; link?: string }): Promise<{ id: string }>;
     list(opts?: { limit?: number }): Promise<{ messages: Message[] }>;
   };
+  /** Push a render-spec CARD into one of the player's FRIENDS' chats (a
+   *  challenge/invite). The host renders {title,body,icon,cta} safely + a CTA
+   *  that opens THIS app at /app/<slug>?d=<base64(params)> (read via
+   *  app.context().launch). Requires the "social" capability + friendship. */
+  social: {
+    send(args: {
+      to: string;
+      card: { title: string; body?: string; icon?: string; cta?: string };
+      params?: Json;
+    }): Promise<{ id: string }>;
+  };
   share: { link(args?: { data?: Json }): Promise<{ url: string }> };
   files: { upload(dataUrl: string): Promise<{ id: string; url: string }> };
   /** Identity for YOUR backend: a short-lived ({exp} epoch-seconds) platform
@@ -140,6 +151,17 @@ export type SuperJamSdk = {
     stake(args: { id: string; option: string; amount: number }): Promise<{ txHash: string }>;
     get(args: { id: string }): Promise<Pot>;
     resolve(args: { id: string; option: string }): Promise<void>;
+  };
+  /** Read/write YOUR game's own on-chain contract on Arc (the builder deployed
+   *  it and the platform resolves its address — you never pass an address).
+   *  `read` is a free view call; `write` is GASLESS — the platform server wallet
+   *  (the contract's operator) signs + pays gas and STAMPS the caller as the
+   *  first contract arg, so your mutator is `fn(address player, ...yourArgs)`
+   *  and you pass only `...yourArgs`. Requires the "onchain" capability. Numbers
+   *  too big for JS pass/return as decimal strings. */
+  onchain: {
+    read<T = Json>(args: { fn: string; args?: Json[] }): Promise<T>;
+    write(args: { fn: string; args?: Json[]; value?: string }): Promise<{ hash: string }>;
   };
   ui: { toast(message: string): void };
 };
@@ -289,6 +311,7 @@ function makeBridgeSdk(call: CallFn, ctx: AppContext): SuperJamSdk {
     },
     data: { collection, counter },
     ai: { chat: (messages, opts) => call("ai.chat", { messages, ...opts }) },
+    social: { send: (a) => call("social.send", a) },
     messages: {
       send: (msg) => call("messages.send", msg),
       list: (opts) => call<{ messages: Message[] }>("messages.list", opts ?? {}).then((r) => ({ messages: r.messages.map((m) => ({ ...m, createdAt: toMs(m.createdAt) })) })),
@@ -301,6 +324,10 @@ function makeBridgeSdk(call: CallFn, ctx: AppContext): SuperJamSdk {
       stake: (a) => call("pot.stake", a),
       get: (a) => call("pot.get", a),
       resolve: (a) => call("pot.resolve", a),
+    },
+    onchain: {
+      read: (a) => call("onchain.read", { fn: a.fn, args: a.args ?? [] }),
+      write: (a) => call("onchain.write", { fn: a.fn, args: a.args ?? [], value: a.value }),
     },
     ui: { toast: (message) => { void call("ui.toast", { message }).catch(() => {}); } },
   };
@@ -473,6 +500,10 @@ function makeStandalone(): SuperJamSdk {
       },
       list: async (opts) => ({ messages: (read<Message[]>("inbox") ?? []).slice(0, opts?.limit ?? 50) }),
     },
+    social: {
+      // standalone has no friends graph — the card is a no-op that returns an id
+      send: async () => ({ id: rid("dm") }),
+    },
     share: {
       link: async ({ data } = {}) => {
         const base = location.href.split("?")[0]!;
@@ -513,6 +544,17 @@ function makeStandalone(): SuperJamSdk {
       resolve: async ({ id, option }) => {
         const p = read<StoredPot>(potKey(id));
         if (p) { p.status = "resolved"; p.resolvedOption = option; write(potKey(id), p); }
+      },
+    },
+    onchain: {
+      // No chain in standalone — back reads/writes with localStorage so the game
+      // still plays. `read` returns the last value written for a fn name; `write`
+      // records it and returns a mock hash.
+      read: async ({ fn, args }) => read(`chain:${fn}:${JSON.stringify(args ?? [])}`) as never,
+      write: async ({ fn, args }) => {
+        const hash = rid("0xmock");
+        write(`chain:${fn}:${JSON.stringify(args ?? [])}`, { hash, at: now() });
+        return { hash };
       },
     },
     ui: { toast: (message) => { try { console.log("[toast]", message); } catch { /* noop */ } } },

@@ -13,6 +13,7 @@ import {
 } from "@superjam/shared";
 import { ORPCError } from "@orpc/server";
 import { and, desc, eq, sql } from "drizzle-orm";
+import { decodeCursor, encodeCursor } from "../lib/cursor.ts";
 import { assertName, assertSize } from "../lib/validate.ts";
 
 const { appRecord } = schema;
@@ -38,16 +39,6 @@ export interface ListOpts {
   limit?: number;
   cursor?: string;
 }
-
-const encodeCursor = (offset: number): string =>
-  Buffer.from(String(offset), "utf8").toString("base64url");
-const decodeCursor = (cursor?: string): number => {
-  if (!cursor) {
-    return 0;
-  }
-  const n = Number.parseInt(Buffer.from(cursor, "base64url").toString("utf8"), 10);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-};
 
 const toDoc = (row: typeof schema.appRecord.$inferSelect): Doc => ({
   id: row.id,

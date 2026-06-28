@@ -83,6 +83,7 @@ export const createServerWallet = ({
 
   return {
     address: account.address,
+    account,
 
     relayTransfer: ({ token, authorization, signature }: RelayTransferArgs) =>
       submit(() =>
@@ -137,7 +138,7 @@ export const createServerWallet = ({
 export const createServerWalletFromKey = ({
   privateKey,
   rpcUrl,
-  chainKey = "baseSepolia",
+  chainKey = "arcTestnet",
 }: {
   privateKey: Hex;
   rpcUrl?: string;

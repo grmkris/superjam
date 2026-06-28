@@ -36,33 +36,30 @@ const harness = async (runner: AiRunner) => {
   return { router, ctx, appId: app.id, rateLimiter };
 };
 
+// The wire shape sdk.ai.chat sends (sans the host-injected appId).
 const textReq = (prompt: string) =>
-  ({ mode: "text", prompt }) as const;
+  ({ messages: [{ role: "user" as const, content: prompt }] });
 
 describe("bridge.ai.chat", () => {
   test("proxies a text call for a known app", async () => {
     const { router, ctx, appId } = await harness(async () => ({ text: "hi back" }));
     const res = await call(
       router.chat,
-      { appId, request: textReq("hello") },
+      { appId, ...textReq("hello") },
       { context: ctx() }
     );
-    expect(res).toEqual({ result: { text: "hi back" }, cached: false });
+    expect(res).toEqual({ text: "hi back" });
   });
 
-  test("a cache hit is free and flagged cached", async () => {
+  test("a cache hit is free — the model runs only once for an identical call", async () => {
     let calls = 0;
     const { router, ctx, appId } = await harness(async () => {
       calls += 1;
       return { text: "once" };
     });
-    await call(router.chat, { appId, request: textReq("q") }, { context: ctx() });
-    const second = await call(
-      router.chat,
-      { appId, request: textReq("q") },
-      { context: ctx() }
-    );
-    expect(second.cached).toBe(true);
+    const first = await call(router.chat, { appId, ...textReq("q") }, { context: ctx() });
+    const second = await call(router.chat, { appId, ...textReq("q") }, { context: ctx() });
+    expect(second).toEqual(first);
     expect(calls).toBe(1);
   });
 
@@ -71,7 +68,7 @@ describe("bridge.ai.chat", () => {
     await expect(
       call(
         router.chat,
-        { appId: "app_00000000000000000000000000", request: textReq("hi") },
+        { appId: "app_00000000000000000000000000", ...textReq("hi") },
         { context: ctx() }
       )
     ).rejects.toThrow(ORPCError);
@@ -85,10 +82,10 @@ describe("bridge.ai.chat", () => {
       return { text: `r${n}` };
     });
     for (let i = 0; i < AI_CALLS_PER_USER_APP_DAY; i += 1) {
-      await call(router.chat, { appId, request: textReq(`p${i}`) }, { context: ctx() });
+      await call(router.chat, { appId, ...textReq(`p${i}`) }, { context: ctx() });
     }
     await expect(
-      call(router.chat, { appId, request: textReq("over") }, { context: ctx() })
+      call(router.chat, { appId, ...textReq("over") }, { context: ctx() })
     ).rejects.toThrow(/Daily AI limit/);
   });
 
@@ -100,7 +97,7 @@ describe("bridge.ai.chat", () => {
     // cap the error is still "unavailable", never "Daily AI limit".
     for (let i = 0; i < AI_CALLS_PER_USER_APP_DAY + 3; i += 1) {
       await expect(
-        call(router.chat, { appId, request: textReq(`x${i}`) }, { context: ctx() })
+        call(router.chat, { appId, ...textReq(`x${i}`) }, { context: ctx() })
       ).rejects.toThrow(/unavailable/);
     }
   });

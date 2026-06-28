@@ -15,8 +15,8 @@ generate_image({ prompt: "...", path: "assets/bg.jpg" })   → ok, file written
    `<img src="./assets/bg.jpg" />`, `style={{ backgroundImage: "url(./assets/bg.jpg)" }}`,
    canvas `drawImage`, or drei `useTexture("./assets/floor.jpg")`.
 2. **One style line, reused in EVERY prompt** — consistency is what makes it look
-   art-directed, not pasted. Match the **Toybox** theme. Example style line:
-   `"flat hand-drawn toy sticker art, cream paper background, thick ink outlines, candy colors (pink/yellow/green/blue), soft drop shadow, no text"`
+   art-directed, not pasted. Match the immersive **Stage** theme (dark, glowing). Example style line:
+   `"vibrant glowing digital art on a deep dark background, neon gradient accents (hot pink / electric blue / mint), soft bloom and depth, cinematic, no text"`
 3. Budget: ≤ 4 images per app. One great background beats four mediocre sprites.
    Always say "no text" (generated text renders garbled).
 4. Generate images FIRST (each call takes a few seconds), THEN write the code

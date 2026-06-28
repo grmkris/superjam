@@ -8,3 +8,26 @@ dist
 .turbo
 .DS_Store
 *.tsbuildinfo
+.mcp.json
+# secrets — never commit (RSA delegation keypair, PEMs, key dumps)
+private.txt
+public.txt
+*.pem
+*.key
+
+# stray local screenshots / camera exports / exported decks — keep them out of `git add .`
+/.neon
+/*.jpeg
+/*.png
+/*.html
+/apps/*.png
+**/Screenshot*.png
+
+# local demo/test inputs (camera exports, CSV/PNG fed to the builder) — not source
+/sample-data/
+
+# generated brand assets — rendered by `.brand/build-brand.mjs` (the source of
+# truth) from `.brand/fonts/`. Keep the generator + fonts, never the output.
+# Regenerate with: node .brand/build-brand.mjs
+.brand/*.png
+.brand/*.svg

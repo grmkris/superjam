@@ -37,13 +37,21 @@ const userWithToken = async (
 };
 
 describe("reviews", () => {
-  test("unverified user cannot review (worldVerified gate)", async () => {
-    const { token } = await userWithToken("du", false);
+  test("any logged-in user can review (no World gate)", async () => {
+    const { u, token } = await userWithToken("du", false);
     const owner = await createTestUser(db);
     const app = await createTestApp(db, owner.id, { status: "listed" });
-    await expect(
-      call(reviewsRouter.upsert, { appId: app.id, rating: 5 }, { context: ctxFor(token) })
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await call(
+      reviewsRouter.upsert,
+      { appId: app.id, rating: 5 },
+      { context: ctxFor(token) }
+    );
+    const list = await call(
+      reviewsRouter.list,
+      { appId: app.id },
+      { context: ctxFor(token) }
+    );
+    expect(list.reviews.some((r) => r.username === u.username)).toBe(true);
   });
 
   test("verified upsert appears in public list; 2nd upsert edits in place", async () => {

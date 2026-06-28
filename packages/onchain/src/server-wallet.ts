@@ -4,7 +4,7 @@
 // adapter (TSS-MPC, M6); a funded plain viem account is a drop-in fallback
 // behind this same interface (§1, the §23 rehearsal swap). K and S reach the
 // signer only through `createOnchain`, never directly.
-import type { Address, Hex } from "viem";
+import type { Account, Address, Hex } from "viem";
 import type { UsdcToken } from "./chains.ts";
 import type { TransferAuthMessage } from "./transfer-auth.ts";
 
@@ -19,6 +19,10 @@ export interface RelayTransferArgs {
 export interface ServerWallet {
   /** The privileged address: gas holder, escrow custodian, relayer, ENS writer. */
   readonly address: Address;
+  /** The underlying viem account — used to build an x402 `ClientEvmSigner` so the
+   *  server wallet can sign anonymous-x402 payment authorizations (§3). Optional
+   *  so test mocks can omit it; the live impls always set it. */
+  readonly account?: Account;
   /** Submit `transferWithAuthorization(...)`, pay the ETH, await the receipt,
    *  return the real tx hash (§13). Throws `OnchainError("RELAY_FAILED")`. */
   relayTransfer(args: RelayTransferArgs): Promise<Hex>;

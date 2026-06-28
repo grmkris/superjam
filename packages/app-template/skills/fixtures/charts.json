@@ -13,7 +13,7 @@
   ],
   "data": {
     "collections": [
-      { "name": "votes", "doc": { "choice": "string" }, "writtenWhen": "the user taps a snack option" }
+      { "name": "votes", "fields": [{ "name": "choice", "type": "string" }], "writtenWhen": "the user taps a snack option" }
     ],
     "counters": [],
     "storage": []

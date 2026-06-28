@@ -13,7 +13,7 @@ import { requireApp } from "../lib/app-context.ts";
 import { protectedProcedure } from "../orpc.ts";
 import {
   type AiService,
-  AiRequestSchema,
+  AiChatRequestSchema,
   createAiService,
 } from "../services/ai-service.ts";
 
@@ -25,16 +25,20 @@ export const createAiBridge = (deps: AiBridgeDeps = {}) => {
   const service = deps.service ?? createAiService();
 
   return {
+    // Input IS the SDK's ai.chat contract ({ messages, json?, images? }) plus the
+    // host-injected appId. Returns { text } directly — matching the SDK's
+    // chat(): Promise<{ text }> (no { result, cached } wrapper).
     chat: protectedProcedure
-      .input(z.object({ appId: AppId, request: AiRequestSchema }))
+      .input(AiChatRequestSchema.extend({ appId: AppId }))
       .handler(async ({ context, input }) => {
-        await requireApp(context.db, input.appId);
+        const { appId, ...request } = input;
+        await requireApp(context.db, appId);
 
         // A cache hit is free — return before touching the quota or the model.
-        const cached = service.cached(input.appId, input.request);
-        if (cached) return { result: cached, cached: true } as const;
+        const cached = service.cached(appId, request);
+        if (cached) return cached;
 
-        const quotaKey = `ai:${input.appId}:${context.user.id}`;
+        const quotaKey = `ai:${appId}:${context.user.id}`;
         const q = context.rateLimiter.quota(quotaKey, AI_CALLS_PER_USER_APP_DAY);
         if (!q.ok) {
           throw new ORPCError("QUOTA_EXCEEDED", {
@@ -43,8 +47,7 @@ export const createAiBridge = (deps: AiBridgeDeps = {}) => {
         }
 
         try {
-          const result = await service.run(input.appId, input.request);
-          return { result, cached: false } as const;
+          return await service.run(appId, request);
         } catch (err) {
           // The model call failed — don't bill the user for it.
           context.rateLimiter.refund(quotaKey);

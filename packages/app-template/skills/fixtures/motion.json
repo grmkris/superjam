@@ -13,7 +13,7 @@
   ],
   "data": {
     "collections": [
-      { "name": "items", "doc": { "text": "string" }, "writtenWhen": "the user adds a plan" }
+      { "name": "items", "fields": [{ "name": "text", "type": "string" }], "writtenWhen": "the user adds a plan" }
     ],
     "counters": [],
     "storage": [

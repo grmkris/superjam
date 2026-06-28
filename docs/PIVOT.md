@@ -38,6 +38,12 @@ changes: hosting (apps self-host), the app model (`entryUrl`), identity issuance
 - **Identity (new §1)**: platform mints short-lived ES256 app-tokens; external
   backends verify against `/.well-known/jwks.json` (aud=appId). `sdk.auth.getToken()`.
 
+> _The three sections below (Phasing, Lane Ownership, Build Discipline) are
+> **historical — the parallel-build coordination era (2026-06-13)**. The work they
+> coordinated is done (P1–P3 shipped; P4 Track-A decommission landed 2026-06-14).
+> Kept for provenance. The live architecture is the two sections above + `SPEC.md`
+> §0.3._
+
 ## Phasing (P1 additive — nothing gets ripped out until P4)
 
 - **P1 (in flight, %67)**: identity issuer + JWKS + `auth.getToken`; `app.entryUrl/
@@ -88,6 +94,22 @@ Cross-lane SEAMS (typed contracts, announce signatures in your first commit):
   `packages/onchain/staking/`. World verify (K) gates the human-only surface.
 - Quotas reuse existing primitives (`_x402_quota` counter, `user.lastTopupAt`) —
   never build a parallel quota system.
+- **C private-payments rail (Unlink, §23) — SHIPPED db868ee; ONE seam left to fill.**
+  The api has the shielded-default money layer: `payments.{enablePrivacy,privateBalance,
+  depositPrivate,privateSend}` + `resolveRecipient.unlinkAddress`, behind `context.unlink`
+  (`UnlinkService`, `nullUnlinkService` default). `privateSend` is THE send primitive (chat
+  send + miniapp `payUSDC` + sub-cent tips). Proven live on Arc incl. 0.1¢ tips
+  (`packages/onchain/integration/unlink.itest.ts`). **The one seam: `getUserSigner(userId)
+  => Promise<LocalAccount>`** (a viem account signing AS the user).
+  · **Dynamic agent:** wrap a Dynamic *delegated* signer (`createDelegatedEvmWalletClient` →
+  `delegatedSignMessage`/`delegatedSignTransaction`, `@dynamic-labs-wallet/node-evm`) as a viem
+  `toAccount`; build `createUnlinkService({apiKey:UNLINK_API_KEY, rpcUrl:ARC_RPC_URL, getUserSigner})`
+  in `server.ts` → `createContext({unlink})`.
+  · **%67/Opus P:** repoint the confirm-sheet pay-executor + host `payUSDC` handler to
+  `payments.privateSend` (private by default); add the one-time "enable private balance"
+  (delegation consent → `payments.enablePrivacy`); show `payments.privateBalance` as the wallet.
+  · `createUserUnlink` is the server-only `@superjam/onchain/unlink-user` subpath — NOT the barrel
+  (it pulls `@unlink-xyz/sdk/admin`, which can't bundle into the web client).
 
 ## BUILD DISCIPLINE — load management (effective 2026-06-13)
 

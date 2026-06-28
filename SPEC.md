@@ -1,12 +1,23 @@
 # SuperJam — one-shot build spec (ETHGlobal NYC 2026)
 
-> ⚠️ **PIVOT IN EFFECT (2026-06-13):** the platform pivoted to **external,
-> builder-hosted mini-apps** (Track B only). `docs/PIVOT.md` is the authoritative
-> coordination contract and **supersedes this spec** on §6 (sandbox gains
-> `allow-same-origin` — apps are cross-origin), §11 (builder deploys to
-> Vercel/Neon, no `Bun.build`/S3), §17 (host frames an external `entryUrl`), and
-> adds the §1 identity-token/JWKS primitive. Read `docs/PIVOT.md` first; the rest
-> of this spec stands where PIVOT is silent.
+> ⚠️ **PIVOT IN EFFECT (2026-06-13) + CHAIN CONSOLIDATION (2026-06-14).**
+> `docs/PIVOT.md` and **§0.3 below** are authoritative; this spec body is largely
+> historical planning. Two things the body predates:
+>
+> 1. **Track B only** — every mini-app is an **external, builder-hosted web app**
+>    framed cross-origin. PIVOT supersedes §6 (sandbox gains `allow-same-origin`),
+>    §11 (builder deploys to **Vercel/Neon**, no `Bun.build`/S3 bundling), §17
+>    (host frames an external `entryUrl`), and adds the §1 identity-token/JWKS
+>    primitive.
+> 2. **Two chains only — Base Sepolia was removed.** Read every "**Base Sepolia**"
+>    in the body as "**Arc testnet**" (money: USDC tips/payments + on-chain game
+>    contracts) and every "**Durin / `ENS_L2_REGISTRY`**" as "**ENSv2 —
+>    SuperjamRegistry `0x822f` under `superjam.eth` on Sepolia L1**" (identity:
+>    names + ERC-8004; CCTP source). The body is **not** swept line-by-line; §0.3
+>    is the canonical current state.
+>
+> Read `docs/PIVOT.md` + §0.3 first; the rest of this spec stands where they are
+> silent (SDK contract, DB schema shapes, bridge protocol).
 
 _v3, 2026-06-12 — adds explore/discovery, similar-check, remix, and
 messaging + deeplinks as core. Companion to `mini-app-host-platform.md` (strategy/why).
@@ -19,10 +30,11 @@ sonara/stylelab/invok — patterns, not code._
 (Dynamic), third-party mini apps in sandboxed iframes with an injected SDK
 (wallet + profile + **storage + shared data**), an AI agent that builds + deploys
 new mini apps from a prompt, gated by World ID + a pay-to-publish fee in USDC.
-Verified humans get their own ENS name (`username.superjam.eth`, registered on
-Sepolia, subnames agent-minted via Durin on Base Sepolia) and their apps
-publish UNDER it: `appslug.username.superjam.eth` — a user-owned,
-onchain-enumerable app namespace. (Testnet-only event, §15.1. Optional §16
+Verified humans get their own ENS name (`username.superjam.eth`) and their apps
+publish UNDER it: `appslug.username.superjam.eth` — nested ENSv2 subnames minted
+by the agent into **SuperjamRegistry `0x822f`** (self-contained IRegistry +
+ENSIP-10 wildcard resolver under `superjam.eth` on **Sepolia L1**), resolvable in
+standard ENS tooling — a user-owned, onchain-enumerable app namespace. (Testnet-only event, §15.1. Optional §16
 upgrade: DNSSEC-import the `superjam.fun` web domain into ENS so the ENS name
 and the URL become the same string — one-constant swap, roadmap if DS
 propagation drags.)
@@ -69,6 +81,37 @@ For the implementing agent:
 
 ---
 
+## 0.3 Current state (2026-06-14) — canonical
+
+What is actually live, superseding the historical body where they differ:
+
+- **App model (Track B):** every jam is an external web app the builder **deploys
+  to Vercel (+ its own Neon DB)**; the host frames `app.entryUrl` in a cross-origin
+  sandboxed iframe. Identity is a short-lived **ES256 app-token** the jam's own
+  backend verifies against the platform `/.well-known/jwks.json` (`sdk.auth.getToken()`).
+  No platform bundling, no S3 bundle serving (the Track-A `/a` route is removed).
+- **Chains (two):** **Arc testnet** (chainId `5042002`) = money — USDC tips/
+  payments (gasless), confidential balances, and **bespoke on-chain game contracts**
+  the builder deploys per jam; **Ethereum Sepolia L1** (`11155111`) = identity —
+  ENSv2 names (SuperjamRegistry `0x822f`) + ERC-8004 agent identity, and the CCTP
+  source for "Add funds". **Base Sepolia is gone.**
+- **Naming:** nested `slug.user.superjam.eth` via ENSIP-10 wildcard, resolvable
+  through the canonical UniversalResolver / `app.ens.domains` / viem.
+- **Payments:** build fees settle over the **x402 private rail** (Unlink shielded →
+  Circle Gateway) and the server returns a **signed build-payment token** the
+  `builds.create` gate verifies; **free for a World-verified human using a
+  human-backed builder**. Tips and in-jam sends settle over the **Unlink shielded
+  rail** (`payments.privateSend`) on Arc — **private by default**, gasless,
+  server-signed. The EIP-3009 gasless relay is reserved for the payments the
+  platform must verify by reading an on-chain receipt (publish fee, pot stakes).
+  `sdk.payments.payX402` (private nanopayments) is **proven live**, not gated.
+- **Builders are a marketplace — no house builder.** Every jam is built by a
+  registered agent (own ENS name + ERC-8004 identity/reputation + a StakeSlash
+  yield stake + revenue share); a build with no eligible agent is rejected. The
+  builder agent is **AgentKit-registered, human-backed via World ID**.
+
+---
+
 ## 1. Required inputs manifest (filled by Kristjan before/at kickoff)
 
 Core rows are REQUIRED at kickoff (no mock fallbacks — §0.2); stretch rows
@@ -82,15 +125,15 @@ optional.
 | `BUILDER_TOKEN` | `~/.config/turbojam/builder.env` on kristjan-dev — already generated | remote agent builds (else oneshot/mock) |
 | `DYNAMIC_ENVIRONMENT_ID` | Dynamic dashboard (confirm-popup OFF, origins allowlisted) | ALL login — required |
 | `WORLD_APP_ID`, `WORLD_ACTION=publish-app` | developer.world.org portal | verify + trial gate — required |
-| `ENS_L2_REGISTRY` | Durin registry deployed pre-event (**Base Sepolia** — testnet-only event posture, §15.1) | ENS mint — required |
-| `ENS_PARENT_NODE` | `namehash("superjam.eth")` (registered on **Sepolia** ENS, §16/§23; the DNSSEC-`superjam.fun` parent is an optional Sepolia-only upgrade) | ENS mint |
-| `DYNAMIC_API_TOKEN` | Dynamic dashboard | the agent's ONCHAIN signer: a Dynamic **server wallet** (TSS-MPC — no raw private key anywhere; `@dynamic-labs-wallet/node-evm` + viem interop) that mints ENS subnames (§11 step 5) + registers ERC-8004 (§16). Funded with Sepolia + Base Sepolia ETH. Behind ONE viem-account adapter seam in `packages/onchain` — a funded plain key is a 10-min swap if the §23 rehearsal fails. Doubles as the Dynamic "Best Agentic Build" submission |
-| `TREASURY_ADDRESS` | platform wallet | publish-fee payments |
-| `UNLINK_API_KEY` (+ Unlink `appId`) | dashboard.unlink.xyz | the PRIVACY rail: confidential tips on Arc testnet (§15); missing ⇒ tips fall back to public Base Sepolia transfers |
-| `CIRCLE_GATEWAY_*` + `ARC_PAYER_EOA_KEY` (gated) | `@circle-fin/x402-batching` config + a funded plain payer EOA on Arc testnet | `sdk.payments.payX402` private-nanopayment leg (§3/§9/§15 — gated, cut-first); missing ⇒ method disabled, private tips unaffected |
-| `BASE_SEPOLIA_RPC_URL`, `SEPOLIA_RPC_URL` | public or Alchemy | onchain (Base Sepolia core + Sepolia ENS L1) |
-| `ARC_RPC_URL` | `https://rpc.testnet.arc.network` | Arc testnet (privacy rail — Unlink, §15) |
-| `ERC8004_REGISTRY` | ERC-8004 registry on Base Sepolia/Sepolia (same CREATE2 address expected as mainnet `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` — verify §23; else deploy the permissionless reference registry, still testnet) | ENSIP-25 agent verification |
+| `ENS_REGISTRY` (SuperjamRegistry `0x822f`) | self-contained ENSv2 IRegistry + ENSIP-10 wildcard resolver, deployed under `superjam.eth` on **Sepolia L1** (replaces the old Durin L2 path) | ENS mint — required |
+| `ENS_PARENT_NODE` | `namehash("superjam.eth")` (registered on **Sepolia L1**, §16) | ENS mint |
+| `DYNAMIC_API_TOKEN` | Dynamic dashboard | the agent's ONCHAIN signer: a Dynamic **server wallet** (TSS-MPC — no raw private key anywhere; `@dynamic-labs-wallet/node-evm` + viem interop) that mints ENS subnames + registers ERC-8004 (§16) + deploys/relays Arc game contracts. Funded with Sepolia + Arc ETH. Behind ONE viem-account adapter seam in `packages/onchain`; a funded plain key is the fallback. Doubles as the Dynamic agentic-build submission |
+| `TREASURY_ADDRESS` | platform wallet | publish-fee / x402 settlement |
+| `UNLINK_API_KEY` (+ Unlink `appId`) | dashboard.unlink.xyz | the PRIVACY rail: confidential tips + the x402 settlement leg on Arc testnet (§15) |
+| `CIRCLE_GATEWAY_*` + `ARC_PAYER_EOA_KEY` | `@circle-fin/x402-batching` config + a funded payer EOA on Arc testnet | `sdk.payments.payX402` private-nanopayment leg + the build-fee x402 rail (§3/§9/§15) — **core, proven live** |
+| `SEPOLIA_RPC_URL` | public or Alchemy | Sepolia L1 (ENSv2 + ERC-8004 + CCTP source) |
+| `ARC_RPC_URL` | `https://rpc.testnet.arc.network` | Arc testnet — money rail (USDC, Unlink, game contracts, §15) |
+| `ERC8004_REGISTRY` | ERC-8004 identity registry on **Sepolia L1** (canonical CREATE2 `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`; else the permissionless reference registry, still testnet) | agent identity + reputation |
 
 Web build args: `NEXT_PUBLIC_APP_ENV`, `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`,
 `NEXT_PUBLIC_WORLD_APP_ID`.
@@ -515,7 +558,7 @@ app_message:    id msg, appId→app, fromUserId→user, toUserId→user,
 Constants (`packages/shared/constants.ts`): KV ≤1000 keys/user/app, value ≤64KiB
 (serialized), records ≤10_000/app, doc ≤64KiB, names `[A-Za-z0-9_-]{1,64}`,
 key `[A-Za-z0-9_-]{1,128}`, FREE_BUILDS=1, PUBLISH_FEE_USDC="1", TX_CAP_USDC="25",
-LIST_MAX=100, AI_CALLS_PER_USER_APP_DAY=25, AI_MAX_OUTPUT_TOKENS=1000,
+LIST_MAX=500, AI_CALLS_PER_USER_APP_DAY=25, AI_MAX_OUTPUT_TOKENS=1000,
 AI_APP_MODEL="claude-haiku-4-5" (in-app + refine; build agent uses fable),
 REFINE_CALLS_PER_USER_DAY=20,
 CATEGORIES=["game","social","tool","creative","other"], REVIEW_TEXT_MAX=280,
@@ -1304,12 +1347,14 @@ Web client: `RPCLink` with auth header injection; TanStack Query via
 
 **The rule:** the only payments that CAN'T be private are the ones the platform
 must cryptographically verify by reading an on-chain receipt — publish fee, pot
-stakes, paid agent builds (§12). Those go to platform-controlled addresses and
-their provability IS the feature, so they're **public** (Base Sepolia,
-sponsored). Everything peer-to-peer — **tips + app `payUSDC` pay-actions** — has
-no such constraint (social proof = the server-stamped leaderboard counter the
-user opts into by tapping), so it is **private by default** (Unlink on Arc
-testnet). No public/private toggle; not a user-facing choice.
+stakes (§12). Those go to platform-controlled addresses and their provability IS
+the feature, so they're **public** (Arc, gasless via the EIP-3009 relay). (Paid
+agent builds settle over the **x402 private rail** and are verified by a signed
+build-payment token instead — §14.) Everything peer-to-peer — **tips + app
+`payUSDC` pay-actions** — has no such constraint (social proof = the
+server-stamped leaderboard counter the user opts into by tapping), so it is
+**private by default** (Unlink on Arc testnet). No public/private toggle; not a
+user-facing choice.
 
 - `packages/onchain`: chain defs baseSepolia (core) / arcTestnet (privacy,
   5042002 — ships in `viem/chains`, RPC `https://rpc.testnet.arc.network`;
@@ -1317,26 +1362,26 @@ testnet). No public/private toggle; not a user-facing choice.
   18-dec native ⟷ 6-dec ERC-20 at `0x3600…0000` are the SAME balance — never
   mix units, never sum the two reads); USDC addresses per chain;
   `parseUsdc/formatUsdc` (6 dec).
-- **Private rail (default for tips/pay-actions):** `payUSDC` → Unlink shielded
-  transfer on Arc testnet, relayed (sender pays no gas, §15.1); recipient
-  resolved `@username` → `user.unlinkAddress`; the confirm sheet reads "Send
-  0.50 USDC privately 🕶". ONE adapter in the host payments handler — if the
-  Unlink client errors / `UNLINK_API_KEY` absent, it **silently falls back to a
-  public Base Sepolia ERC-20 transfer** (same call shape, "(privacy
-  unavailable — sent publicly)" toast). The demo never dies. The same Unlink
-  adapter has a SECOND operation (gated, §3/§9): **`payX402`** — instead of a
+- **Private rail (default for tips/pay-actions):** `payUSDC` → `payments.privateSend`
+  → Unlink shielded transfer on Arc testnet, relayed (sender pays no gas, §15.1);
+  recipient resolved `@username` → `user.unlinkAddress` (a friend send also records
+  the chat money-line server-side), app tips → the app owner's shielded balance;
+  the confirm sheet reads "Send 0.50 USDC privately 🕶". **No public/EIP-3009
+  fallback** — Unlink is assumed configured; if it's unavailable the send fails
+  cleanly (the public rail is only for the verifiable payments below). The same
+  Unlink adapter has a SECOND operation (gated, §3/§9): **`payX402`** — instead of a
   private→private `transfer`, it `withdraw`s to a platform plain payer EOA →
   Circle Gateway `deposit`+`pay(url)`, paying an x402 resource privately. Two
   Unlink-guide constraints hold verbatim: *"the Gateway payer must be a plain
   EOA — never an Unlink execution/smart account"*, and *"avoid a same-size
   deposit and withdrawal in the same flow"* (park a larger pool balance,
   withdraw smaller amounts).
-- **Public rail (publish / pot stakes / paid builds):** ERC-20 transfer on Base
-  Sepolia; host builds calldata; sheet shows amount + recipient (ENS name if
-  known); cap §2; gasless via EIP-3009 relay (`useSignAndSend`, §13/§15.1). Pay-to-publish:
-  1 USDC → treasury → `publish.submit` (§12).
+- **Public rail (publish / pot stakes):** ERC-20 transfer on Arc; host builds
+  calldata; sheet shows amount + recipient (ENS name if known); cap §2; gasless
+  via EIP-3009 relay (`useSignAndSend`, §13/§15.1). Pay-to-publish: 1 USDC →
+  treasury → `publish.submit` (§12). (Paid builds use the x402 private rail — §14.)
 - **Arc/Unlink rehearsal = Thu go/no-go (§23)**, isolated in `packages/onchain`
-  + the Unlink adapter. Fail ⇒ tips stay public, nanopayments submission drops.
+  + the Unlink adapter. Fail ⇒ tips + nanopayments drop (no public fallback).
 - Demo funding: the **Top-up button** (§15.1 rung 3) seeds both rails; demo
   wallets may also be pre-funded beforehand (no onramp needed — why Blink was
   dropped).
@@ -1353,9 +1398,9 @@ Users NEVER hold or think about ETH; the agent runs on pre-funded ETH.
 | ENS user-node + app mints, agent ENS | Sepolia (L1) + Base Sepolia (Durin L2) | agent server wallet | pre-funded ETH (Dynamic server wallets have NO sponsorship — checked docs) |
 | ERC-8004 register + reputation writes | Base Sepolia / Sepolia | agent server wallet | pre-funded ETH |
 | **Tips + app pay-actions (default)** | Arc testnet | Unlink relayer | private transfers relayed — sender pays no gas (§15) |
-| Publish fee, paid builds, pot stakes | Base Sepolia | **gasless** | EIP-3009 `transferWithAuthorization` — user signs, platform server wallet relays + pays ETH (§13) |
-| Pot payouts / refunds | Base Sepolia | agent server wallet | pre-funded ETH (escrow custodian, §9) |
-| Public-tip fallback (Unlink down) | Base Sepolia | **gasless** | same EIP-3009 relay path as the public rail |
+| Publish fee, pot stakes | Arc testnet | **gasless** | EIP-3009 `transferWithAuthorization` — user signs, platform server wallet relays (Arc gas = USDC, §13) |
+| Pot payouts / refunds | Arc testnet | agent server wallet | escrow custodian, gas = USDC (§9) |
+| Paid agent builds | Arc testnet | Unlink relayer + Circle Gateway | x402 private rail — shielded withdraw → Gateway settle (§14) |
 | `payX402` private nanopayment (gated) | Arc testnet | Unlink relayer + Circle Gateway | withdraw relayed; Gateway pays in USDC (Arc gas = USDC) |
 | Anything else on Arc | Arc testnet | user, in USDC | gas IS USDC natively — no paymaster |
 

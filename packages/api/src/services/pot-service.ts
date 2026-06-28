@@ -108,23 +108,24 @@ export const createPotService = ({
       if (!row.options.includes(input.option)) {
         throw new ORPCError("BAD_REQUEST", { message: "Unknown option" });
       }
+
       if (!actor.walletAddress) {
         throw new ORPCError("BAD_REQUEST", { message: "No wallet on file" });
       }
-
       // Verify the stake landed in escrow (the agent server wallet). Keyed on
       // the Transfer LOG, so a relayed EIP-3009 stake is accepted (§12).
-      const { from, value } = await onchain.verifyUsdcTransfer({
+      const verified = await onchain.verifyUsdcTransfer({
         hash: input.txHash,
         chain: PUBLIC_CHAIN,
         expectedTo: onchain.serverAddress,
         minAmount: MIN_STAKE,
       });
-      if (!isAddressEqual(from, actor.walletAddress as `0x${string}`)) {
+      if (!isAddressEqual(verified.from, actor.walletAddress as `0x${string}`)) {
         throw new ORPCError("BAD_REQUEST", {
           message: "Stake must come from your wallet",
         });
       }
+      const value: Usdc = verified.value;
       if (value > POT_STAKE_MAX) {
         throw new ORPCError("BAD_REQUEST", { message: "Stake over the cap" });
       }

@@ -18,8 +18,10 @@ import {
 import { google } from "@ai-sdk/google";
 import { generateObject, type LanguageModel } from "ai";
 
-// Gemini free tier, fast (~2-4s). Overridable for tests / model bumps.
-export const DEFAULT_REFINE_MODEL = "gemini-2.0-flash";
+// Gemini, fast. Overridable for tests / model bumps. 2.0-flash was retired by Google
+// (generateContent → 404); flash-lite is the fastest GA 2.5 model — the wizard's
+// idle "thinking…" is latency-visible, so we trade a little reasoning for speed.
+export const DEFAULT_REFINE_MODEL = "gemini-2.5-flash-lite";
 
 /** A listed app, rendered into the prompt for the similar-check. */
 export interface RefineCatalogApp {
@@ -44,6 +46,14 @@ export interface RefineInput {
    * platform skips it on adjust re-refines and remixes for wizard latency).
    */
   catalog?: RefineCatalogApp[];
+  /**
+   * Files the user attached to the build prompt, as raw bytes + MIME. Sent to
+   * Gemini as content parts — images become vision, PDFs/CSVs/text are read
+   * natively — so the spec is planned around the actual contents (e.g. an
+   * infographic over a CSV's columns, or a layout matching a mockup). The platform
+   * resolves these from the object store; (Gemini-readable MIME types only).
+   */
+  attachments?: { mediaType: string; data: Uint8Array }[];
 }
 
 /**
@@ -54,6 +64,7 @@ export interface RefineInput {
 export type RefineGenerator = (args: {
   system: string;
   prompt: string;
+  attachments?: { mediaType: string; data: Uint8Array }[];
 }) => Promise<RefineResult>;
 
 const SYSTEM = `You are SuperJam's app-idea refiner. The user wants a small,
@@ -75,9 +86,11 @@ Return EXACTLY ONE of two shapes:
    - capabilities: which of payments | ai | social this app actually uses.
    - features: 3-6 concrete bullets the build agent must implement.
    - data: the app's persistence, expressed against the SuperJam SDK —
-       collections (shared docs everyone sees: walls, posts, leaderboards),
-       counters (atomic tallies keyed by something), storage (per-user keys).
-       Only include what the features need; empty arrays are fine.
+       collections (shared docs everyone sees: walls, posts, leaderboards) —
+       each with a "fields" list of { name, type } where type is
+       string | number | boolean; counters (atomic tallies keyed by something);
+       storage (per-user keys). Only include what the features need; empty arrays
+       are fine.
    - payments (only if capability "payments"): actions { label, amountUsdc, to:"appTreasury" }.
    - ai (only if capability "ai"): uses — what the in-app AI is asked to do.
    - social (only if capability "social"): messagesSentWhen — when one-way
@@ -86,8 +99,20 @@ Return EXACTLY ONE of two shapes:
    - skills: 0-3 build skills, ONLY when clearly needed — game-3d (3D scene),
        game-2d (canvas arcade), charts (visualize shared data), motion
        (animated polished UI), art (AI-generated image assets), judge (AI
-       scoring/resolution), market (on-chain/marketplace). Omit when none fit.
+       scoring/resolution), market (on-chain/marketplace), map (an interactive
+       map with markers/route — trip planners, "near me", anything that plots
+       places). Omit when none fit.
    - acceptance: a self-check list the build agent verifies before shipping.
+
+   TRAVEL / TRIP GUIDES: when the idea is a trip, an itinerary, or a guide to a
+   real place (e.g. "a Japan trip app", "Italy guide"), use skills ["map","art"]
+   and capability "ai". Prefer a RICH CURATED itinerary over an empty planner: the
+   build agent authors the real day-by-day route itself (real stops/coords, vivid
+   descriptions, food picks, transit, tips), bakes a hero + one photo per stop via
+   art, plots the route on the map, and adds a light "ask the guide" AI helper.
+   Put concrete, place-specific content in features/acceptance (not "user types a
+   destination"). Only make it a runtime planner if the idea is explicitly an
+   open-ended "plan ANY trip" tool.
 
 Mini apps get a SuperJam SDK: per-user storage, shared collections + a shared
 leaderboard, the user's identity (username/wallet) + friends, one-way messages,
@@ -117,6 +142,18 @@ export const buildPrompt = (input: RefineInput): { system: string; prompt: strin
       `\nClarifications so far:\n${input.answers
         .map((x) => `Q: ${x.q}\nA: ${x.a}`)
         .join("\n")}`
+    );
+  }
+
+  if (input.attachments?.length) {
+    // The files themselves ride as content parts (images = vision, PDF/CSV/text read
+    // natively). Tell the model to plan around their contents — e.g. for tabular data,
+    // a 'charts' skill + collections matching the columns. The build agent gets them too.
+    parts.push(
+      `\nATTACHED FILES — the user attached ${input.attachments.length} file(s) ` +
+        `(provided alongside this message). READ them and design the spec around their ` +
+        `actual contents (e.g. if it's tabular data, plan a 'charts' skill + collections ` +
+        `matching the columns; if it's a mockup, match its layout).`
     );
   }
 
@@ -155,13 +192,35 @@ export const filterSimilar = (
 
 const geminiGenerator =
   (model: LanguageModel): RefineGenerator =>
-  async ({ system, prompt }) => {
-    const { object } = await generateObject({
-      model,
-      schema: RefineResultSchema,
-      system,
-      prompt,
-    });
+  async ({ system, prompt, attachments }) => {
+    const common = { model, schema: RefineResultSchema, system } as const;
+
+    // Attachments ride as content parts in a multimodal generateObject call —
+    // images as vision, PDF/CSV/text read natively. (url_context can't be combined
+    // with structured output on Gemini — "Tool use with a response mime type
+    // 'application/json' is unsupported" — and we already hold the bytes, so we send
+    // them inline rather than have the model fetch a URL.)
+    if (attachments?.length) {
+      const { object } = await generateObject({
+        ...common,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              ...attachments.map((a) =>
+                a.mediaType.startsWith("image/")
+                  ? ({ type: "image", image: a.data } as const)
+                  : ({ type: "file", data: a.data, mediaType: a.mediaType } as const)
+              ),
+            ],
+          },
+        ],
+      });
+      return object;
+    }
+
+    const { object } = await generateObject({ ...common, prompt });
     return object;
   };
 
@@ -176,6 +235,6 @@ export const refine = async (
   const generate =
     deps.generate ?? geminiGenerator(deps.model ?? google(DEFAULT_REFINE_MODEL));
   const { system, prompt } = buildPrompt(input);
-  const result = await generate({ system, prompt });
+  const result = await generate({ system, prompt, attachments: input.attachments });
   return filterSimilar(result, input.catalog);
 };
