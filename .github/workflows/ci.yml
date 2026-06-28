@@ -47,7 +47,20 @@ jobs:
         run: bun run lint
 
       - name: Test
-        run: bun test
+        # Run per-package in fresh processes: the whole-suite run spins up many
+        # pglite (WASM Postgres) instances in ONE process and exhausts the runner.
+        # Isolating per package releases memory between packages.
+        run: |
+          set -uo pipefail
+          fail=0
+          for pkg in $(find packages apps -maxdepth 1 -mindepth 1 -type d | sort); do
+            if find "$pkg" -name '*.test.ts' -not -path '*/node_modules/*' -print -quit | grep -q .; then
+              echo "::group::test $pkg"
+              bun test "$pkg" || fail=1
+              echo "::endgroup::"
+            fi
+          done
+          exit $fail
 
       - name: Build
         run: bun run build
