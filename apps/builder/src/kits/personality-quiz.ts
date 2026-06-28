@@ -128,14 +128,13 @@ export default function Page() {
   const q = QUESTIONS[idx];
   return (
     <main className="tj-app tj-stagger">
+      {/* Quiz/personality → open on a glowing title screen (not a slab). */}
+      <div className="tj-hero">
+        <div style={{ fontSize: 40, lineHeight: 1 }}>${emoji}</div>
+        <h1 className="tj-title">${title}</h1>
+        <p className="tj-sub">{friend ? friend.who + " is a " + friend.type + " — which are you?" : "Question " + (idx + 1) + " of " + QUESTIONS.length}</p>
+      </div>
       <div className="tj-card">
-        <div className="tj-header">
-          <span className="tj-emoji">${emoji}</span>
-          <div className="tj-htext">
-            <h1 className="tj-title">${title}</h1>
-            <p className="tj-sub">{friend ? friend.who + " is a " + friend.type + " — which are you?" : "Question " + (idx + 1) + " of " + QUESTIONS.length}</p>
-          </div>
-        </div>
         {q ? (
           <>
             <p style={{ fontWeight: 700, margin: "4px 0 12px" }}>{q.q}</p>

@@ -82,10 +82,13 @@ classes instead of ad-hoc `system-ui` inline styles. DO NOT edit `theme.css`** �
 custom CSS in `app/globals.css`.
 - Wrap your screen in `<main className="tj-app tj-stagger">` (a mobile-first column that
   rises its children in).
-- Own your FIRST screen: lead with `tj-hero` (the first child of `tj-app` so it bleeds
-  full-width) — a glowing gradient band with a hook line / call-to-action, NOT the jam's
-  name (the host bar shows that). Override its gradient with an inline `style` or a baked
-  `<img src="/hero.png">` for per-jam art, so each jam opens distinct and immersive.
+- Open the way the app PLAYS — don't paste a bright banner. Pick the fitting opening:
+  a **game** drops straight onto the HUD (a big `tj-stat` + the action, no header); a
+  **quiz / personality / roast / generator** opens with `tj-hero` (a GLOWING TITLE on the
+  dark stage — gradient text + soft glow, NOT a slab); a **poll / wall** shows a compact
+  `tj-header` then the ballot/feed; a **travel / photo** jam uses `tj-hero-art` (a baked
+  `<img src="/hero.png">` first child whose edges fade into the dark, then the title).
+  Never repeat the jam's name as a giant slab (the host bar shows it).
 - Surfaces & layout: `tj-card` (translucent glass), `tj-header` (a row:
   `tj-emoji` chip + `tj-htext` holding `tj-title`/`tj-sub`, optional `tj-spacer`),
   `tj-row`, `tj-grid2`, `tj-center`, `tj-list`, `tj-muted`.

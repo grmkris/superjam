@@ -117,11 +117,13 @@ export default function Page() {
 
   return (
     <main className="tj-app tj-stagger">
+      {/* Generator → open on a glowing title screen (not a slab). */}
+      <div className="tj-hero">
+        <div style={{ fontSize: 40, lineHeight: 1 }}>${emoji}</div>
+        <h1 className="tj-title">${title}</h1>
+        <p className="tj-sub">Submit it. Brace yourself.</p>
+      </div>
       <div className="tj-card">
-        <div className="tj-header">
-          <span className="tj-emoji">${emoji}</span>
-          <div className="tj-htext"><h1 className="tj-title">${title}</h1><p className="tj-sub">Submit it. Brace yourself.</p></div>
-        </div>
         {/* TODO: optionally accept a photo via sdk.files.upload → ai.chat({ images:[url] }). */}
         <textarea className="tj-input" rows={3} value={input} maxLength={200} placeholder="Paste it here…" onChange={(e) => setInput(e.target.value)} />
         <button className="tj-btn tj-btn-block" style={{ marginTop: 10 }} disabled={busy || !input.trim()} onClick={roast}>

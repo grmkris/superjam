@@ -418,32 +418,56 @@ body {
   .tj-app { max-width: 720px; padding: 32px 24px 48px; }
 }
 
-/* ── Hero / first-page band — gives a jam's FIRST screen its own immersive identity.
-   Bleeds full-width past the .tj-app padding; a glowing accent→blue gradient with a
-   soft top sheen + drop-glow. White text stays high-contrast. Drop a .tj-title +
-   .tj-sub (or a baked <img src="/hero.png">) inside. Override the gradient with an
-   inline \`style\` or a new globals.css class for per-jam art. NOT the page background —
-   the stage itself stays dark. */
+/* ── Opening toolkit — pick the one that FITS the app (the kit sets a default; the
+   page never pastes a bright full-bleed banner — that fights the dark stage):
+   • .tj-hero     — a glowing TITLE that sits on the dark stage (no slab, no box): a
+     gradient-clipped title + a soft radial glow that melts into --bg. The "title
+     screen" open for generators / quizzes / roasts.
+   • .tj-hero-art — a baked image whose edges FADE into the dark (mask), with the title
+     overlaid. The atmospheric open for travel / photo / visual jams.
+   • (no opening) — games & polls just open on the HUD / ballot, with a compact
+     .tj-header inside the first card. */
 .tj-hero {
+  position: relative;
+  margin: 4px 0 18px;
+  padding: 22px 12px 8px;
+  text-align: center;
+  background: radial-gradient(60% 78% at 50% 22%, rgba(255, 71, 103, 0.16), rgba(91, 123, 255, 0.09) 50%, transparent 72%);
+}
+.tj-hero .tj-title {
+  font-size: 34px; line-height: 1.04; letter-spacing: -0.03em;
+  background: linear-gradient(120deg, #fff 8%, var(--accent) 52%, var(--blue));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 22px rgba(255, 71, 103, 0.30));
+}
+.tj-hero .tj-sub { color: var(--muted); margin-top: 6px; }
+@media (min-width: 768px) {
+  .tj-hero { padding: 32px 12px 10px; }
+  .tj-hero .tj-title { font-size: 44px; }
+}
+
+/* Art opening — a baked hero image that melts into the stage at its edges. Put an
+   <img src="/hero.png"> (or a .tj-hero-bg div with a background-image) as the FIRST
+   child, then the .tj-title / .tj-sub. */
+.tj-hero-art {
   position: relative; overflow: hidden;
   margin: -20px -16px 18px;
-  padding: 34px 22px;
-  color: #fff;
-  text-align: center;
-  border-radius: 0 0 22px 22px;
-  background: linear-gradient(135deg, var(--accent), var(--blue));
-  box-shadow: 0 24px 60px -24px rgba(255, 71, 103, 0.6);
+  min-height: 200px;
+  display: grid; align-content: end; justify-items: center; gap: 2px;
+  padding: 22px 20px 18px; text-align: center;
 }
-.tj-hero::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(120% 80% at 50% -25%, rgba(255, 255, 255, 0.38), transparent 60%);
+.tj-hero-art > img, .tj-hero-art > .tj-hero-bg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; z-index: 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 35%, transparent 97%);
+  mask-image: linear-gradient(to bottom, #000 35%, transparent 97%);
 }
-.tj-hero > * { position: relative; }
+.tj-hero-art > .tj-title, .tj-hero-art > .tj-sub { position: relative; z-index: 1; }
+.tj-hero-art .tj-title { color: #fff; font-size: 32px; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6); }
+.tj-hero-art .tj-sub { color: rgba(255, 255, 255, 0.85); }
 @media (min-width: 768px) {
-  .tj-hero { margin: -32px -24px 22px; padding: 52px 32px; }
+  .tj-hero-art { margin: -32px -24px 22px; min-height: 248px; }
 }
-.tj-hero .tj-title { font-size: 30px; }
-.tj-hero .tj-sub { color: #fff; opacity: .92; }
 
 /* ── Surfaces ───────────────────────────────────────────────────────────── */
 .tj-card {
@@ -493,7 +517,7 @@ body {
 }
 .tj-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .tj-btn:active { transform: scale(0.97); }
-.tj-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
+.tj-btn:disabled { background: rgba(255, 255, 255, 0.07); color: var(--muted); cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
 .tj-btn-ghost { background: rgba(255, 255, 255, 0.05); color: var(--text); border: 1px solid var(--card-border); box-shadow: inset 0 1px 0 var(--card-highlight); }
 .tj-btn-ghost:hover { background: rgba(255, 255, 255, 0.09); }
 .tj-btn-yellow { background: var(--yellow); color: #1a1410; box-shadow: 0 10px 30px -6px rgba(245, 181, 60, 0.5); }
