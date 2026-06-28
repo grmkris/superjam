@@ -59,10 +59,10 @@ const SPECS: AppSpec[] = [
     ],
   },
   {
-    name: "World Cup Trivia",
+    name: "Trivia Showdown",
     slug: "world-cup-trivia",
     description:
-      "A fast World Cup trivia quiz — beat the per-question timer, rack up points, and top the leaderboard. Share your score and challenge a friend.",
+      "A fast general-knowledge trivia showdown — beat the per-question timer, rack up points, and top the global leaderboard. Share your score and challenge a friend.",
     iconEmoji: "🧠",
     category: "game",
     capabilities: ["ai"],
@@ -88,47 +88,6 @@ const SPECS: AppSpec[] = [
       "The final score updates counter('scores') and the leaderboard shows the top players.",
       "A local fallback bank works with no AI; a Share link is offered at the end.",
       "Plays on a phone; degrades gracefully in standalone mode.",
-    ],
-  },
-  {
-    name: "Mascot Draw-off",
-    slug: "mascot-draw-off",
-    description:
-      "Draw a team mascot on the canvas; an AI rates every drawing for creativity and the shared gallery shows the best ones first. Share yours to rack up reactions.",
-    iconEmoji: "🎨",
-    category: "creative",
-    capabilities: ["ai"],
-    features: [
-      "A simple touch canvas to draw your mascot (emoji/CSS/canvas only, no external assets).",
-      "On submit, sdk.ai.chat rates the drawing 0-10 for creativity with a one-line note, parsed defensively with a local fallback.",
-      "A shared gallery (sdk.data.collection) shows everyone's drawing and its rating, best first.",
-      "Share your masterpiece with a sdk.share.link.",
-    ],
-    data: {
-      collections: [
-        {
-          name: "drawings",
-          fields: [
-            { name: "imageUrl", type: "string" },
-            { name: "score", type: "number" },
-          ],
-          writtenWhen: "a player submits their mascot",
-        },
-      ],
-      counters: [],
-      storage: [],
-    },
-    ai: { uses: ["score a submitted drawing 0-10 for creativity with a short note"] },
-    ui: {
-      layout: "a draw canvas with a Submit button, then a gallery of scored drawings best-first, plus a share button",
-      sections: ["canvas", "gallery", "share"],
-    },
-    skills: ["judge"],
-    acceptance: [
-      "A touch canvas lets the player draw and submit (uploaded via sdk.files.upload).",
-      "sdk.ai.chat scores the drawing; on AI error a local fallback score keeps it working.",
-      "The shared gallery lists everyone's drawing with its score, best-first; a Share link is offered.",
-      "All text is plain React text; standalone-safe.",
     ],
   },
   {
@@ -158,64 +117,6 @@ const SPECS: AppSpec[] = [
       "Voting bumps the chosen option's live bar; the pick survives a reload.",
       "The bars reflect everyone's votes; a Share link rallies more.",
       "Standalone-safe.",
-    ],
-  },
-  {
-    name: "Hot Take Poll",
-    slug: "proof-of-human-poll",
-    description:
-      "Drop a spicy this-or-that and watch the community vote in real time. See where you land versus everyone else, then share to start an argument.",
-    iconEmoji: "🗳️",
-    category: "social",
-    capabilities: [],
-    features: [
-      "Vote on a live poll; the results update instantly.",
-      "See the percentage split and how your pick compares via sdk.data.counter.",
-      "Share the poll with a link to pull in more votes via sdk.share.link.",
-    ],
-    data: {
-      collections: [],
-      counters: [{ name: "votes", keyedBy: "option", meaning: "tally per option" }],
-      storage: [{ key: "myVote", meaning: "this voter's pick" }],
-    },
-    ui: {
-      layout: "a question, options, live result bars, and a share button",
-      sections: ["question", "options", "results"],
-    },
-    skills: [],
-    acceptance: [
-      "Voting updates the live bars; the pick persists across a reload.",
-      "A Share link works; standalone-safe.",
-    ],
-  },
-  {
-    name: "Gem Clicker",
-    slug: "gem-clicker",
-    description:
-      "Tap the gem as fast as you can before the clock runs out, then climb the global leaderboard. Share your score and challenge a friend.",
-    iconEmoji: "💎",
-    category: "game",
-    capabilities: [],
-    features: [
-      "A big tappable gem; each tap scores, with a satisfying pop.",
-      "A short timed round with a live score and countdown.",
-      "A global high-score leaderboard via sdk.data.counter, your row highlighted.",
-      "Share an 'I scored X — beat me' link via sdk.share.link.",
-    ],
-    data: {
-      collections: [],
-      counters: [{ name: "scores", keyedBy: "username", meaning: "the player's best tap score" }],
-      storage: [],
-    },
-    ui: {
-      layout: "a big gem tap target with a score and timer HUD, then a leaderboard and a share button",
-      sections: ["tap-target", "hud", "leaderboard"],
-    },
-    skills: [],
-    acceptance: [
-      "Tapping the gem scores during a timed round.",
-      "The best score posts to the leaderboard, highest first; a Share link is offered.",
-      "Phone-friendly and standalone-safe.",
     ],
   },
   {
@@ -288,6 +189,158 @@ const SPECS: AppSpec[] = [
       "'Ask the guide' calls sdk.ai.chat with the itinerary as context, shows a loading state, and answers about the trip; on AI error it shows a friendly fallback and never blocks the page.",
       "Bookmarking a stop persists to storage and survives a reload.",
       "Polish uses plain CSS only — no motion/react or other added dependency. All text is plain React text.",
+    ],
+  },
+  {
+    name: "Which AI Are You?",
+    slug: "which-ai-are-you",
+    description:
+      "Answer a few chaotic questions and find out which AI model you really are — the overachiever, the careful one, the chaos goblin or the one that just vibes. Then share your type and drag your friends in.",
+    iconEmoji: "🤖",
+    category: "creative",
+    capabilities: [],
+    features: [
+      "A short personality quiz (5-ish questions); every answer nudges you toward one of four AI 'model' types, each with an emoji + a punchy blurb.",
+      "Your result type persists (sdk.storage) and credits sdk.data.counter so you can show how rare it is ('only 12% are this').",
+      "A shareable result card with a 'I'm Claude — which are you?' deep-link via sdk.share.link; opening a friend's link teases their type to pull you in.",
+    ],
+    data: {
+      collections: [],
+      counters: [{ name: "types", keyedBy: "type", meaning: "how many people got each AI type" }],
+      storage: [{ key: "myType", meaning: "the player's result type" }],
+    },
+    ui: {
+      layout: "a question card with tappable choices, then a result card with your AI type, a rarity line, and share + retake buttons",
+      sections: ["questions", "result", "share"],
+    },
+    skills: [],
+    acceptance: [
+      "Answering the questions tallies to a single result TYPE shown on a result card with its blurb.",
+      "The result persists across a reload and increments counter('types'); a rarity line shows the type's share.",
+      "A Share button makes a sdk.share.link carrying {type, who}; opening a shared link greets the friend's type.",
+      "All text is plain React text; standalone-safe.",
+    ],
+  },
+  {
+    name: "Snack Tier List",
+    slug: "snack-tier-list",
+    description:
+      "Rank the ultimate snacks into S, A, B and C tiers — tap to crown your favourites and bury the imposters, then share your hot ranking and see who disagrees.",
+    iconEmoji: "🍿",
+    category: "creative",
+    capabilities: [],
+    features: [
+      "A fixed list of ~8 snacks; tap an item to cycle its tier S → A → B → C → unranked, each tier in its own colour.",
+      "Your ranking persists across reloads via sdk.storage.",
+      "A shareable result card showing your tiers with a 'here's my ranking — agree?' deep-link via sdk.share.link; opening a friend's link shows theirs.",
+    ],
+    data: {
+      collections: [],
+      counters: [],
+      storage: [{ key: "ranks", meaning: "the player's tier assignment per item" }],
+    },
+    ui: {
+      layout: "a tappable list of snacks each showing its current tier badge, a 'see my ranking' button, then a grouped result card with share",
+      sections: ["ranking", "result", "share"],
+    },
+    skills: [],
+    acceptance: [
+      "Tapping an item cycles its tier and shows the tier badge/colour; the ranking survives a reload.",
+      "The result card groups items by tier; a Share button makes a sdk.share.link carrying the ranks.",
+      "All text is plain React text; standalone-safe.",
+    ],
+  },
+  {
+    name: "Daily Word Streak",
+    slug: "daily-word-streak",
+    description:
+      "One five-letter word a day. Six guesses, green / yellow / grey hints, and a streak you won't want to break — then share your spoiler-free emoji grid and challenge a friend.",
+    iconEmoji: "🟩",
+    category: "game",
+    capabilities: [],
+    features: [
+      "A daily five-letter word puzzle: up to six guesses with green (right spot) / yellow (wrong spot) / grey (absent) feedback.",
+      "One puzzle per day; your board, win state and streak persist via sdk.storage so coming back tomorrow extends the streak.",
+      "A guesses-to-solve distribution via sdk.data.counter, and a shareable spoiler-free emoji grid ('🟩🟨⬜… can you beat it?') via sdk.share.link.",
+    ],
+    data: {
+      collections: [],
+      counters: [{ name: "tries", keyedBy: "count", meaning: "distribution of how many guesses people needed" }],
+      storage: [{ key: "state", meaning: "today's board, win/loss, and current streak" }],
+    },
+    ui: {
+      layout: "a grid of guess rows and an input, then a win/lose card with the streak and a share-the-emoji-grid button",
+      sections: ["board", "input", "result"],
+    },
+    skills: [],
+    acceptance: [
+      "Guessing a five-letter word marks each letter green/yellow/grey and advances the board.",
+      "Solving or running out shows a result card with the streak; the day's state + streak persist across a reload.",
+      "A Share button produces a spoiler-free emoji grid link; standalone-safe.",
+    ],
+  },
+  {
+    name: "Confessions Wall",
+    slug: "confessions-wall",
+    description:
+      "Drop an anonymous confession on the shared wall and read what everyone else has owned up to. No likes, no logins, no judgement — just unfiltered honesty.",
+    iconEmoji: "🤫",
+    category: "social",
+    capabilities: [],
+    features: [
+      "A compose box to post a short anonymous confession to a shared wall (sdk.data.collection), with a character limit.",
+      "A live feed of everyone's confessions, newest first, each rendered as plain text (never raw HTML).",
+      "A friendly empty state inviting the first confession; your own post appears instantly.",
+    ],
+    data: {
+      collections: [
+        {
+          name: "confessions",
+          fields: [{ name: "text", type: "string" }],
+          writtenWhen: "someone posts a confession to the wall",
+        },
+      ],
+      counters: [],
+      storage: [],
+    },
+    ui: {
+      layout: "a compose box with a Post button at the top, then a scrolling feed of confession cards",
+      sections: ["compose", "feed"],
+    },
+    skills: [],
+    acceptance: [
+      "Posting writes to the shared collection and the new confession shows in the feed immediately.",
+      "The feed lists everyone's confessions newest-first; an empty state shows when there are none.",
+      "All user text is rendered as plain React text (never dangerouslySetInnerHTML); standalone-safe.",
+    ],
+  },
+  {
+    name: "Coin Flip Duel",
+    slug: "coin-flip-duel",
+    description:
+      "Call it in the air — heads or tails — and flip a real on-chain coin. Every flip is settled gaslessly on Arc, your wins rack up forever, and your luck is there for all to see.",
+    iconEmoji: "🪙",
+    category: "game",
+    capabilities: ["onchain"],
+    features: [
+      "Pick heads or tails, then flip — the result is decided by the seeded on-chain contract via gasless sdk.onchain.write (the platform stamps the player and pays gas).",
+      "Your wins / total flips are read back from the contract via sdk.onchain.read and shown as a win-rate / luck stat that survives reloads.",
+      "A satisfying coin-flip animation + win/lose reveal, with a pending state while the flip settles; the action is gated when opened outside SuperJam.",
+    ],
+    data: {
+      collections: [],
+      counters: [],
+      storage: [],
+    },
+    ui: {
+      layout: "heads/tails buttons and a Flip action, a coin-flip animation, a win/lose reveal, and a luck/stats HUD",
+      sections: ["call", "flip", "stats"],
+    },
+    skills: ["onchain"],
+    acceptance: [
+      "Choosing heads/tails and flipping calls sdk.onchain.write and shows the settled result; the agent writes ZERO Solidity (the contract is seeded).",
+      "Wins/plays are read back via sdk.onchain.read and the luck stat survives a reload.",
+      "Shows a pending state during the flip and gates the action on !sdk.standalone; all text plain React text.",
     ],
   },
 ];
