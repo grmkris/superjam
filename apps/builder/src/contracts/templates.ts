@@ -295,7 +295,7 @@ const collectible: OnchainTemplate = {
   title: "Onchain collectible",
   match: (hay) => /\bmint\b|\bnft\b|\bbadge\b|collectible|\btoken\b|\breward\b|trophy|\bclaim\b/.test(hay),
   contract: (spec) => {
-    const name = spec.name.replace(/[^\w \-]/g, "").trim().slice(0, 28) || "SuperJam Badge";
+    const name = spec.name.replace(/[^\w -]/g, "").trim().slice(0, 28) || "SuperJam Badge";
     const symbol = (name.replace(/[^A-Za-z]/g, "").slice(0, 4).toUpperCase()) || "SJB";
     return `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;

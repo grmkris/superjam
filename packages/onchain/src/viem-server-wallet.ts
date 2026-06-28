@@ -13,7 +13,7 @@ import {
   http,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { CHAINS, type ChainKey } from "./chains.ts";
+import { CHAINS, type ChainKey, PUBLIC_CHAIN } from "./chains.ts";
 import { OnchainError } from "./errors.ts";
 import type {
   RelayTransferArgs,
@@ -138,7 +138,7 @@ export const createServerWallet = ({
 export const createServerWalletFromKey = ({
   privateKey,
   rpcUrl,
-  chainKey = "arcTestnet",
+  chainKey = PUBLIC_CHAIN,
 }: {
   privateKey: Hex;
   rpcUrl?: string;

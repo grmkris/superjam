@@ -36,7 +36,7 @@ const HASH = "0xabc" as Hex;
 type Transfer = { from: Address; to: Address; value: bigint; token?: Address };
 
 const transferLog = ({ from, to, value, token }: Transfer) => ({
-  address: token ?? USDC.arcTestnet.address,
+  address: token ?? USDC.baseSepolia.address,
   topics: encodeEventTopics({
     abi: TRANSFER_ABI,
     eventName: "Transfer",
@@ -68,7 +68,7 @@ const mockClient = (
 const verify = (client: PublicClient, minAmount = parseUsdc("1")) =>
   verifyUsdcTransfer(client, {
     hash: HASH,
-    chain: "arcTestnet",
+    chain: "baseSepolia",
     expectedTo: TREASURY,
     minAmount,
   });

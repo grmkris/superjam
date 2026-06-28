@@ -82,7 +82,7 @@ if (existing) {
 const onchain =
   createOnchainFromConfig({
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
-    arcRpcUrl: process.env.ARC_RPC_URL,
+    baseRpcUrl: process.env.BASE_RPC_URL,
     // ENSv2-native (the single naming path): SuperjamRegistry on Sepolia L1.
     ensV2: process.env.ENS_V2_REGISTRY
       ? { registry: process.env.ENS_V2_REGISTRY as `0x${string}` }

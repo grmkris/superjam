@@ -59,7 +59,7 @@ const issuer = await createAppTokenIssuer({
 // Agent signer: a Dynamic TSS-MPC server wallet when configured (Best Agentic
 // Build — no raw key), else the funded plain-key fallback. The MPC client auth
 // is async, so it's built here at boot and injected as a pre-made ServerWallet.
-// This wallet signs the single money chain (PUBLIC_CHAIN = Arc). In prod a failure
+// This wallet signs the single money chain (PUBLIC_CHAIN = Base). In prod a failure
 // is fatal (no silent raw-key degrade); outside prod it falls back so boot never
 // breaks. (Identity — ENSv2 + ERC-8004 — is on Sepolia L1 with its own dedicated
 // signer; see ensV2/ensV2SignerKey.)
@@ -70,7 +70,7 @@ if (dynEnv) {
     dynServerWallet = await createDynamicServerWallet(
       dynEnv,
       PUBLIC_CHAIN,
-      env.ARC_RPC_URL,
+      env.BASE_RPC_URL,
     );
     logger.info(
       { signer: dynServerWallet.address },
@@ -90,7 +90,7 @@ const onchain =
   createOnchainFromConfig({
     serverWallet: dynServerWallet,
     serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
-    arcRpcUrl: env.ARC_RPC_URL,
+    baseRpcUrl: env.BASE_RPC_URL,
     // ERC-8004 (§14/§16): the canonical reference IdentityRegistry, set via
     // ENSv2-native (§16) — the SINGLE naming path: mints `<label>.superjam.eth`
     // resolvable in standard ENS tooling (Sepolia L1 SuperjamRegistry, agent-owned,

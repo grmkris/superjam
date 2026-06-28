@@ -1,22 +1,15 @@
-// Branded money units (§15). `Usdc` is a 6-decimal base-unit bigint, branded
-// distinct from the Arc-native 18-decimal unit so cross-unit math fails to
-// compile at function boundaries. THE FOOTGUN (§15): on Arc the 18-dec native
-// balance and the 6-dec ERC-20 at 0x3600…0000 are the SAME balance — read ONE,
-// never sum, never mix. The brand is the guardrail. Decimal-string is the wire
-// format (parseUsdc/formatUsdc only).
+// Branded money units (§15). `Usdc` is a 6-decimal base-unit bigint, branded so
+// cross-unit math fails to compile at function boundaries. On Base, gas is ETH
+// (18-dec native) and USDC is a SEPARATE 6-dec ERC-20 — distinct balances (unlike
+// Arc, where native gas WAS the USDC balance), so never read native-as-USDC.
+// Decimal-string is the wire format (parseUsdc/formatUsdc only).
 import { formatUnits, parseUnits } from "viem";
 
 export const USDC_DECIMALS = 6;
-export const ARC_NATIVE_DECIMALS = 18;
 
 declare const usdcBrand: unique symbol;
-/** USDC in 6-decimal base units. Never mix with `ArcNative` (§15). */
+/** USDC in 6-decimal base units. */
 export type Usdc = bigint & { readonly [usdcBrand]: never };
-
-declare const arcNativeBrand: unique symbol;
-/** Arc-native gas units (18-dec). Distinct brand — the SAME balance as the
- *  6-dec USDC ERC-20, just a different read; never sum the two (§15). */
-export type ArcNative = bigint & { readonly [arcNativeBrand]: never };
 
 /** Wrap a raw base-unit bigint as `Usdc` (use only where the unit is known). */
 export const usdc = (raw: bigint): Usdc => raw as Usdc;

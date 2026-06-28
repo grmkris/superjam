@@ -27,7 +27,7 @@ const onchain: Onchain =
     // reuse that key just to satisfy the guard (the Arc wallet is built unused).
     serverWalletPrivateKey:
       process.env.SERVER_WALLET_PRIVATE_KEY || process.env.ENS_V2_SIGNER_KEY,
-    arcRpcUrl: process.env.ARC_RPC_URL,
+    baseRpcUrl: process.env.BASE_RPC_URL,
     ensV2: process.env.ENS_V2_REGISTRY
       ? { registry: process.env.ENS_V2_REGISTRY as `0x${string}` }
       : undefined,
