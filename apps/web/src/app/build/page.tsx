@@ -14,7 +14,7 @@ import { cx } from "../../components/ui/cx";
 import { Badge } from "../../components/ui/badge";
 import { Input, Textarea } from "../../components/ui/field";
 import { MicButton } from "../../components/ui/mic-button";
-import { actionRow, EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
+import { actionRowButton, EmojiToken, StickerButton, StickerCard } from "../../components/ui/sticker";
 import { usePlatformClient } from "../../components/use-platform-client";
 import { useHostAuth } from "../../lib/use-host-auth";
 import { useBuildDraft } from "../../lib/use-build-draft";
@@ -510,6 +510,10 @@ function HomeBeat({
   // set varies per visit without an SSR/client Math.random mismatch.
   const [picks, setPicks] = useState<string[]>(() => IDEA_EXAMPLES.slice(0, 4));
   useEffect(() => setPicks(shuffledExamples(4)), []);
+  // Resume list: show the most recent few; expand inline rather than nesting a
+  // scroll area inside the page (which clipped cards mid-row and read as broken).
+  const [showAllDrafts, setShowAllDrafts] = useState(false);
+  const visibleDrafts = showAllDrafts ? drafts : drafts.slice(0, 3);
   return (
     <div className="flex flex-1 flex-col gap-4">
       {remix && (
@@ -643,42 +647,58 @@ function HomeBeat({
           <div className="text-tiny font-extrabold uppercase tracking-wide text-muted">
             Pick up where you left off
           </div>
-          <div className="stagger flex max-h-64 flex-col gap-2 overflow-y-auto">
-            {drafts.map((d) => (
-              <div key={d.id} className={cx(actionRow, "sticker-press")}>
-                <EmojiToken
-                  emoji={d.iconEmoji ?? "✦"}
-                  color="cream"
-                  size={36}
-                  rounded="toy"
-                />
-                <div className="flex min-w-0 flex-col">
-                  <div className="line-clamp-2 text-small font-extrabold leading-snug">
-                    {d.name ?? d.prompt ?? "Untitled idea"}
+          <div className="stagger flex flex-col gap-2">
+            {visibleDrafts.map((d) => (
+              <div key={d.id} className="group relative">
+                {/* Whole card resumes — a quiet hover chevron stands in for the old
+                    black pill. The ✕ is a sibling (never nested in the button). */}
+                <button
+                  onClick={() => onResumeDraft(d.id, d.step)}
+                  className={cx(
+                    actionRowButton,
+                    "gap-2.5 p-2.5 pr-9 shadow-none hover:shadow-sticker-sm"
+                  )}
+                >
+                  <EmojiToken
+                    emoji={d.iconEmoji ?? "✦"}
+                    color="cream"
+                    size={30}
+                    rounded="toy"
+                  />
+                  <div className="flex min-w-0 flex-col">
+                    <div className="line-clamp-1 text-small font-extrabold leading-snug">
+                      {d.name ?? d.prompt ?? "Untitled idea"}
+                    </div>
+                    <div className="truncate text-tiny font-semibold text-muted">
+                      {d.step === "home" ? "idea" : `paused at ${stepLabel(d.step)}`} ·{" "}
+                      {relTime(d.updatedAt)}
+                    </div>
                   </div>
-                  <div className="truncate text-tiny font-semibold text-muted">
-                    {d.step === "home" ? "idea" : `paused at ${stepLabel(d.step)}`} ·{" "}
-                    {relTime(d.updatedAt)}
-                  </div>
-                </div>
-                <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                  <button
-                    onClick={() => onResumeDraft(d.id, d.step)}
-                    className="focus-ring whitespace-nowrap rounded-toy bg-ink px-3.5 py-1.5 text-small font-bold text-white shadow-sticker-sm sticker-press"
+                  <span
+                    aria-hidden
+                    className="ml-auto text-body font-bold text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
                   >
-                    Resume →
-                  </button>
-                  <button
-                    onClick={() => onDiscardDraft(d.id)}
-                    aria-label="discard draft"
-                    className="focus-ring px-1.5 text-body font-extrabold text-muted"
-                  >
-                    ✕
-                  </button>
-                </div>
+                    →
+                  </span>
+                </button>
+                <button
+                  onClick={() => onDiscardDraft(d.id)}
+                  aria-label="discard draft"
+                  className="focus-ring absolute right-1.5 top-1.5 px-1 text-small font-extrabold text-muted opacity-0 transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+                >
+                  ✕
+                </button>
               </div>
             ))}
           </div>
+          {drafts.length > 3 && (
+            <button
+              onClick={() => setShowAllDrafts((v) => !v)}
+              className="focus-ring self-center text-tiny font-bold text-muted hover:text-ink sticker-press"
+            >
+              {showAllDrafts ? "Show less ↑" : `Show ${drafts.length - 3} more ↓`}
+            </button>
+          )}
         </div>
       )}
     </div>
