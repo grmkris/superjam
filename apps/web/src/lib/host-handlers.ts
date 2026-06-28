@@ -11,6 +11,7 @@ import {
   OverCapError,
   requestConfirm,
 } from "../components/confirm/confirm-controller";
+import { pushToast } from "../components/toast/toaster";
 import type { BridgeHandlers } from "./bridge/host-bridge";
 
 type AnyCall = (input: Record<string, unknown>) => Promise<unknown>;
@@ -66,8 +67,9 @@ export const makeHostHandlers = (
   },
 
   toast: (message) => {
-    // Host toast UI lands with the frontend chrome; log meanwhile.
-    if (typeof console !== "undefined") console.info("[toast]", message);
+    // Render a real host toast above the jam iframe (the jams' share feedback +
+    // any sdk.ui.toast). Singleton store → <Toaster/> in ClientRoot.
+    pushToast(message);
   },
 
   // Wallet address from the Dynamic embedded wallet (via useHostAuth). Until a

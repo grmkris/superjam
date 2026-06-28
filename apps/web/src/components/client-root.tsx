@@ -18,6 +18,7 @@ import { AppChrome } from "./app-chrome";
 import { ConfirmProvider } from "./confirm/confirm-provider";
 import { useRelayExecutor } from "./confirm/pay-executor";
 import { Providers } from "./providers";
+import { Toaster } from "./toast/toaster";
 
 export function ClientRoot({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -32,6 +33,8 @@ export function ClientRoot({ children }: { children: ReactNode }) {
           <AppChrome>{children}</AppChrome>
         </WiredConfirm>
       </AuthGate>
+      {/* Host toasts (jam share feedback + sdk.ui.toast) render above everything. */}
+      <Toaster />
     </Providers>
   );
 }

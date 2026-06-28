@@ -157,7 +157,9 @@ export function AppFrame({
         title={app.name}
         onLoad={() => setPhase("ready")}
         sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
-        allow=""
+        // Delegate the Clipboard API so a jam's "Challenge a Friend" can copy the
+        // share link from inside the cross-origin frame (else it's blocked silently).
+        allow="clipboard-write"
         referrerPolicy="no-referrer"
         style={{ width: "100%", height: "100%", border: 0, display: "block" }}
       />
