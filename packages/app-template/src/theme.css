@@ -42,6 +42,13 @@ body {
 }
 #root { width: 100%; display: grid; place-items: center; }
 
+/* Responsive readable column — mobile-first, widens on desktop. Wrap a content
+   jam's screen in this so it uses the space instead of a skinny phone strip. */
+.tj-app { width: 100%; max-width: 480px; margin: 0 auto; }
+@media (min-width: 768px) {
+  .tj-app { max-width: 720px; }
+}
+
 /* ── Surfaces ───────────────────────────────────────────────────────────── */
 .tj-card {
   background: var(--card);
@@ -49,8 +56,13 @@ body {
   border-radius: var(--radius);
   padding: 24px;
   width: 100%;
-  max-width: 380px;
+  max-width: 480px;
   box-shadow: var(--shadow);
+}
+/* a card placed inside a wide .tj-app should fill the column, not re-cap itself */
+.tj-app .tj-card { max-width: none; }
+@media (min-width: 768px) {
+  .tj-card { max-width: 560px; }
 }
 .tj-card + .tj-card { margin-top: 14px; }
 
@@ -64,6 +76,9 @@ body {
   text-align: center;
   background: linear-gradient(135deg, var(--accent), var(--blue));
   border-radius: var(--radius) var(--radius) 0 0;
+}
+@media (min-width: 768px) {
+  .tj-hero { padding: 40px 28px; }
 }
 .tj-hero .tj-sub { color: #fff; opacity: .92; }
 
@@ -164,6 +179,9 @@ body {
 /* ── Layout helpers ─────────────────────────────────────────────────────── */
 .tj-row { display: flex; gap: 8px; align-items: center; }
 .tj-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Responsive collection grid — 1 col on phones, auto-fills more as it widens.
+   The responsive default for galleries / item lists / card decks. */
+.tj-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .tj-center { display: grid; place-items: center; text-align: center; gap: 8px; }
 .tj-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
 .tj-list > li { display: flex; gap: 8px; align-items: center; }

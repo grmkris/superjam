@@ -90,7 +90,7 @@ export default function App({ sdk, ctx }: { sdk: SuperJamSdk; ctx: AppContext })
       </ul>
 
       {gallery.length > 0 && (
-        <div className="tj-grid2" style={{ marginTop: 12 }}>
+        <div className="tj-gallery" style={{ marginTop: 12 }}>
           {gallery.map((d) => (
             <div key={d.id} className="tj-card" style={{ padding: 8, maxWidth: "unset" }}>
               <img src={String(d.data.url)} alt="" style={{ width: "100%", borderRadius: 8, display: "block" }} />

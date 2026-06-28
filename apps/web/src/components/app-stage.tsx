@@ -49,11 +49,11 @@ export function AppStage({
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex flex-col bg-ink motion-safe:animate-[fadein_0.18s_ease-out]">
-      <div className="border-b border-ink/60">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-cream motion-safe:animate-[fadein_0.18s_ease-out]">
+      <div className="border-b border-line bg-cream/95">
         <JamChrome app={app} maker={maker} fullscreen onClose={onClose} />
       </div>
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 bg-card">
         <AppHost key="app-host" app={app} />
       </div>
     </div>,

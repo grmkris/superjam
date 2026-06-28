@@ -391,8 +391,12 @@ body {
   background-color: var(--bg);
   min-height: 100dvh;
 }
-/* Mobile-first readable column for content jams. Toys can nest a single tj-card. */
+/* Responsive readable column — mobile-first, widens on desktop so jams use the
+   space instead of a skinny phone strip. Toys can nest a single tj-card. */
 .tj-app { max-width: 560px; margin: 0 auto; padding: 20px 16px 32px; }
+@media (min-width: 768px) {
+  .tj-app { max-width: 720px; padding: 32px 24px 48px; }
+}
 
 /* ── Hero / first-page band — gives a jam's FIRST screen its own identity instead
    of a bare card. Bleeds full-width past the .tj-app padding; white text on a vivid
@@ -406,6 +410,9 @@ body {
   color: #fff;
   text-align: center;
   background: linear-gradient(135deg, var(--accent), var(--blue));
+}
+@media (min-width: 768px) {
+  .tj-hero { margin: -32px -24px 22px; padding: 48px 32px; }
 }
 .tj-hero .tj-sub { color: #fff; opacity: .92; }
 
@@ -521,6 +528,10 @@ body {
 .tj-center { display: grid; place-items: center; text-align: center; gap: 8px; }
 .tj-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
 .tj-list > li { display: flex; gap: 8px; align-items: center; }
+/* Responsive collection grid — 1 column on phones, auto-fills more columns as the
+   screen widens. Use for galleries, item lists, card decks (the RESPONSIVE default
+   for any collection so jams fill desktop width instead of a single skinny column). */
+.tj-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 
 /* ── Bits ───────────────────────────────────────────────────────────────── */
 .tj-stat { font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }

@@ -99,62 +99,77 @@ export function JamFeedCard({
   };
 
   return (
-    <section data-slug={jam.slug} className="relative h-full snap-start overflow-hidden bg-ink">
+    <section
+      data-slug={jam.slug}
+      className="relative h-full snap-start overflow-hidden bg-paper"
+    >
       {live ? (
-        // Inline it fills the cell as a flex column (top bar + app); fullscreen
-        // flips the SAME subtree to fixed inset-0 (no remount → jam keeps state).
+        // Mobile: the jam fills the cell edge-to-edge. Desktop: the SAME subtree
+        // becomes a centered "stage" card (rounded, hairline, soft shadow) on the
+        // light canvas — so the jam gets real width instead of a phone column in a
+        // black void. Fullscreen flips to fixed inset-0 (no remount → keeps state).
         <div
           className={cx(
-            "flex flex-col bg-ink",
-            fullscreen ? "fixed inset-0 z-[100]" : "absolute inset-0"
+            "flex flex-col",
+            fullscreen
+              ? "fixed inset-0 z-[100] bg-cream"
+              : "absolute inset-0 lg:items-center lg:justify-center lg:p-5 xl:p-7"
           )}
         >
-          <div className={fullscreen ? "border-b border-ink/60" : "border-b border-line bg-cream/95"}>
-            <JamChrome
-              app={viewerApp}
-              maker={{ username: jam.maker.username }}
-              fullscreen={fullscreen}
-              onFullscreen={() => setFullscreen(true)}
-              onClose={() => setFullscreen(false)}
-              likes={likes}
-              liked={liked}
-              onLike={onLike}
-              comments={jam.comments}
-              profile={active && !fullscreen ? <ProfileControl /> : undefined}
-            />
-          </div>
-          <div className={cx("relative min-h-0 flex-1 bg-ink", !fullscreen && "flex justify-center")}>
-            <div className={cx("relative h-full w-full", !fullscreen && "max-w-[480px]")}>
+          <div
+            className={cx(
+              "flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-card",
+              !fullscreen &&
+                "lg:h-full lg:max-h-full lg:flex-none lg:max-w-[960px] lg:rounded-toy-lg lg:border lg:border-line lg:shadow-sticker-lg"
+            )}
+          >
+            <div className="border-b border-line bg-cream/95">
+              <JamChrome
+                app={viewerApp}
+                maker={{ username: jam.maker.username }}
+                fullscreen={fullscreen}
+                onFullscreen={() => setFullscreen(true)}
+                onClose={() => setFullscreen(false)}
+                likes={likes}
+                liked={liked}
+                onLike={onLike}
+                comments={jam.comments}
+                profile={active && !fullscreen ? <ProfileControl /> : undefined}
+              />
+            </div>
+            <div className="relative min-h-0 flex-1 bg-card">
               <AppHost key="app-host" app={viewerApp} />
             </div>
           </div>
         </div>
       ) : (
-        // Poster placeholder — no iframe, a refined white card with a subtle
-        // accent wash. Active-but-signed-out gets a sign-in CTA.
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 px-8 text-center bg-card">
-          <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
-            <div className={cx("absolute inset-0", ACCENT_TINT[jam.accent])} />
-            <span className="absolute -right-10 -top-8 rotate-12 select-none text-[11rem] leading-none opacity-[0.04]">
-              {jam.iconEmoji}
-            </span>
+        // Poster placeholder — no iframe. Mobile: full-bleed card. Desktop: the
+        // same framed stage so it matches the live player (no stranded mini-card).
+        <div className="absolute inset-0 flex flex-col lg:items-center lg:justify-center lg:p-5 xl:p-7">
+          <div className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-5 overflow-hidden bg-card px-8 text-center lg:h-full lg:flex-none lg:max-w-[960px] lg:rounded-toy-lg lg:border lg:border-line lg:shadow-sticker-lg">
+            <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
+              <div className={cx("absolute inset-0", ACCENT_TINT[jam.accent])} />
+              <span className="absolute -right-10 -top-8 rotate-12 select-none text-[11rem] leading-none opacity-[0.04]">
+                {jam.iconEmoji}
+              </span>
+            </div>
+            <EmojiToken emoji={jam.iconEmoji} color="white" size={104} rounded="toy" className="shadow-sticker" />
+            <div className="text-h2 font-extrabold tracking-display text-ink">
+              {jam.name}
+            </div>
+            <Link
+              href={`/u/${jam.maker.username}`}
+              className="focus-ring inline-flex items-center gap-1.5 bg-card border border-line rounded-full px-3.5 py-1.5 text-small font-bold shadow-sticker-sm sticker-press"
+            >
+              <EmojiToken emoji={avatarEmoji(jam.maker.username)} color="green" size={20} />
+              <span className="font-bold">@{jam.maker.username}</span>
+            </Link>
+            {active && !isLoggedIn && (
+              <StickerButton size="lg" onClick={() => openLogin()}>
+                Sign in to play
+              </StickerButton>
+            )}
           </div>
-          <EmojiToken emoji={jam.iconEmoji} color="white" size={104} rounded="toy" className="shadow-sticker" />
-          <div className="text-h2 font-extrabold tracking-display text-ink">
-            {jam.name}
-          </div>
-          <Link
-            href={`/u/${jam.maker.username}`}
-            className="focus-ring inline-flex items-center gap-1.5 bg-card border border-line rounded-full px-3.5 py-1.5 text-small font-bold shadow-sticker-sm sticker-press"
-          >
-            <EmojiToken emoji={avatarEmoji(jam.maker.username)} color="green" size={20} />
-            <span className="font-bold">@{jam.maker.username}</span>
-          </Link>
-          {active && !isLoggedIn && (
-            <StickerButton size="lg" onClick={() => openLogin()}>
-              Sign in to play
-            </StickerButton>
-          )}
         </div>
       )}
     </section>

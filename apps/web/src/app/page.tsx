@@ -84,7 +84,7 @@ export default function DiscoverPage() {
   }
 
   return (
-    <div className="relative flex h-full flex-col bg-ink">
+    <div className="relative flex h-full flex-col bg-paper">
       {/* The unified top bar now lives inside each jam's JamChrome (identity +
           actions + profile), so the feed is edge-to-edge with no page-level band. */}
       <div className="relative min-h-0 flex-1">
