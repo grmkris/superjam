@@ -1,7 +1,7 @@
 // onchain — the use-case kit for onchain games (skill "onchain"). Instead of the
 // agent hand-writing Solidity (the #1 onchain build failure), the kit seeds a
 // VETTED, parameterized contract template (contracts/src/Game.sol) filled from the
-// spec + a near-complete Studio app/page.tsx that drives it via sdk.onchain. The
+// spec + a near-complete Stage app/page.tsx that drives it via sdk.onchain. The
 // agent extends the PAGE only; it never authors the contract. The harness still
 // `forge build`s + deploys the (known-good) template to Arc, and the bridge wires
 // sdk.onchain.read/write to the deployed address (gasless, player-stamped).
@@ -44,9 +44,9 @@ ${t.id}) and a working starter app/page.tsx is in place. DO NOT rewrite the Soli
      DECIMAL STRINGS — wrap in \`Number(x)\` / \`BigInt(x)\`). Wrap reads/writes in
      try/catch and show a pending state on write.
 3. Make it FEEL good: the starter is functional but plain. Add the juice — a roll/
-   flip animation, a \`tj-pop\` on a win, the board polish, the minted-badge art —
-   using the Studio classes (.tj-card/.tj-btn/.tj-choice/.tj-stat/.tj-bar). Keep the
-   near-white theme; never a dark page.
+   flip animation, a \`tj-pop\`/\`tj-celebrate\` on a win, a \`tj-stagger\` entrance, the
+   minted-badge art — using the Stage classes (.tj-card/.tj-btn/.tj-choice/.tj-stat/
+   .tj-bar). Keep the dark immersive Stage theme; never a light page.
 4. Wire the spec's specifics:
 ${spec.features.length ? spec.features.map((f) => `   - ${f}`).join("\n") : "   - (keep it a tight, instantly-playable onchain loop)"}
 5. Acceptance: a move calls sdk.onchain.write and the result shows; the on-chain

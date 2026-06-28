@@ -45,11 +45,11 @@ always "no text". Write to `public/photo-<slug>.png`, reference as `/photo-<slug
 **Every `<img>` must degrade to an emoji/gradient tile** (image gen can be
 unavailable) — never a broken image. Generate the images FIRST, then write the UI.
 
-## 3. Render it read-first and polished (Toybox theme; CSS only — no extra deps)
-Use the shipped Toybox theme (see `_base.md` "Look & feel"): wrap the screen in
+## 3. Render it read-first and polished (Stage theme; CSS only — no extra deps)
+Use the shipped immersive Stage theme (see `_base.md` "Look & feel"): wrap the screen in
 `<div className="tj-app">` and build with `tj-card`/`tj-title`/`tj-sub`/`tj-btn`/
-`tj-input`/`tj-badge` + `var(--accent)`. **No `system-ui` inline fonts** — Baloo 2
-is the body font.
+`tj-input`/`tj-badge` + `var(--accent)`. **No `system-ui` inline fonts** — Bricolage
+Grotesque is the font.
 - **Hero**: full-width hero image, the trip title (`tj-title`), and a "trip at a
   glance" line (`{days} days · {stops.length} stops · {first} → {last}`).
 - **Map**: `<TripMap stops={stops} height={320} />` — the route across all stops

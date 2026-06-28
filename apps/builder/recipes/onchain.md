@@ -25,9 +25,9 @@ WITH them — they already cover flip/dice/wheel (`play`/`statsOf`), tic-tac-toe
   args })` for state. Wrap both in try/catch; show a pending state on write, then re-`read`.
 - Big integers come back from `read` as **decimal strings** — `Number(x)` / `BigInt(x)`.
 - Gate value-ish / mint actions on `ctx.user.worldVerified`.
-- STYLE: use the Toybox theme (`.tj-app`/`.tj-card`/`.tj-btn`/`.tj-choice`/`.tj-stat`/`.tj-header`),
-  cream page, ink text — never a dark page. The starter already does; make it FEEL good (add a
-  roll/flip animation, a `tj-pop` on a win, board polish, minted-badge art).
+- STYLE: use the immersive Stage theme (`.tj-app`/`.tj-card`/`.tj-btn`/`.tj-choice`/`.tj-stat`/`.tj-header`),
+  the dark glow stage with light text — never a light page. The starter already does; make it FEEL
+  good (a roll/flip animation, `tj-pop`/`tj-celebrate` on a win, a `tj-stagger` entrance, minted-badge art).
 
 ## For escrowed USDC bets
 This recipe's contracts are FREE (operator-relayed, no money). For staked/wager games use the

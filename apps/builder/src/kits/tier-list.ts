@@ -86,7 +86,7 @@ export default function Page() {
   if (done) {
     const s = sdkRef.current;
     return (
-      <main className="tj-app">
+      <main className="tj-app tj-stagger">
         <ResultCard emoji="${emoji}" title="My ranking" subtitle="${title}">
           {TIERS.map((t, ti) => {
             const inTier = ITEMS.filter((it) => ranks[it] === ti);
@@ -108,7 +108,7 @@ export default function Page() {
   }
 
   return (
-    <main className="tj-app">
+    <main className="tj-app tj-stagger">
       <div className="tj-card">
         <div className="tj-header">
           <span className="tj-emoji">${emoji}</span>

@@ -38,36 +38,45 @@ describe("genericGate — look quality", () => {
     expect(r.missing.some((m) => /LOCKED theme/.test(m))).toBe(true);
   });
 
-  it("fails when globals.css paints the body a dark background", () => {
+  it("fails when globals.css paints the body a LIGHT background", () => {
     const r = genericGate(goodPage, seedPage, {
       themeNow: themeSeed,
       themeSeed,
-      globals: "body { background: #12101f; color: #eee; }",
+      globals: "body { background: #ffffff; color: #111; }",
     });
     expect(r.ok).toBe(false);
-    expect(r.missing.some((m) => /DARK page background/.test(m))).toBe(true);
+    expect(r.missing.some((m) => /LIGHT page background/.test(m))).toBe(true);
   });
 
-  it("fails when the page wraps a full-bleed dark wrapper", () => {
-    const darkPage = goodPage.replace(
+  it("fails when the page wraps a full-bleed LIGHT wrapper", () => {
+    const lightPage = goodPage.replace(
       '<main className="tj-app">',
-      '<main className="tj-app" style={{ minHeight: "100dvh", background: "#0b1020" }}>'
+      '<main className="tj-app" style={{ minHeight: "100dvh", background: "#fafaf8" }}>'
     );
-    const r = genericGate(darkPage, seedPage, { themeNow: themeSeed, themeSeed });
+    const r = genericGate(lightPage, seedPage, { themeNow: themeSeed, themeSeed });
     expect(r.ok).toBe(false);
-    expect(r.missing.some((m) => /DARK page background/.test(m))).toBe(true);
+    expect(r.missing.some((m) => /LIGHT page background/.test(m))).toBe(true);
   });
 
-  it("does NOT flag a dark INNER element (a button) as a dark page bg", () => {
-    const innerDark = goodPage.replace(
+  it("does NOT flag a LIGHT inner element (a badge) as a light page bg", () => {
+    const innerLight = goodPage.replace(
       '<button className="tj-btn"',
-      '<button className="tj-btn" style={{ background: "#111" }}'
+      '<button className="tj-btn" style={{ background: "#ffffff" }}'
     );
-    const r = genericGate(innerDark, seedPage, { themeNow: themeSeed, themeSeed });
-    expect(r.missing.some((m) => /DARK page background/.test(m))).toBe(false);
+    const r = genericGate(innerLight, seedPage, { themeNow: themeSeed, themeSeed });
+    expect(r.missing.some((m) => /LIGHT page background/.test(m))).toBe(false);
   });
 
-  it("fails an unstyled page that doesn't compose the Studio classes", () => {
+  it("does NOT flag a translucent-white (glass) full-bleed wash", () => {
+    const glassPage = goodPage.replace(
+      '<main className="tj-app">',
+      '<main className="tj-app" style={{ minHeight: "100dvh", background: "rgba(255,255,255,0.05)" }}>'
+    );
+    const r = genericGate(glassPage, seedPage, { themeNow: themeSeed, themeSeed });
+    expect(r.missing.some((m) => /LIGHT page background/.test(m))).toBe(false);
+  });
+
+  it("fails an unstyled page that doesn't compose the Stage classes", () => {
     const rawPage = `"use client";
 import SuperJam from "@superjam/sdk";
 import { useState } from "react";
@@ -77,7 +86,7 @@ export default function Page() {
 }`;
     const r = genericGate(rawPage, seedPage, { themeNow: themeSeed, themeSeed, globals: "" });
     expect(r.ok).toBe(false);
-    expect(r.missing.some((m) => /Studio classes/.test(m))).toBe(true);
+    expect(r.missing.some((m) => /Stage classes/.test(m))).toBe(true);
   });
 
   it("still catches the untouched stub", () => {

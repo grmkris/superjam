@@ -7,7 +7,8 @@ import type { GateResult } from "./types.ts";
 
 /** Files the gate inspects beyond the page (the theme split + agent scratch). */
 export interface GateContext {
-  /** app/globals.css NOW (agent scratch) — scanned for a dark page background. */
+  /** app/globals.css NOW (agent scratch) — scanned for a LIGHT page background that
+   *  would fight the dark immersive stage. */
   globals?: string;
   /** app/theme.css NOW + its seeded original — any edit to the LOCKED theme fails. */
   themeNow?: string;
@@ -32,32 +33,37 @@ const luminance = (raw: string): number | null => {
   if (rgb?.[1] && rgb[2] && rgb[3]) return 0.299 * +rgb[1] + 0.587 * +rgb[2] + 0.114 * +rgb[3];
   return null;
 };
-const isDark = (color: string): boolean => {
-  const l = luminance(color);
-  return l !== null && l < 90;
+// The immersive theme is a DARK stage, so the failure mode is INVERTED from before:
+// the agent must not paint the page LIGHT (which would fight the dark glow + leave
+// light-on-light text). A solid light fill on body/html/root or a full-screen wrapper
+// is the clobber; a translucent white wash (rgba alpha < 0.6, i.e. glass) is fine, and
+// a light INNER element (a button, a badge) is fine too.
+const isLight = (color: string): boolean => {
+  const c = color.trim().toLowerCase();
+  // translucent fills wash over the dark stage — that's the glass look, not a clobber.
+  const a = c.match(/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+  if (a?.[1] && parseFloat(a[1]) < 0.6) return false;
+  const l = luminance(c);
+  return l !== null && l > 200;
 };
 
-// A page background is "dark" only when the body/html/root — or a full-screen
-// wrapper — is painted a dark color. A dark INNER element (a button, a badge) is
-// fine, so we scope the check to the agent-editable surfaces that paint the page.
-
-/** globals.css: a body/html/:root/#root/.tj-app rule with a dark background. */
-const globalsDarkBg = (css?: string): boolean => {
+/** globals.css: a body/html/:root/#root/.tj-app rule with a solid LIGHT background. */
+const globalsLightBg = (css?: string): boolean => {
   if (!css) return false;
   for (const block of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
     const sel = block[1] ?? "";
     if (!/(?:\bbody\b|\bhtml\b|:root|#root|\.tj-app)/i.test(sel)) continue;
     const decl = (block[2] ?? "").match(/background(?:-color)?\s*:\s*([^;}]+)/i);
-    if (decl?.[1] && decl[1].trim().split(/\s+/).some(isDark)) return true;
+    if (decl?.[1] && decl[1].trim().split(/\s+/).some(isLight)) return true;
   }
   return false;
 };
 
-/** page.tsx: a dark inline background on a full-bleed element (covers the screen). */
-const pageDarkFullBleed = (page: string): boolean => {
-  const re = /background(?:Color)?\s*:\s*["'`]?\s*(#[0-9a-fA-F]{3,6}|rgba?\([^)]*\)|black)/g;
+/** page.tsx: a solid LIGHT inline background on a full-bleed element (covers the screen). */
+const pageLightFullBleed = (page: string): boolean => {
+  const re = /background(?:Color)?\s*:\s*["'`]?\s*(#[0-9a-fA-F]{3,6}|rgba?\([^)]*\)|white)/g;
   for (const m of page.matchAll(re)) {
-    if (!m[1] || !isDark(m[1])) continue;
+    if (!m[1] || !isLight(m[1])) continue;
     const i = m.index ?? 0;
     const win = page.slice(Math.max(0, i - 220), i + 220);
     if (/100dvh|100vh|min-?height|position\s*:\s*["'`]?\s*fixed|inset\s*:/i.test(win)) return true;
@@ -71,9 +77,9 @@ const tjClassCount = (page: string): number =>
 
 /**
  * Generic gate (no kit): app/page.tsx must be a real, SDK-using, interactive page
- * that differs from the seed AND respects the Studio theme (composes `.tj-*`,
- * doesn't clobber the locked theme, no dark-on-dark). Kit gates extend this with
- * use-case-specific probes (e.g. "calls sdk.data.counter").
+ * that differs from the seed AND respects the immersive Stage theme (composes `.tj-*`,
+ * doesn't clobber the locked theme, no LIGHT page background). Kit gates extend this
+ * with use-case-specific probes (e.g. "calls sdk.data.counter").
  */
 export const genericGate = (
   page: string,
@@ -99,16 +105,16 @@ export const genericGate = (
     missing.push("add real interactivity — event handlers + React state");
   }
   // ── Look quality (the anti-"dogshit-UI" checks) ──────────────────────────
-  // The locked theme (near-white bg, ink text, one vivid accent, all .tj-* classes) is
-  // already loaded — the agent must USE it, not clobber it into dark-on-dark.
+  // The locked theme (dark glow stage, light text, glass surfaces, all .tj-* classes)
+  // is already loaded — the agent must USE it, not clobber it into light-on-light.
   if (ctx.themeSeed != null && ctx.themeNow != null && ctx.themeNow.trim() !== ctx.themeSeed.trim()) {
     missing.push("you edited app/theme.css (the LOCKED theme) — restore it unchanged and put any custom CSS in app/globals.css");
   }
-  if (globalsDarkBg(ctx.globals) || pageDarkFullBleed(page)) {
-    missing.push("you set a DARK page background — keep the near-white Studio theme (ink text on a near-white page); never dark-on-dark");
+  if (globalsLightBg(ctx.globals) || pageLightFullBleed(page)) {
+    missing.push("you set a LIGHT page background — keep the dark immersive Stage theme (light text on the dark glow); never a white/light page or light-on-light");
   }
   if (tjClassCount(page) < 2) {
-    missing.push("style the UI with the Studio classes — wrap the screen in .tj-app and use .tj-card/.tj-header/.tj-btn/.tj-input/.tj-bar instead of raw/unstyled HTML");
+    missing.push("style the UI with the Stage classes — wrap the screen in .tj-app and use .tj-card/.tj-header/.tj-btn/.tj-input/.tj-bar (compose .tj-hero + .tj-rise for a strong first screen) instead of raw/unstyled HTML");
   }
   // NOTE: deliberately NO "no leftover // TODO" check. Starter templates use TODO
   // markers for cosmetic POLISH (juice, styling); enforcing their removal traps cheap

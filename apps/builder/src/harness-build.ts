@@ -450,7 +450,7 @@ export const runHarnessBuild = async (
       // Green build ≠ done: the seeded stub compiles. Gate on a real, SDK-using,
       // ON-THEME app (generic anti-coast + look-quality checks + any kit probes).
       // Re-read the theme + scratch sheet so the gate can catch a clobbered theme
-      // or a dark-on-dark page. Fail ⇒ re-prompt with the specific gaps.
+      // or a light-clobbered page (the stage is dark). Fail ⇒ re-prompt with the gaps.
       const page = await backend.readFile("app/page.tsx").catch(() => "");
       const themeNow = await backend.readFile("app/theme.css").catch(() => "");
       const globals = await backend.readFile("app/globals.css").catch(() => "");

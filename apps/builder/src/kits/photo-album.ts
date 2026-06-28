@@ -188,7 +188,7 @@ export default function Page() {
   }
 
   return (
-    <main className="tj-app">
+    <main className="tj-app tj-stagger">
       <div className="tj-card">
         <div className="tj-header">
           <span className="tj-emoji">${emoji}</span>

@@ -121,7 +121,7 @@ export default function Page() {
     const n = status === "won" ? rows.length : MAX;
     const head = "${title} " + (status === "won" ? n + "/" + MAX : "X/" + MAX);
     return (
-      <main className="tj-app">
+      <main className="tj-app tj-stagger">
         <ResultCard emoji="${emoji}" title={status === "won" ? "Solved in " + n + "! 🎉" : "So close!"} subtitle={"🔥 " + streak + " day streak"}>
           <pre style={{ fontSize: 22, lineHeight: 1.15, margin: "8px 0", fontFamily: "inherit" }}>{grid}</pre>
           <button className="tj-btn tj-btn-block" onClick={() => { if (s) shareResult(s, { text: head + "\\n" + grid, data: { n, status } }); }}>Share your grid 🟩</button>
@@ -131,7 +131,7 @@ export default function Page() {
   }
 
   return (
-    <main className="tj-app">
+    <main className="tj-app tj-stagger">
       <div className="tj-card">
         <div className="tj-header">
           <span className="tj-emoji">${emoji}</span>

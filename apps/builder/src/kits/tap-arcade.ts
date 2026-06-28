@@ -147,7 +147,7 @@ export default function Page() {
   }
 
   return (
-    <main className="tj-app">
+    <main className="tj-app tj-stagger">
       <div className="tj-card tj-center">
         <h1 className="tj-title">${emoji} ${title}</h1>
         <p className="tj-sub">Tap to score. Climb the board.</p>

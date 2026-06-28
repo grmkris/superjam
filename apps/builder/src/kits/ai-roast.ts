@@ -99,7 +99,7 @@ export default function Page() {
   if (verdict) {
     const s = sdkRef.current;
     return (
-      <main className="tj-app">
+      <main className="tj-app tj-stagger">
         <ResultCard
           emoji="${emoji}"
           title={verdict.score + "/10"}
@@ -116,7 +116,7 @@ export default function Page() {
   }
 
   return (
-    <main className="tj-app">
+    <main className="tj-app tj-stagger">
       <div className="tj-card">
         <div className="tj-header">
           <span className="tj-emoji">${emoji}</span>

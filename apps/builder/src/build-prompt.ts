@@ -78,8 +78,8 @@ const baseSystem = (seams: DriverSeams = {}): string => {
 Next.js 16 (app-router) + React 19, TypeScript. \`@superjam/sdk\` is aliased to the published npm package. Files present:
 - app/page.tsx        — the app's single screen. REPLACE its stub with the real "use client" UI.
 - app/layout.tsx      — minimal root layout (loads the font + imports theme.css then globals.css). Leave it.
-- app/theme.css       — the LOCKED Studio design system (near-white bg, ink text, one vivid accent, all .tj-* classes). DO NOT EDIT — it's already loaded; just USE its classes.
-- app/globals.css     — your editable scratch stylesheet for app-specific CSS. Add NEW classes here; never restyle body/:root/.tj-* and never set a dark background.
+- app/theme.css       — the LOCKED Stage design system (dark glow stage, light text, glass surfaces, vivid accent + glow, entrance motion, all .tj-* classes). DO NOT EDIT — it's already loaded; just USE its classes.
+- app/globals.css     — your editable scratch stylesheet for app-specific CSS. Add NEW classes here; never restyle body/:root/.tj-* and never set a LIGHT page background.
 - lib/superjam-config.ts — BAKED SUPERJAM_APP_ID + JWKS url (identity). DO NOT EDIT.
 - lib/auth.ts         — jose JWKS verifyUser() for your API routes. DO NOT EDIT.
 - next.config.ts      — frame-ancestors CSP so the host can embed the jam. DO NOT EDIT.
@@ -97,20 +97,21 @@ STRONGLY prefer zero-backend. Provisioning a Neon DB adds ~30–60s to the build
 ## Capabilities
 The manifest declares capabilities that gate SDK surface: "payments" → payUSDC/pot; "ai" → ai.chat (slow, ~25/user/day — always show a loading state); "social" → messages.send. Only use a gated API if the spec's capabilities include it.
 
-## Design — clean + composed ("Studio")
-The Studio theme is ALREADY loaded (theme.css): near-white background, ink (#18151D) text, vivid pink \`--accent\`, the Bricolage Grotesque font, 1px hairline borders + soft shadows, and a full set of \`.tj-*\` component classes. High contrast is built in — COMPOSE these classes; do NOT hand-roll raw HTML or restyle the page. The components:
-- \`.tj-app\` — wrap the whole screen in this (the responsive readable column — mobile-first, automatically widens on desktop). Inside it, stack \`.tj-card\` surfaces.
-- \`.tj-hero\` — a full-bleed vivid header band that gives your FIRST screen its own identity (white text on a vivid gradient; bleeds past the .tj-app padding). Drop a \`.tj-title\` hook line + \`.tj-sub\` (or a baked \`<img src="/hero.png">\`) inside; override the gradient with an inline \`style\` or a new globals.css class for per-jam art. Lead with this so the jam doesn't open as a generic bare card.
-- \`.tj-card\` — a white card (hairline border + soft shadow). \`.tj-header\` (a row: \`.tj-emoji\` chip + \`.tj-htext\` with \`.tj-title\`/\`.tj-sub\`, optional \`.tj-spacer\` then a right slot).
-- \`.tj-btn\` (primary) + \`.tj-btn-ghost\` / \`.tj-btn-yellow\` / \`.tj-btn-green\` / \`.tj-btn-blue\` variants, \`.tj-btn-block\` (full width). \`.tj-input\` (text/textarea).
-- \`.tj-choices\` (+ \`.tj-cols-2\`) wrapping \`.tj-choice\` buttons — a segmented picker; set \`aria-pressed={selected}\` on the chosen one to fill it accent (use this for this-or-that / multiple-choice).
-- \`.tj-bar\` > \`.tj-bar-fill\` (style \`width:\${pct}%\`) + optional \`.tj-bar-label\` — an animated result/progress bar (poll tallies, quiz scores, meters). Use this instead of a hand-built div.
-- \`.tj-stat\` (big number), \`.tj-badge\` / \`.tj-pill\` (chips), \`.tj-list\`, \`.tj-row\`, \`.tj-grid2\`, \`.tj-gallery\` (RESPONSIVE auto-fill grid — use for any collection: galleries, item lists, card decks; 1 col on phones, multiple on desktop), \`.tj-center\`, \`.tj-empty\` (empty state), \`.tj-spin\` (loader), \`.tj-pop\`/\`.tj-shake\` (juice). Full-bleed games: \`.tj-stage\` + \`.tj-hud\`.
-- Give your FIRST screen its OWN look — open with a \`.tj-hero\` band (or a full-width section class you add in globals.css) carrying a vivid gradient, a baked \`/hero.png\`, or a tinted panel, so each jam feels distinct instead of a generic blank card. Need another one-off style? Add a NEW class in globals.css or an inline style for layout. The PAGE itself stays near-white + ink: NEVER set a dark page/body/\`.tj-app\` background and never put dark text on a dark fill — a vivid hero band with light-on-color text is fine, a dark *page* is not. Never edit theme.css or its \`:root\` tokens. (A green build with an unreadable or off-theme UI is a FAILURE and will be rejected.)
+## Design — immersive & atmospheric ("Stage")
+The Stage theme is ALREADY loaded (theme.css): a DARK glow stage (deep ink-indigo \`--bg\` with a fixed gradient glow-mesh + faint grain), light \`--text\`, vivid pink \`--accent\`, the Bricolage Grotesque font, translucent GLASS surfaces (blur + hairline + inner highlight), accent GLOW on actions, and entrance MOTION. The look is rich and game-like by default — your job is to COMPOSE these classes so the jam feels immersive; do NOT hand-roll raw HTML or restyle the page. The components:
+- \`.tj-app\` — wrap the whole screen in this (the responsive readable column — mobile-first, automatically widens on desktop). Inside it, stack \`.tj-card\` surfaces. Add \`.tj-stagger\` to a column so its children RISE in one-by-one (a screen that assembles itself), or \`.tj-rise\` on a single element.
+- \`.tj-hero\` — a full-bleed glowing header band (accent→blue gradient, top sheen + drop-glow) that gives your FIRST screen its own identity. Drop a \`.tj-title\` hook line + \`.tj-sub\` (or a baked \`<img src="/hero.png">\`) inside; override the gradient with an inline \`style\` or a new globals.css class for per-jam art. ALWAYS lead with this so the jam opens immersive, not as a bare card.
+- \`.tj-card\` — a translucent GLASS surface (frosted blur + hairline border + soft inner glow over the dark stage). \`.tj-header\` (a row: \`.tj-emoji\` chip + \`.tj-htext\` with \`.tj-title\`/\`.tj-sub\`, optional \`.tj-spacer\` then a right slot).
+- \`.tj-btn\` (accent + glow) + \`.tj-btn-ghost\` (glass) / \`.tj-btn-yellow\` / \`.tj-btn-green\` / \`.tj-btn-blue\` variants, \`.tj-btn-block\` (full width). \`.tj-input\` (glass text/textarea).
+- \`.tj-choices\` (+ \`.tj-cols-2\`) wrapping \`.tj-choice\` glass buttons — a segmented picker; set \`aria-pressed={selected}\` on the chosen one to fill it accent + glow (use this for this-or-that / multiple-choice).
+- \`.tj-bar\` > \`.tj-bar-fill\` (style \`width:\${pct}%\`) + optional \`.tj-bar-label\` — a glowing animated result/progress bar (poll tallies, quiz scores, meters). Use this instead of a hand-built div.
+- \`.tj-stat\` (big GLOWING gradient number — use it for the headline score/result), \`.tj-badge\` / \`.tj-pill\` (chips), \`.tj-list\`, \`.tj-row\`, \`.tj-grid2\`, \`.tj-gallery\` (RESPONSIVE auto-fill grid — use for any collection: galleries, item lists, card decks; 1 col on phones, multiple on desktop), \`.tj-center\`, \`.tj-empty\` (empty state), \`.tj-spin\` (loader). Motion: \`.tj-rise\`/\`.tj-stagger\` (entrance), \`.tj-celebrate\` (a result popping in), \`.tj-glow\` (accent glow on any element), \`.tj-shimmer\` (a sweep on hero art / winning states), \`.tj-pop\`/\`.tj-shake\` (event juice). Full-bleed games: \`.tj-stage\` + \`.tj-hud\`.
+- Give your FIRST screen its OWN look — open with a \`.tj-hero\` band (or a full-width section class you add in globals.css) carrying its own gradient, a baked \`/hero.png\`, or art, so each jam feels distinct. Need another one-off style? Add a NEW class in globals.css or an inline style for layout. The PAGE itself stays the DARK stage with LIGHT text: NEVER set a LIGHT/white page/body/\`.tj-app\` background and never put light text on a light fill — a vivid hero band is fine, a light *page* is not. Never edit theme.css or its \`:root\` tokens. (A green build with an unreadable or off-theme UI is a FAILURE and will be rejected.)
 - RESPONSIVE — the jam must look great on BOTH phone and desktop. Build mobile-first, but never assume a fixed narrow width: wrap the screen in \`.tj-app\` (it widens on desktop on its own), render any collection (gallery/leaderboard/options/cards) with \`.tj-gallery\` or \`.tj-grid2\` so it flows into multiple columns on wide screens instead of one skinny column, and let media/canvases scale with \`max-width:100%; height:auto\` (or \`width:100%\`). A jam that's a thin phone strip in the middle of a desktop screen is WRONG.
 - Anatomy (imitate this shape):
   \`\`\`tsx
-  <main className="tj-app">
+  {/* .tj-stagger makes the hero + card RISE in one-by-one — an immersive open */}
+  <main className="tj-app tj-stagger">
     {/* lead with a hero band (first child of .tj-app so it bleeds full-width) —
         a hook line, NOT the jam's name (the host bar already shows that) */}
     <div className="tj-hero">
@@ -127,7 +128,7 @@ The Studio theme is ALREADY loaded (theme.css): near-white background, ink (#181
   </main>
   \`\`\`
 - ONE screen, playable/usable instantly. No routing, no multi-page flows.
-- You OWN your first screen — make it distinctive (a \`.tj-hero\` band, a themed background, baked art). Just don't repeat the jam's NAME as a giant \`<h1>\`: the host bar already shows it, so spend the hero on a hook line / call-to-action / art instead of the bare title.
+- You OWN your first screen — make it distinctive and immersive (a glowing \`.tj-hero\` band, baked art, a \`.tj-stagger\` entrance). Just don't repeat the jam's NAME as a giant \`<h1>\`: the host bar already shows it, so spend the hero on a hook line / call-to-action / art instead of the bare title.
 - Playful and self-contained. NEVER show build logs, file names, terminals, code, or any "AI"/"agent"/"compiler" language in the UI.
 - Render ALL user-supplied text as plain text (never dangerouslySetInnerHTML).
 - Defensively parse sdk.ai.chat output (it can return junk) — always have a fallback.

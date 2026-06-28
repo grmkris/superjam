@@ -74,32 +74,35 @@ export default function Page() {
 > leave the backend unused — simpler and faster. (Boundary note for the generator: a spec
 > that only needs a counter should NOT force a Neon project.)
 
-## Look & feel — the Toybox theme (use it, don't reinvent)
-The app already ships the SuperJam **Toybox** theme — `app/theme.css` (the LOCKED design
-system, imported in `app/layout.tsx`) with the design tokens + the **Baloo 2** font, so a
-framed jam looks native in the host. **Use its classes instead of ad-hoc `system-ui`
-inline styles. DO NOT edit `theme.css`** — put any custom CSS in `app/globals.css`.
-- Wrap your screen in `<main className="tj-app">` (a mobile-first column).
+## Look & feel — the immersive Stage theme (use it, don't reinvent)
+The app already ships the SuperJam **Stage** theme — `app/theme.css` (the LOCKED design
+system, imported in `app/layout.tsx`): a DARK glow stage, light text, translucent glass
+surfaces, accent glow, entrance motion, and the **Bricolage Grotesque** font. **Use its
+classes instead of ad-hoc `system-ui` inline styles. DO NOT edit `theme.css`** — put any
+custom CSS in `app/globals.css`.
+- Wrap your screen in `<main className="tj-app tj-stagger">` (a mobile-first column that
+  rises its children in).
 - Own your FIRST screen: lead with `tj-hero` (the first child of `tj-app` so it bleeds
-  full-width) — a candy-gradient band with a hook line / call-to-action, NOT the jam's
+  full-width) — a glowing gradient band with a hook line / call-to-action, NOT the jam's
   name (the host bar shows that). Override its gradient with an inline `style` or a baked
-  `<img src="/hero.png">` for per-jam art, so each jam opens distinct instead of a bare card.
-- Surfaces & layout: `tj-card` (white, ink border, sticker shadow), `tj-header` (a row:
+  `<img src="/hero.png">` for per-jam art, so each jam opens distinct and immersive.
+- Surfaces & layout: `tj-card` (translucent glass), `tj-header` (a row:
   `tj-emoji` chip + `tj-htext` holding `tj-title`/`tj-sub`, optional `tj-spacer`),
   `tj-row`, `tj-grid2`, `tj-center`, `tj-list`, `tj-muted`.
 - Controls: `tj-btn` (+ `tj-btn-ghost`/`tj-btn-yellow`/`tj-btn-green`/`tj-btn-blue`/
   `tj-btn-block`), `tj-input`. Pickers: `tj-choices` (+ `tj-cols-2`) of `tj-choice`
   buttons with `aria-pressed={selected}`. Meters: `tj-bar` > `tj-bar-fill`
   (`style={{ width: \`\${pct}%\` }}`) + optional `tj-bar-label`.
-- Bits: `tj-stat` (big number), `tj-badge`/`tj-pill` (chips), `tj-empty` (empty state),
-  `tj-spin` (loader), `tj-pop`/`tj-shake` (juice). Full-bleed games: `tj-stage`+`tj-hud`.
+- Bits: `tj-stat` (big glowing number), `tj-badge`/`tj-pill` (chips), `tj-empty` (empty state),
+  `tj-spin` (loader). Motion: `tj-rise`/`tj-stagger` (entrance), `tj-celebrate` (result pop-in),
+  `tj-glow`/`tj-shimmer`, `tj-pop`/`tj-shake` (juice). Full-bleed games: `tj-stage`+`tj-hud`.
 - Colors come from CSS vars — `var(--accent)` pink, `var(--yellow)`, `var(--green)`,
-  `var(--blue)`, `var(--text)` ink, `var(--bg)` cream, `var(--card)`, `var(--muted)`.
-- The PAGE stays cream + ink: NEVER set a dark page/body/`tj-app` background or dark-on-dark
-  text. A vivid `tj-hero` band with light-on-color text is encouraged; a dark *page* is not.
-  Do NOT set `fontFamily: "system-ui"` or re-declare fonts — Baloo 2 is the body font.
-  Inline styles are fine for layout (flex/grid/spacing); pull color/font/buttons/cards
-  from the theme so every jam shares the host's visual language.
+  `var(--blue)`, `var(--text)` light ink, `var(--bg)` dark stage, `var(--card)` glass, `var(--muted)`.
+- The PAGE stays the DARK immersive stage with LIGHT text: NEVER set a LIGHT/white page/body/
+  `tj-app` background or light-on-light text. A glowing `tj-hero` band is encouraged; a light
+  *page* is not. Do NOT set `fontFamily: "system-ui"` or re-declare fonts — Bricolage Grotesque
+  is the font. Inline styles are fine for layout (flex/grid/spacing); pull color/font/buttons/
+  cards from the theme so every jam shares the host's visual language.
 
 ## Make it shareable (the viral loop)
 The best jams end in a personal RESULT the player wants to share. Where it fits (a

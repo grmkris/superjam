@@ -32,7 +32,7 @@ A working starter is seeded (QUESTIONS + TYPES + the share loop). Make it land f
    carries {type, who}); and a "Retake" button.
 4. On open, \`readChallenge(sdk)\` returns a friend's {type, who} when launched from a
    share — show "@friend is a {type} — which are you?" to pull them in.
-5. Keep it Studio (near-white, .tj-* classes). Wire the spec's specifics:
+5. Keep it on the immersive Stage (dark glow, glass .tj-* classes, a .tj-stagger entrance). Wire the spec's specifics:
 ${spec.features.length ? spec.features.map((f) => `   - ${f}`).join("\n") : "   - (invent fun, on-theme questions + types)"}
 6. Acceptance: finishing the quiz shows a result card, the share button produces a
    link, and the result persists across a reload.`;
@@ -114,7 +114,7 @@ export default function Page() {
     const s = sdkRef.current;
     const me = ctx?.user.username ?? "";
     return (
-      <main className="tj-app">
+      <main className="tj-app tj-stagger">
         <ResultCard emoji={info.emoji} title={"You're a " + result + "!"} subtitle={info.blurb}>
           <div className="tj-row" style={{ gap: 8, marginTop: 14 }}>
             <button className="tj-btn tj-btn-block" onClick={() => { if (s) shareResult(s, { text: "@" + me + " is a " + result + " — what are you?", data: { type: result, who: me } }); }}>Share your result 🔗</button>
@@ -127,7 +127,7 @@ export default function Page() {
 
   const q = QUESTIONS[idx];
   return (
-    <main className="tj-app">
+    <main className="tj-app tj-stagger">
       <div className="tj-card">
         <div className="tj-header">
           <span className="tj-emoji">${emoji}</span>

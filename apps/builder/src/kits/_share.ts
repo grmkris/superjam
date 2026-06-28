@@ -22,8 +22,9 @@ export interface ResultLine {
   pct?: number;
 }
 
-/** The shareable result card — a Studio card with an emoji header + optional meter
- *  rows + your own content. Keep the result personal + punchy (it's what spreads). */
+/** The shareable result card — a glass Stage card that POPS in (.tj-celebrate) with an
+ *  emoji header + optional meter rows + your own content. Keep the result personal +
+ *  punchy (it's what spreads). */
 export function ResultCard(props: {
   emoji?: string;
   title: string;
@@ -33,7 +34,7 @@ export function ResultCard(props: {
 }) {
   const { emoji, title, subtitle, lines, children } = props;
   return (
-    <div className="tj-card">
+    <div className="tj-card tj-celebrate">
       <div className="tj-header">
         {emoji ? <span className="tj-emoji">{emoji}</span> : null}
         <div className="tj-htext">

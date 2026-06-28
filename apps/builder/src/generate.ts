@@ -331,8 +331,8 @@ ${spec.features.map((f) => `        <li>${f.replace(/</g, "&lt;")}</li>`).join("
 }
 `;
 
-// Root layout — ships the Studio theme so a framed jam looks native in the host
-// (same Bricolage Grotesque font + tokens as apps/web). theme.css is the LOCKED design system
+// Root layout — ships the immersive Stage theme + Bricolage Grotesque so a framed jam
+// renders on the dark glow stage. theme.css is the LOCKED design system
 // (DO-NOT-EDIT); globals.css is the agent's scratch sheet, imported AFTER so its
 // additions layer on top without being able to replace the theme's tokens/body.
 const layout = (spec: AppSpec): string => `import "./theme.css";
@@ -357,28 +357,38 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 `;
 
-// Deployed-tier Studio theme — the LOCKED design system seeded as app/theme.css and
-// imported first in layout.tsx. Matches the host + the SDK \`tj-*\` contract in
-// packages/app-template/src/theme.css (keep the --bg/--card/--text/--muted/--accent/
-// --danger/--radius vars + all .tj-* class NAMES in sync; only values may differ).
-// Tuned for FULL-WIDTH content pages: the body flows normally (no forced centering),
-// \`.tj-app\` is the readable column, and \`.tj-card\` drops the toy width cap.
+// Deployed-tier "Stage" theme — the LOCKED immersive design system seeded as
+// app/theme.css and imported first in layout.tsx. An atmospheric DARK stage: a fixed
+// glow-mesh + grain background, translucent glass surfaces, accent glow, and entrance
+// motion — so even a model-built jam looks high-craft just by composing .tj-* classes.
+// Mirrors the .tj-* contract in packages/app-template/src/theme.css (keep the var
+// names + every .tj-* class NAME in sync; values may differ for the centered preview).
 // The agent is told NOT to edit this file (gate-enforced) — custom CSS goes in the
-// globals.css scratch sheet — so the theme can never be clobbered into dark-on-dark.
+// globals.css scratch sheet — so the dark stage can never be clobbered into light-on-light.
 const themeCss = (): string => `:root {
-  --bg: #FAFAF8;     /* near-white paper */
-  --card: #FFFFFF;   /* card face */
-  --text: #18151D;   /* ink — body text */
-  --line: #EBE9E4;   /* 1px hairline border */
-  --muted: #6B6770;
-  --accent: #FF4767; /* the one accent */
+  /* Immersive dark stage — not pure black; an ink-indigo with depth. */
+  --bg: #0A0A12;
+  --bg-2: #12121E;
+  /* Glass surfaces — translucent light over the stage. */
+  --card: rgba(255, 255, 255, 0.045);
+  --card-border: rgba(255, 255, 255, 0.10);
+  --card-highlight: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.10);
+  /* Ink — light on dark. */
+  --text: #F5F4FA;
+  --muted: #9B97AD;
+  /* Accents — brand pink kept; the rest brightened so they glow on dark. */
+  --accent: #FF4767;
   --yellow: #F5B53C;
-  --green: #18B877;
-  --blue: #3E63F2;
-  --danger: #E5484D;
-  --radius: 12px;
-  /* soft realistic elevation — never a flat cartoon slab */
-  --shadow: 0 1px 2px rgba(24, 21, 29, 0.05), 0 10px 26px -10px rgba(24, 21, 29, 0.14);
+  --green: #18C480;
+  --blue: #5B7BFF;
+  --danger: #FF5A5F;
+  --radius: 16px;
+  /* deep ambient elevation for glass + an accent-colored glow */
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 24px 60px -22px rgba(0, 0, 0, 0.65);
+  --glow-accent: 0 10px 30px -6px rgba(255, 71, 103, 0.55), 0 0 0 1px rgba(255, 71, 103, 0.28);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 * { box-sizing: border-box; }
 html, body { -webkit-tap-highlight-color: transparent; }
@@ -388,8 +398,18 @@ body {
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--text);
-  background-color: var(--bg);
   min-height: 100dvh;
+  /* The atmosphere: a fixed glow-mesh (accent + blue + green) over the ink stage,
+     plus a faint film grain on top — depth behind every jam, zero asset deps. */
+  background-color: var(--bg);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E"),
+    radial-gradient(60% 50% at 12% -5%, rgba(255, 71, 103, 0.22), transparent 70%),
+    radial-gradient(55% 45% at 100% 8%, rgba(91, 123, 255, 0.20), transparent 72%),
+    radial-gradient(60% 50% at 50% 108%, rgba(24, 196, 128, 0.12), transparent 72%);
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed, fixed;
+  background-size: 140px 140px, auto, auto, auto;
 }
 /* Responsive readable column — mobile-first, widens on desktop so jams use the
    space instead of a skinny phone strip. Toys can nest a single tj-card. */
@@ -398,32 +418,43 @@ body {
   .tj-app { max-width: 720px; padding: 32px 24px 48px; }
 }
 
-/* ── Hero / first-page band — gives a jam's FIRST screen its own identity instead
-   of a bare card. Bleeds full-width past the .tj-app padding; white text on a vivid
-   gradient stays high-contrast. Drop a .tj-title + .tj-sub (or a baked
-   <img src="/hero.png">) inside. This is a contained band, NOT a dark page
-   background — the page itself stays near-white. Override the gradient with an
-   inline \`style\` or a new globals.css class for per-jam art. */
+/* ── Hero / first-page band — gives a jam's FIRST screen its own immersive identity.
+   Bleeds full-width past the .tj-app padding; a glowing accent→blue gradient with a
+   soft top sheen + drop-glow. White text stays high-contrast. Drop a .tj-title +
+   .tj-sub (or a baked <img src="/hero.png">) inside. Override the gradient with an
+   inline \`style\` or a new globals.css class for per-jam art. NOT the page background —
+   the stage itself stays dark. */
 .tj-hero {
+  position: relative; overflow: hidden;
   margin: -20px -16px 18px;
-  padding: 30px 22px;
+  padding: 34px 22px;
   color: #fff;
   text-align: center;
+  border-radius: 0 0 22px 22px;
   background: linear-gradient(135deg, var(--accent), var(--blue));
+  box-shadow: 0 24px 60px -24px rgba(255, 71, 103, 0.6);
 }
+.tj-hero::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 80% at 50% -25%, rgba(255, 255, 255, 0.38), transparent 60%);
+}
+.tj-hero > * { position: relative; }
 @media (min-width: 768px) {
-  .tj-hero { margin: -32px -24px 22px; padding: 48px 32px; }
+  .tj-hero { margin: -32px -24px 22px; padding: 52px 32px; }
 }
+.tj-hero .tj-title { font-size: 30px; }
 .tj-hero .tj-sub { color: #fff; opacity: .92; }
 
 /* ── Surfaces ───────────────────────────────────────────────────────────── */
 .tj-card {
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 20px;
   width: 100%;
-  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--shadow), inset 0 1px 0 var(--card-highlight);
 }
 .tj-card + .tj-card { margin-top: 14px; }
 
@@ -434,8 +465,9 @@ body {
 .tj-emoji {
   flex: none; display: grid; place-items: center;
   width: 46px; height: 46px; font-size: 26px;
-  background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: var(--shadow);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border); border-radius: 13px;
+  box-shadow: inset 0 1px 0 var(--card-highlight);
 }
 .tj-htext { min-width: 0; }
 .tj-spacer { margin-left: auto; }
@@ -449,77 +481,80 @@ body {
   background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: 10px;
-  padding: 12px 18px;
+  border-radius: 12px;
+  padding: 13px 18px;
   font-weight: 700;
   cursor: pointer;
   font-size: 15px;
   font-family: inherit;
   letter-spacing: -0.01em;
-  box-shadow: 0 1px 2px rgba(24, 21, 29, 0.05), 0 4px 12px -4px rgba(24, 21, 29, 0.18);
-  transition: transform .14s cubic-bezier(0.23,1,0.32,1), box-shadow .14s cubic-bezier(0.23,1,0.32,1), filter .14s ease;
+  box-shadow: var(--glow-accent);
+  transition: transform .16s var(--ease-spring), box-shadow .16s var(--ease-out), filter .14s ease;
 }
-.tj-btn:hover { filter: brightness(1.04); }
-.tj-btn:active { transform: scale(0.98); box-shadow: 0 1px 2px rgba(24, 21, 29, 0.06); }
-.tj-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; filter: none; }
-.tj-btn-ghost { background: var(--card); color: var(--text); border: 1px solid var(--line); }
-.tj-btn-yellow { background: var(--yellow); color: var(--text); }
-.tj-btn-green { background: var(--green); color: #fff; }
-.tj-btn-blue { background: var(--blue); color: #fff; }
+.tj-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.tj-btn:active { transform: scale(0.97); }
+.tj-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
+.tj-btn-ghost { background: rgba(255, 255, 255, 0.05); color: var(--text); border: 1px solid var(--card-border); box-shadow: inset 0 1px 0 var(--card-highlight); }
+.tj-btn-ghost:hover { background: rgba(255, 255, 255, 0.09); }
+.tj-btn-yellow { background: var(--yellow); color: #1a1410; box-shadow: 0 10px 30px -6px rgba(245, 181, 60, 0.5); }
+.tj-btn-green { background: var(--green); color: #042016; box-shadow: 0 10px 30px -6px rgba(24, 196, 128, 0.5); }
+.tj-btn-blue { background: var(--blue); color: #fff; box-shadow: 0 10px 30px -6px rgba(91, 123, 255, 0.5); }
 .tj-btn-block { display: block; width: 100%; }
 
 /* ── Inputs ─────────────────────────────────────────────────────────────── */
 .tj-input {
   width: 100%;
-  background: #fff;
-  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border);
   color: var(--text);
-  border-radius: 10px;
-  padding: 11px 13px;
+  border-radius: 12px;
+  padding: 12px 14px;
   font-size: 14px;
   font-family: inherit;
   font-weight: 500;
-  transition: border-color .12s ease, box-shadow .12s ease;
+  transition: border-color .12s ease, box-shadow .12s ease, background .12s ease;
 }
-.tj-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.tj-input::placeholder { color: var(--muted); }
+.tj-input:focus { outline: none; border-color: var(--accent); background: rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
 
-/* ── Segmented choice picker — a row/grid of options; the picked one fills with
-   accent. Use \`aria-pressed={selected}\` (or add .is-on) on each .tj-choice. ── */
+/* ── Segmented choice picker — a row/grid of glass options; the picked one fills with
+   accent + glow. Use \`aria-pressed={selected}\` (or add .is-on) on each .tj-choice. ── */
 .tj-choices { display: grid; gap: 8px; }
 .tj-choices.tj-cols-2 { grid-template-columns: 1fr 1fr; }
 .tj-choice {
   appearance: none; cursor: pointer; text-align: center;
-  background: var(--card); color: var(--text);
-  border: 1px solid var(--line); border-radius: 10px;
-  padding: 13px 14px; font-family: inherit; font-weight: 600; font-size: 15px;
+  background: rgba(255, 255, 255, 0.05); color: var(--text);
+  border: 1px solid var(--card-border); border-radius: 12px;
+  padding: 14px; font-family: inherit; font-weight: 600; font-size: 15px;
   letter-spacing: -0.01em;
-  box-shadow: var(--shadow);
-  transition: transform .14s cubic-bezier(0.23,1,0.32,1), box-shadow .14s cubic-bezier(0.23,1,0.32,1), border-color .12s ease;
+  box-shadow: inset 0 1px 0 var(--card-highlight);
+  transition: transform .16s var(--ease-spring), box-shadow .16s var(--ease-out), border-color .12s ease, background .12s ease;
 }
-.tj-choice:hover { border-color: color-mix(in srgb, var(--text) 18%, var(--line)); }
+.tj-choice:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.2); }
 .tj-choice:active { transform: scale(0.98); }
-.tj-choice[aria-pressed="true"], .tj-choice.is-on { background: var(--accent); color: #fff; border-color: transparent; }
+.tj-choice[aria-pressed="true"], .tj-choice.is-on { background: var(--accent); color: #fff; border-color: transparent; box-shadow: var(--glow-accent); }
 .tj-choice:disabled { cursor: default; }
 
-/* ── Result / progress bar — hairline track with an animated fill.
+/* ── Result / progress bar — dark track with a glowing gradient fill.
    <div class="tj-bar"><div class="tj-bar-fill" style="width:60%"></div>
      <div class="tj-bar-label"><span>Cats</span><span>60%</span></div></div> ── */
 .tj-bar {
-  position: relative; height: 30px;
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-  border: 1px solid var(--line); border-radius: 9px;
+  position: relative; height: 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border); border-radius: 11px;
   overflow: hidden;
 }
 .tj-bar-fill {
   position: absolute; inset: 0 auto 0 0; width: 0%;
-  background: var(--accent);
-  transition: width .5s cubic-bezier(.2, .8, .2, 1);
+  background: linear-gradient(90deg, var(--accent), var(--blue));
+  box-shadow: 0 0 24px -2px var(--accent);
+  transition: width .55s var(--ease-out);
 }
 .tj-bar-label {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; padding: 0 10px;
-  font-weight: 600; font-size: 13px;
+  gap: 8px; padding: 0 12px;
+  font-weight: 700; font-size: 13px;
 }
 
 /* ── Layout helpers ─────────────────────────────────────────────────────── */
@@ -534,21 +569,27 @@ body {
 .tj-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 
 /* ── Bits ───────────────────────────────────────────────────────────────── */
-.tj-stat { font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+/* Big stat reads as a glowing gradient numeral — a small wow moment. */
+.tj-stat {
+  font-size: 46px; font-weight: 800; line-height: 1; letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #fff, var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
 .tj-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  background: var(--card); border: 1px solid var(--line); border-radius: 999px;
-  padding: 2px 10px; font-size: 12px; font-weight: 600;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--card-border); border-radius: 999px;
+  padding: 3px 11px; font-size: 12px; font-weight: 600;
 }
 .tj-pill {
   display: inline-flex; align-items: center; gap: 4px;
   background: var(--accent); color: #fff; border-radius: 999px;
-  padding: 3px 10px; font-size: 12px; font-weight: 700;
+  padding: 3px 11px; font-size: 12px; font-weight: 700;
+  box-shadow: var(--glow-accent);
 }
 .tj-empty { display: grid; place-items: center; gap: 6px; padding: 28px 12px; color: var(--muted); font-weight: 500; text-align: center; }
 
 /* ── Spinner ────────────────────────────────────────────────────────────── */
-.tj-spin { width: 22px; height: 22px; border: 3px solid color-mix(in srgb, var(--text) 10%, transparent); border-top-color: var(--accent); border-radius: 50%; animation: tj-rot .7s linear infinite; }
+.tj-spin { width: 22px; height: 22px; border: 3px solid rgba(255, 255, 255, 0.12); border-top-color: var(--accent); border-radius: 50%; animation: tj-rot .7s linear infinite; }
 @keyframes tj-rot { to { transform: rotate(360deg); } }
 
 /* ── Full-bleed game stage (escapes the column; put a <canvas> inside, overlay
@@ -557,24 +598,57 @@ body {
 .tj-hud { position: absolute; inset: 0; pointer-events: none; }
 .tj-hud > * { pointer-events: auto; }
 
+/* ── Entrance choreography — content RISES in; .tj-stagger cascades its children so
+   a screen assembles itself instead of snapping in. Add .tj-rise to one element, or
+   wrap a column in .tj-stagger. ──────────────────────────────────────────── */
+@keyframes tj-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.tj-rise { animation: tj-rise .55s var(--ease-out) both; }
+.tj-stagger > * { animation: tj-rise .55s var(--ease-out) both; }
+.tj-stagger > *:nth-child(1) { animation-delay: .04s; }
+.tj-stagger > *:nth-child(2) { animation-delay: .10s; }
+.tj-stagger > *:nth-child(3) { animation-delay: .16s; }
+.tj-stagger > *:nth-child(4) { animation-delay: .22s; }
+.tj-stagger > *:nth-child(5) { animation-delay: .28s; }
+.tj-stagger > *:nth-child(6) { animation-delay: .34s; }
+.tj-stagger > *:nth-child(n+7) { animation-delay: .40s; }
+
+/* A reusable accent glow + a shimmer sweep for hero art / winning states. */
+.tj-glow { box-shadow: var(--glow-accent); }
+@keyframes tj-shimmer { to { background-position: 200% 0; } }
+.tj-shimmer {
+  background-image: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: tj-shimmer 2.4s linear infinite;
+}
+
 /* ── Juice (event-driven one-shots; key the element to replay) ──────────── */
 @keyframes tj-pop { 50% { transform: scale(1.25); } }
 .tj-pop { animation: tj-pop .18s ease; }
 @keyframes tj-shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 .tj-shake { animation: tj-shake .15s linear 2; }
+@keyframes tj-celebrate { 0% { transform: scale(.8); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+.tj-celebrate { animation: tj-celebrate .5s var(--ease-spring) both; }
+
+/* Respect reduced-motion — kill entrance + ambient loops, keep functional fills. */
+@media (prefers-reduced-motion: reduce) {
+  .tj-rise, .tj-stagger > *, .tj-celebrate { animation: none; }
+  .tj-shimmer { animation: none; }
+}
 `;
 
 // The agent's editable scratch stylesheet — seeded near-empty and imported AFTER
 // theme.css. Custom, app-specific CSS goes here; the locked theme stays untouched.
 const globalsScratch = (): string => `/* Your app-specific CSS goes here.
  *
- * The Studio theme is ALREADY loaded from theme.css — near-white --bg, ink --text,
- * --accent, Bricolage Grotesque, and every .tj-* component class (.tj-card, .tj-btn,
- * .tj-input, .tj-header, .tj-choice, .tj-bar, .tj-stat, .tj-badge, .tj-pill, …).
- * Compose with those. Add only NEW classes here.
+ * The immersive Stage theme is ALREADY loaded from theme.css — a DARK glow-mesh --bg,
+ * light --text, --accent, Bricolage Grotesque, glass .tj-card, .tj-hero, and every
+ * .tj-* component class (.tj-btn, .tj-input, .tj-choice, .tj-bar, .tj-stat, .tj-badge,
+ * .tj-pill, plus .tj-rise / .tj-stagger entrance motion). Compose with those — add only
+ * NEW classes here.
  *
- * DO NOT restyle 'body', ':root', or any '.tj-*' class, and NEVER set a dark page
- * background — the app must stay near-white paper with ink text (high contrast).
+ * DO NOT restyle 'body', ':root', or any '.tj-*' class, and NEVER set a LIGHT page
+ * background — the stage is dark by design (light text on a dark glow). A vivid hero
+ * band is fine; a light/white page or dark-on-dark text is not.
  */
 `;
 
