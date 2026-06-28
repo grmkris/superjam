@@ -25,7 +25,7 @@ suite("live Arc onchain (real chain, real receipts)", () => {
   const onchain = RUN
     ? createOnchainFromConfig({
         serverWalletPrivateKey: process.env.SERVER_WALLET_PRIVATE_KEY,
-        arcRpcUrl: process.env.ARC_RPC_URL,
+        baseRpcUrl: process.env.BASE_RPC_URL,
       })
     : null;
 

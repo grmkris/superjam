@@ -59,13 +59,20 @@ export const serverEnvSchema = z.object({
   TREASURY_ADDRESS: optionalStr,
   // Sepolia L1 RPC — the identity chain (ENSv2 naming).
   SEPOLIA_RPC_URL: optionalStr,
-  ARC_RPC_URL: optionalStr,
+  // Base RPC override for the money chain (a Base Sepolia or Base mainnet RPC).
+  // Absent ⇒ the chain's default public RPC is used.
+  BASE_RPC_URL: optionalStr,
+  // Money chain flip: defaults to Base Sepolia (testnet) everywhere; set to
+  // "baseMainnet" ONLY on a funded deployment to go real-money.
+  MONEY_CHAIN: z.enum(["baseSepolia", "baseMainnet"]).optional(),
 });
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
 export const webEnvSchema = z.object({
   NEXT_PUBLIC_APP_ENV: z.enum(ENVIRONMENTS),
   NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: optionalStr,
+  // Mirror of MONEY_CHAIN for the web build (inlined into the client bundle).
+  NEXT_PUBLIC_MONEY_CHAIN: z.enum(["baseSepolia", "baseMainnet"]).optional(),
 });
 export type WebEnv = z.infer<typeof webEnvSchema>;
 

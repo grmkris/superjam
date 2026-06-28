@@ -28,6 +28,11 @@ if (!DEV_DB_URL || !BUILDER_URL || !BUILDER_TOKEN) {
 const OWNER = process.env.OWNER ?? "kristjangrm1";
 const ONLY = process.env.ONLY?.split(",").map((s) => s.trim()).filter(Boolean);
 const BUILD_TIMEOUT_MS = Number(process.env.BUILD_TIMEOUT_MS ?? 15 * 60_000);
+// The box bakes its env-default JWKS (dev's) unless we send one per build. When
+// seeding a DIFFERENT env's DB (e.g. PROD), set SEED_JWKS_URL to that env's JWKS
+// (https://superjam.fun/.well-known/jwks.json) so the jam verifies app-tokens
+// against the right keys. Absent ⇒ the box default (dev) — correct for dev seeds.
+const SEED_JWKS_URL = process.env.SEED_JWKS_URL;
 
 // ─── The three jams ──────────────────────────────────────────────────────────
 const SPECS: AppSpec[] = [
@@ -372,7 +377,7 @@ const runBuild = async (spec: AppSpec, appId: string): Promise<string> => {
       authorization: `Bearer ${BUILDER_TOKEN}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ spec, buildId, appId }),
+    body: JSON.stringify({ spec, buildId, appId, jwksUrl: SEED_JWKS_URL }),
   });
   if (accept.status === 429) throw new Error("builder at capacity (429)");
   if (!accept.ok) throw new Error(`builder rejected build: ${accept.status} ${await accept.text()}`);

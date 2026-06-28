@@ -31,12 +31,12 @@ import {
 } from "./verify.ts";
 
 export interface OnchainDeps {
-  /** Arc testnet client — the single money chain (verification, balances, relay). */
+  /** Base client — the single money chain (verification, balances, relay). */
   publicClient: PublicClient;
-  /** The sole privileged payment signer (relay, escrow) on Arc. */
+  /** The sole privileged payment signer (relay, escrow) on Base. */
   serverWallet: ServerWallet;
   /** The identity chain (Sepolia L1) client + signer — ERC-8004 + ENSv2 both live
-   *  here, co-located, not on the Arc payment rail. Falls back to
+   *  here, co-located, not on the Base payment rail. Falls back to
    *  publicClient/serverWallet when unset. */
   identityClient?: PublicClient;
   identityWallet?: ServerWallet;
@@ -58,7 +58,7 @@ export const createOnchain = ({
   ensV2,
 }: OnchainDeps) => {
   const clientFor = (chain: ChainKey): PublicClient => {
-    // Arc is the only money chain — publicClient is built for PUBLIC_CHAIN.
+    // Base is the only money chain — publicClient is built for PUBLIC_CHAIN.
     if (chain === PUBLIC_CHAIN) return publicClient;
     throw new OnchainError("CHAIN_UNAVAILABLE", `no client for ${chain}`);
   };
@@ -120,7 +120,9 @@ export interface OnchainConfig {
   /** Pre-built signer (Dynamic TSS-MPC server wallet) — takes precedence over
    *  the raw key when present (built async at boot in apps/server, §1). */
   serverWallet?: ServerWallet;
-  arcRpcUrl?: string;
+  /** Base RPC override for the money chain. Absent ⇒ the chain's default public
+   *  RPC (sepolia.base.org / mainnet.base.org) is used. */
+  baseRpcUrl?: string;
   /** ENSv2-native config (SuperjamRegistry on Sepolia L1, §16). Absent ⇒ the v2
    *  mint degrades. Built into the live adapter with the shared Sepolia signer. */
   ensV2?: EnsV2Config;
@@ -146,9 +148,9 @@ export const createOnchainFromConfig = (cfg: OnchainConfig): Onchain | null => {
       ? (cfg.serverWalletPrivateKey as Hex)
       : undefined;
   if (!cfg.serverWallet && !rawKey) return null;
-  // The single money chain = PUBLIC_CHAIN (Arc). Gas = USDC on Arc, so the server
-  // wallet relays/sends paying USDC — no ETH/paymaster.
-  const publicRpc = cfg.arcRpcUrl;
+  // The single money chain = PUBLIC_CHAIN (Base). Gas = ETH on Base, so the server
+  // wallet needs Base ETH; USDC transfers ride the EIP-3009 relay.
+  const publicRpc = cfg.baseRpcUrl;
   const publicClient = createPublicClient({
     chain: CHAINS[PUBLIC_CHAIN],
     transport: http(publicRpc),

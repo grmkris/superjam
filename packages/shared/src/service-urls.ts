@@ -36,6 +36,11 @@ export const SERVICE_URLS: Record<Environment, ServiceUrls> = {
 
 export const urlsForEnv = (env: Environment): ServiceUrls => SERVICE_URLS[env];
 
-// Testnet-only event posture (§15.1); mainnet = a post-event config flip.
-// The single money chain is Arc testnet (§15); identity (ENS + ERC-8004) is Sepolia L1.
-export const chainForEnv = () => "arcTestnet" as const;
+// Money chain: defaults to Base Sepolia (testnet) everywhere; flip to real-money
+// Base mainnet with MONEY_CHAIN=baseMainnet. Identity (ENS + ERC-8004) stays on
+// Sepolia L1. Mirrors PUBLIC_CHAIN in @superjam/onchain (kept in sync; returns the
+// bare key for callers that can't import the onchain package).
+export const chainForEnv = (): "baseMainnet" | "baseSepolia" =>
+  (process.env.MONEY_CHAIN ?? process.env.NEXT_PUBLIC_MONEY_CHAIN) === "baseMainnet"
+    ? "baseMainnet"
+    : "baseSepolia";
