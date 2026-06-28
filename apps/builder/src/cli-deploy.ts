@@ -1,13 +1,10 @@
-// CLI deploy — the deploy mechanism for builder-generated apps (pivot: the build
-// agent / orchestration ships a Next app to Vercel cloud with the `vercel` CLI,
-// NOT the REST API and NOT the Vercel MCP, which only advises "run vercel
-// deploy"). `vercel deploy --yes` runs Vercel's native remote build and prints a
-// JSON result to stdout (progress → stderr), so the deployment URL capture is a
-// single deterministic parse.
+// CLI deploy — the deploy mechanism for builder-generated apps: the builder ships a
+// Next app to Vercel cloud with the `vercel` CLI, NOT the REST API and NOT the Vercel
+// MCP (which only advises "run vercel deploy"). `vercel deploy --yes` runs Vercel's
+// native remote build and prints a JSON result to stdout (progress → stderr), so the
+// deployment URL capture is a single deterministic parse.
 //
-// This is the deterministic deployer (used when the agent path is unavailable)
-// AND the reference for what the build agent runs in its own session. The
-// subprocess is injectable so CI never deploys live.
+// The subprocess is injectable so CI never deploys live.
 import { sanitizeProjectName } from "@superjam/builder/deploy";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

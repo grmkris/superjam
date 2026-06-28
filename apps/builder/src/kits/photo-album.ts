@@ -1,12 +1,12 @@
 // photo-album — a BAKED travel photo album. The maker uploads photos at BUILD
-// time; the harness (NOT the agent, NOT the end-user) downloads them into
+// time; the builder (NOT the model, NOT the end-user) downloads them into
 // `public/uploads/`, pre-extracts each photo's GPS + capture time from EXIF, and
 // writes a manifest at `public/photos.json`. The deployed app IS the finished
 // album: the end-user just VIEWS it (no runtime upload). This kit renders the
 // geotagged photos on the seeded `<TripMap>` and lays out ALL photos on a
 // timeline/grid sorted by capture time.
 //
-// THE BAKED-MEDIA CONTRACT — `public/photos.json` (written by the harness):
+// THE BAKED-MEDIA CONTRACT — `public/photos.json` (written by the builder):
 //   [ { "file": "uploads/0.jpg", "lat": 41.9, "lng": 12.5, "takenAt": 1690000000000 },
 //     { "file": "uploads/1.jpg", "lat": null, "lng": null, "takenAt": null } ]
 //   - `file`  : path relative to `public/` → render `<img src={"/" + p.file} />`
@@ -61,7 +61,7 @@ const plan = (spec: AppSpec): string => {
     : "   - (no extra features declared — keep it a clean map + timeline)";
   return `# Build plan — ${emoji} ${spec.name} (baked travel photo album)
 
-The maker's photos are ALREADY baked into this app. The harness downloaded them
+The maker's photos are ALREADY baked into this app. The builder downloaded them
 to \`public/uploads/\` and wrote a manifest at \`public/photos.json\`:
   [ { "file": "uploads/0.jpg", "lat": 41.9, "lng": 12.5, "takenAt": 1690000000000 },
     { "file": "uploads/1.jpg", "lat": null, "lng": null, "takenAt": null } ]
@@ -101,7 +101,7 @@ import { TripMap, type TripStop } from "@/components/trip-map";
 import { useEffect, useMemo, useState } from "react";
 
 // ${title} — a BAKED travel photo album. Photos live in public/uploads/ and the
-// harness wrote public/photos.json; the end-user only views it (no upload).
+// builder wrote public/photos.json; the end-user only views it (no upload).
 type Photo = { file: string; lat: number | null; lng: number | null; takenAt: number | null };
 
 // A photo is "geotagged" when it has finite coordinates in valid ranges.

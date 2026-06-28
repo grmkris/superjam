@@ -1,4 +1,4 @@
-# Recipe index — archetype starting points for the agent-fill generator
+# Recipe index — archetype starting points for the build model
 
 Read `_base.md` first (the external-app contract: file layout, `SuperJam.connect()`, the two
 data paths). Then read the recipe(s) that match the spec's `category` / `skills`. Each recipe

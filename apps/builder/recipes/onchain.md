@@ -3,7 +3,7 @@
 The jam plays against its OWN smart contract on **Arc**. A **vetted contract is ALREADY
 seeded + filled** at `contracts/src/Game.sol` (one of the chance / tic-tac-toe / collectible
 templates, chosen from the spec) and a **working starter `app/page.tsx`** is in place. The
-harness compiles + deploys the contract and the platform resolves its address — you reach it
+builder compiles + deploys the contract and the platform resolves its address — you reach it
 through `sdk.onchain`, **gasless** (the server wallet is the operator + pays gas) and
 **player-stamped** (the platform injects the real player; you never pass "who"). Manifest
 capability: **"onchain"** (skill `onchain`).

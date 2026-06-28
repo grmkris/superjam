@@ -1,10 +1,8 @@
 // Template generator (pivot §6 "(a) Generate"). Produces a deployable Next.js
 // 16 app dir from an AppSpec as a file map. This is the DETERMINISTIC bootstrap
 // fill — a valid skeleton (framed-by-superjam headers, optional Neon+Drizzle
-// data layer, JWKS verify) that the agent-enhanced fill and Opus B's richer
-// Next+SDK template supersede. The orchestration is generator-agnostic (a
-// `Generator` port), so swapping this for the agent path is a one-line change in
-// server.ts.
+// data layer, JWKS verify) that the in-memory build loop then fills in with the
+// real app. The orchestration is generator-agnostic (a `Generator` port).
 import type { AppManifest, AppSpec } from "@superjam/shared";
 import { specNeedsData } from "@superjam/builder/deploy";
 import { selectOnchainTemplate } from "./contracts/templates.ts";
@@ -288,11 +286,11 @@ solc = "0.8.24"
 `;
 
 // The seeded Game.sol is a VETTED, parameterized template (chance / pvp / collectible)
-// filled from the spec by selectOnchainTemplate — NOT free-hand Solidity. The harness's
+// filled from the spec by selectOnchainTemplate — NOT free-hand Solidity. The builder's
 // onchain kit overlays the matching template + a starter page; this seed is the same
-// contract for the agent path / no-kit builds, so neither path authors Solidity.
+// contract for no-kit builds, so the model never authors Solidity.
 
-// Compile + deploy to Arc, print {"address","abi"} as JSON (the agent reads this,
+// Compile + deploy to Arc, print {"address","abi"} as JSON (the builder reads this,
 // writes lib/contract.ts, and reports contractAddress/contractAbi). Operator =
 // ARC_OPERATOR_ADDRESS (the platform server wallet) so relayed writes pass onlyOperator.
 const deploySh = (): string => `#!/usr/bin/env bash

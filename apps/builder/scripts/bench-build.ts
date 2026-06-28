@@ -1,10 +1,10 @@
-// Benchmark the AI-SDK harness across models × specs — timings, rounds, tokens, cost.
+// Benchmark the in-memory builder across models × specs — timings, rounds, tokens, cost.
 // One shared local builder server; runs sequentially (so timings aren't skewed by
 // resource contention), each run in DRY RUN with a fresh appId/workspace. Derives
-// metrics from the event stream and the "model usage —" status the harness emits.
+// metrics from the event stream and the "model usage —" status the builder emits.
 //
-//   bun run apps/builder/scripts/bench-harness.ts
-//   MODELS=gemini-2.5-flash,gemini-2.5-pro bun run apps/builder/scripts/bench-harness.ts
+//   bun run apps/builder/scripts/bench-build.ts
+//   MODELS=gemini-2.5-flash,gemini-2.5-pro bun run apps/builder/scripts/bench-build.ts
 //
 // NOTE: the FIRST run pays a cold bun-install cache; later runs hit the warm cache, so
 // install is ~constant overhead across models (the model rounds are the variable).
@@ -13,7 +13,7 @@ import { serve } from "@hono/node-server";
 import type { AppSpec } from "@superjam/shared";
 import { createBuilderApp } from "../src/app.ts";
 import { makeLocalBackend } from "../src/backend/index.ts";
-import { runHarnessBuild, type HarnessBuildDeps } from "../src/harness-build.ts";
+import { runInMemoryBuild, type InMemoryBuildDeps } from "../src/in-memory-build.ts";
 import { createBuildRunner } from "../src/queue.ts";
 
 const PORT = 47191;
@@ -210,14 +210,14 @@ interface Row {
 
 // A mutable holder so each run can swap the model the shared runner uses.
 let currentModel = createGoogleGenerativeAI({ apiKey: googleKey })(MODELS[0]!);
-const deps: Omit<HarnessBuildDeps, "model"> = {
+const deps: Omit<InMemoryBuildDeps, "model"> = {
   backendFactory: makeLocalBackend,
   googleKey,
   dryRun: true,
 };
 const runner = createBuildRunner({
   maxConcurrent: 1,
-  runBuild: (a) => runHarnessBuild({ ...a, port: PORT, jwksUrl: JWKS }, { ...deps, model: currentModel }),
+  runBuild: (a) => runInMemoryBuild({ ...a, port: PORT, jwksUrl: JWKS }, { ...deps, model: currentModel }),
 });
 const app = createBuilderApp({ token: TOKEN, runner });
 serve({ fetch: app.fetch, port: PORT });
@@ -244,7 +244,7 @@ const runOne = async (model: string, specKey: string, spec: AppSpec, idx: number
     const b = (await r.json()) as { status: string; events: Ev[]; error?: string };
     if (b.status === "running") continue;
 
-    // The poll sees `done` as soon as the harness reports it, but runHarnessBuild is
+    // The poll sees `done` as soon as the builder reports it, but runInMemoryBuild is
     // still in its finally{ dispose() } (stripping node_modules) so the runner is busy.
     // Await full settle before returning so the NEXT run's POST isn't 429'd.
     await runner.wait(buildId);
@@ -286,7 +286,7 @@ for (const model of MODELS) {
 
 const pad = (s: string, n: number) => s.padEnd(n);
 const padL = (s: string, n: number) => s.padStart(n);
-console.log("\n\n## Harness benchmark (dry-run, bun install)\n");
+console.log("\n\n## In-memory builder benchmark (dry-run, bun install)\n");
 console.log(`| ${pad("model", 22)} | ${pad("spec", 9)} | ok | ${padL("total", 6)} | ${padL("rnds", 4)} | ${padL("1st build", 9)} | ${padL("in tok", 8)} | ${padL("out tok", 8)} | ${padL("~$", 8)} | note |`);
 console.log(`| ${"-".repeat(22)} | ${"-".repeat(9)} | -- | ${"-".repeat(6)} | ${"-".repeat(4)} | ${"-".repeat(9)} | ${"-".repeat(8)} | ${"-".repeat(8)} | ${"-".repeat(8)} | ---- |`);
 for (const r of rows) {

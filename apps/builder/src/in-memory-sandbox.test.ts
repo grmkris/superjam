@@ -1,8 +1,8 @@
-// Guards the just-bash sandbox the harness hands the build agent: it must (1) read
+// Guards the just-bash sandbox the builder hands the model: it must (1) read
 // the seeded skeleton, (2) edit files with coreutils that LAND ON DISK (so the
-// harness's real `next build` sees them), and (3) stay CONFINED to the workspace —
+// builder's real `next build` sees them), and (3) stay CONFINED to the workspace —
 // no escaping to the host filesystem, no running native binaries. These are the
-// properties that let us give the agent a rich shell without host risk.
+// properties that let us give the model a rich shell without host risk.
 import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -25,7 +25,7 @@ const withWorkspace = async (
   }
 };
 
-describe("harness sandbox (just-bash over ReadWriteFs)", () => {
+describe("in-memory sandbox (just-bash over ReadWriteFs)", () => {
   test("sees the seeded skeleton", async () => {
     await withWorkspace({ "app/page.tsx": "export default 1", "package.json": "{}" }, async (bash) => {
       const ls = await bash.exec("ls app");
@@ -34,7 +34,7 @@ describe("harness sandbox (just-bash over ReadWriteFs)", () => {
     });
   });
 
-  test("edits land on the real disk for the harness to build", async () => {
+  test("edits land on the real disk for the builder to build", async () => {
     await withWorkspace({ "app/page.tsx": "old" }, async (bash, root) => {
       const w = await bash.exec("echo 'new content' > app/page.tsx");
       expect(w.exitCode).toBe(0);

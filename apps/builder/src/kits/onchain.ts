@@ -1,8 +1,8 @@
 // onchain — the use-case kit for onchain games (skill "onchain"). Instead of the
-// agent hand-writing Solidity (the #1 onchain build failure), the kit seeds a
+// model hand-writing Solidity (the #1 onchain build failure), the kit seeds a
 // VETTED, parameterized contract template (contracts/src/Game.sol) filled from the
 // spec + a near-complete Stage app/page.tsx that drives it via sdk.onchain. The
-// agent extends the PAGE only; it never authors the contract. The harness still
+// model extends the PAGE only; it never authors the contract. The builder still
 // `forge build`s + deploys the (known-good) template to Arc, and the bridge wires
 // sdk.onchain.read/write to the deployed address (gasless, player-stamped).
 import type { AppSpec } from "@superjam/shared";
@@ -32,7 +32,7 @@ const plan = (spec: AppSpec): string => {
 
 A VETTED contract is ALREADY seeded + filled at contracts/src/Game.sol (template:
 ${t.id}) and a working starter app/page.tsx is in place. DO NOT rewrite the Solidity
-— the harness compiles + deploys it to Arc and wires sdk.onchain to its address.
+— the builder compiles + deploys it to Arc and wires sdk.onchain to its address.
 
 1. Connect on mount: \`const sdk = await SuperJam.connect()\`, then
    \`sdk.app.context()\`. Gate the onchain actions on \`!sdk.standalone\` (show an

@@ -1,7 +1,7 @@
 // LocalBackend — runs the build directly on the host the builder service lives on
 // (the VPS, where workspaces persist under ~/superjam-builds). This is the default
-// substrate; it mirrors what agent-build.ts does today (write skeleton files, run
-// `vercel`, strip heavy dirs at the end) but behind the BuildBackend seam.
+// substrate; it does what the build loop needs (write skeleton files, run `vercel`,
+// strip heavy dirs at the end) behind the BuildBackend seam.
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { BackendFactory, BuildBackend, ExecOpts, ExecResult } from "./types.ts";
@@ -11,7 +11,7 @@ import type { BackendFactory, BuildBackend, ExecOpts, ExecResult } from "./types
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 
 // Heavy, regenerable dirs stripped from a finished workspace so the persisted copy
-// stays a lightweight SOURCE archive — same set agent-build.ts strips on cleanup.
+// stays a lightweight SOURCE archive.
 const HEAVY_DIRS = ["node_modules", ".next", ".vercel", ".git"];
 
 export class LocalBackend implements BuildBackend {
@@ -24,8 +24,8 @@ export class LocalBackend implements BuildBackend {
 
   /**
    * Resolve a caller-supplied relative path against the workdir and REJECT any
-   * that escapes it (`..`, absolute paths, symlink-style traversal). Same spirit
-   * as agent-build.ts's pathGate: `resolve(ws, p)` must stay under the workspace.
+   * that escapes it (`..`, absolute paths, symlink-style traversal): `resolve(ws, p)`
+   * must stay under the workspace.
    * We also guard the `workdir` itself (escape would equal the root) by requiring
    * the resolved path to sit strictly inside, with a trailing separator so a
    * sibling like `/ws-evil` can't pass the `/ws` prefix test.

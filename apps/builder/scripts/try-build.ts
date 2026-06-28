@@ -1,23 +1,23 @@
-// Local trial of the AI-SDK harness build driver, on GEMINI. It wires the builder
+// Local trial of the in-memory build driver, on GEMINI. It wires the builder
 // exactly like server.ts (queue + Hono app + LocalBackend) but with a Gemini model
-// and a built-in spec, serves it on a throwaway port (so the harness's loopback
+// and a built-in spec, serves it on a throwaway port (so the builder's loopback
 // /report works), fires ONE build, and streams the live event timeline.
 //
-// DEFAULT = dry run: the harness stops at a green `npx next build` and does NOT
+// DEFAULT = dry run: the builder stops at a green `npx next build` and does NOT
 // touch Vercel. Pass `--deploy` to actually `vercel deploy` (uses the box's logged-in
 // CLI) and get a live URL.
 //
 //   Run from the repo root (Bun auto-loads .env → GOOGLE_GENERATIVE_AI_API_KEY):
-//     bun run apps/builder/scripts/try-harness.ts            # dry run
-//     bun run apps/builder/scripts/try-harness.ts --deploy   # real deploy
-//     HARNESS_MODEL=gemini-2.5-flash bun run apps/builder/scripts/try-harness.ts
+//     bun run apps/builder/scripts/try-build.ts            # dry run
+//     bun run apps/builder/scripts/try-build.ts --deploy   # real deploy
+//     BUILD_MODEL=gemini-2.5-flash bun run apps/builder/scripts/try-build.ts
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { serve } from "@hono/node-server";
 import { createNeonClient } from "@superjam/builder/deploy";
 import type { AppSpec } from "@superjam/shared";
 import { createBuilderApp } from "../src/app.ts";
 import { makeLocalBackend } from "../src/backend/index.ts";
-import { runHarnessBuild } from "../src/harness-build.ts";
+import { runInMemoryBuild } from "../src/in-memory-build.ts";
 import { createBuildRunner } from "../src/queue.ts";
 
 const PORT = 47190;
@@ -25,7 +25,7 @@ const TOKEN = "trial-token";
 const deploy = process.argv.includes("--deploy");
 // --data: build a RELATIONAL spec (data.collections → Neon) to verify the data path.
 const data = process.argv.includes("--data");
-const modelId = process.env.HARNESS_MODEL ?? "gemini-2.5-flash";
+const modelId = process.env.BUILD_MODEL ?? "gemini-2.5-flash";
 
 const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 if (!googleKey) {
@@ -155,7 +155,7 @@ const neon = process.env.NEON_API_KEY
 const runner = createBuildRunner({
   maxConcurrent: 1,
   runBuild: (a) =>
-    runHarnessBuild(
+    runInMemoryBuild(
       { ...a, port: PORT, jwksUrl: "https://superjam.fun/.well-known/jwks.json" },
       {
         backendFactory: makeLocalBackend,
@@ -175,7 +175,7 @@ const auth = { authorization: `Bearer ${TOKEN}`, "content-type": "application/js
 const t0 = Date.now();
 const secs = (t: number) => `${Math.round((t - t0) / 1000)}s`.padStart(4);
 
-console.log(`\n🍪 harness trial — model=${modelId}  mode=${deploy ? "DEPLOY" : "dry-run"}\n`);
+console.log(`\n🍪 in-memory trial — model=${modelId}  mode=${deploy ? "DEPLOY" : "dry-run"}\n`);
 
 const start = await fetch(`http://127.0.0.1:${PORT}/builds`, {
   method: "POST",

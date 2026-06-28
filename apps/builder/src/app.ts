@@ -21,8 +21,6 @@ export interface BuilderAppDeps {
    * because operator creds live only on the builder box.
    */
   teardown?: (args: TeardownArgs) => Promise<TeardownResult>;
-  /** Optional truthful `claude auth status` probe for /health. */
-  claudeAuth?: () => Promise<boolean>;
 }
 
 const BuildRequest = z.object({
@@ -136,10 +134,7 @@ export const createBuilderApp = (deps: BuilderAppDeps): Hono => {
     return c.json(result);
   });
 
-  app.get("/health", async (c) => {
-    const claudeAuth = deps.claudeAuth ? await deps.claudeAuth() : undefined;
-    return c.json({ ok: true, claudeAuth });
-  });
+  app.get("/health", (c) => c.json({ ok: true }));
 
   return app;
 };

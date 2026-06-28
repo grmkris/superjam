@@ -1,4 +1,4 @@
-// The build-execution backend seam. A build (agent-build / cli-deploy) ultimately
+// The build-execution backend seam. A build (in-memory-build / cli-deploy) ultimately
 // does three primitive things to a workspace: write source files, read a file
 // back, and run shell commands. Today that's the LOCAL host the service runs on;
 // tomorrow it could be an isolated microVM (Vercel Sandbox / Firecracker). Pulling

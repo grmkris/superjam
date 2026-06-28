@@ -1,7 +1,7 @@
 // travel — a use-case kit for trip guides / day-by-day itineraries. The build is a
 // real, content-rich travel guide: a curated TripStop[] of real geocoded places
 // plotted on the seeded <TripMap>, with a day-by-day list below. It declares
-// skills: ["map"] so the harness seeds components/trip-map.tsx BEFORE generateApp
+// skills: ["map"] so the builder seeds components/trip-map.tsx BEFORE generateApp
 // (the kit imports it, never rewrites it — see recipes/map.md + recipes/travel.md).
 //
 // SDK CONTRACT — same self-connect shape as tap-arcade (RECONCILED against what

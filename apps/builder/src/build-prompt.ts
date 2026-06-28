@@ -1,19 +1,10 @@
-// build-prompt — DRIVER-AGNOSTIC assembly of the build agent's prompt material,
-// so any build driver (the Claude Agent SDK loop in agent-build.ts, or the new
-// AI-SDK harness loop) feeds the model the EXACT same grounding: the curated
+// build-prompt — assembly of the build model's prompt material: the curated
 // app-shape/data-path rules, the authoritative SDK reference (packages/sdk/SDK.md),
-// and the archetype recipes matched to the spec.
-//
-// The split (WHY this module exists): the model's grounding divides into
-//   (1) REUSABLE core — "what a jam is, what files to edit, which data path,
-//       design constraints, the SDK surface, the recipes" — true for every driver;
-//   (2) DRIVER-SPECIFIC tail — "how to deploy (which CLI/tool) and how to report
-//       progress/results (curl to /report, MCP tool calls, …)" — which differs per
-//       harness (tool names, callback shape, permission model).
-// Only (1) lives here. Each driver owns (2) and appends it (agent-build.ts keeps
-// its Vercel-CLI + /report-curl instructions; the AI-SDK harness will supply its
-// own). This guarantees ONE source of truth for the SDK reference + recipes while
-// letting drivers diverge on plumbing.
+// and the archetype recipes matched to the spec. The grounding is one continuous
+// document; only the intro TOOL LIST and the "## Deploy" wording are driver-specific,
+// so they enter through small `seams` the in-memory builder fills (the build is run
+// FOR the model — it doesn't deploy itself). ONE source of truth for the SDK
+// reference + recipes, with the deploy/tools wording slotted in.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AppSpec } from "@superjam/shared";
@@ -45,33 +36,26 @@ export const IMAGE_BUDGET = 8;
 export const VOICE_BUDGET = 4;
 
 /**
- * Driver-specific seams a build driver slots into the otherwise driver-agnostic
- * system preamble. The model's grounding is one continuous document, but the
- * DEPLOY mechanics (which CLI/tool) and the REPORTING mechanics (which callback)
- * differ per harness — so the shared preamble leaves named holes and each driver
- * fills them with its own wording, keeping the prose in ONE place. Omit a field to
- * leave that seam empty (the new AI-SDK harness can supply its own, or none).
+ * Small seams the build driver slots into the otherwise generic system preamble:
+ * the intro TOOL LIST and the "## Deploy" wording. The model's grounding is one
+ * continuous document; only these bits depend on how the driver ships the app, so
+ * they enter as named holes filled in ONE place. Omit a field to leave it empty.
  */
 export interface DriverSeams {
-  /** Tool list interpolated into the intro, e.g. "(Bash, the `vercel` CLI, …)". */
+  /** Tool list interpolated into the intro, e.g. "(bash, write_file, read_file)". */
   toolsIntro?: string;
-  /** The "## Deploy" section body (how this driver ships the app). */
+  /** The "## Deploy" section body (how the build is run + shipped for the model). */
   deploy?: string;
-  /** The "## Reporting" section body (how this driver streams progress/results). */
-  reporting?: string;
 }
 
-// REUSABLE base preamble, parameterized by driver SEAMS. Everything in the prose is
-// true for ANY build driver: what a jam is, the skeleton + which files to edit, the
-// two data paths, capability gating, the Studio design rules, the asset-generation
-// guidance, and the onchain contract flow. Only the DEPLOY + REPORTING mechanics and
-// the intro tool list are driver-specific; they enter through `seams` so each driver
-// (Agent SDK vs AI-SDK harness) supplies its own without forking the whole document.
-// Passing no seams yields a clean driver-agnostic preamble (empty Deploy/Reporting).
+// Base preamble, parameterized by the driver's SEAMS. Everything in the prose holds
+// for the build regardless of driver: what a jam is, the skeleton + which files to
+// edit, the two data paths, capability gating, the Studio design rules, the asset-
+// generation guidance, and the onchain contract flow. Only the DEPLOY wording and the
+// intro tool list enter through `seams`. Passing no seams yields a clean preamble.
 const baseSystem = (seams: DriverSeams = {}): string => {
   const tools = seams.toolsIntro ? ` ${seams.toolsIntro}` : "";
   const deploy = seams.deploy ? `\n\n${seams.deploy}` : "";
-  const reporting = seams.reporting ? `\n\n${seams.reporting}` : "";
   return `You are SuperJam's autonomous app builder. From a spec, you build a real, working "jam" — a single-screen Next.js 16 (app-router) mini-app — and DEPLOY it live YOURSELF using your tools${tools}. A correct, identity-baked skeleton already exists in your working directory; you fill it in and ship it.
 
 ## The workspace skeleton (already there)
@@ -140,18 +124,18 @@ The Stage theme is ALREADY loaded (theme.css): a DARK glow stage (deep ink-indig
 You have build-time asset tools — generate_image (PNG) and generate_voice (WAV). They write into public/ (Next serves it at the site root, so public/hero.png is referenced as <img src="/hero.png">; audio via <audio src="/intro.wav">). Use them to BAKE FIXED art/audio that's the same for everyone — a mascot/sprite, a themed background, an app logo/icon, a short intro jingle or narration — so the jam looks crafted, not emoji-default. Budgets: ${IMAGE_BUDGET} images, ${VOICE_BUDGET} voice clips per build; each call costs real money, so generate only what the design needs and reuse assets. Do NOT use these for per-user content (that would need runtime generation, which jams don't have yet) — for per-user variety, dynamic SFX, or trivial decoration, prefer emoji, CSS gradients, and the procedural WebAudio SFX pattern. If a tool reports unavailable/over-budget, degrade gracefully (emoji/CSS/SFX) — never block the build on it.${deploy}
 
 ## Onchain games (ONLY when the spec's skills include "onchain")
-A VETTED contract is ALREADY seeded + filled at \`contracts/src/Game.sol\` (a chance / tic-tac-toe / collectible template chosen from the spec), and a working starter \`app/page.tsx\` is in place. **DO NOT rewrite the Solidity** — it's correct, compile-tested, and operator-gated; the harness compiles + deploys it to Arc and wires sdk.onchain to its address. Your job is ONLY the game UI.
+A VETTED contract is ALREADY seeded + filled at \`contracts/src/Game.sol\` (a chance / tic-tac-toe / collectible template chosen from the spec), and a working starter \`app/page.tsx\` is in place. **DO NOT rewrite the Solidity** — it's correct, compile-tested, and operator-gated; the builder compiles + deploys it to Arc and wires sdk.onchain to its address. Your job is ONLY the game UI.
 1. Leave \`contracts/src/Game.sol\` + \`contracts/deploy.sh\` untouched. The seeded contract already covers flip/dice/wheel (\`play\`/\`statsOf\`), tic-tac-toe (\`move\`/\`state\`/\`reset\`), or mint (\`mint\`/\`balanceOf\`) — build the UI around those functions.
-2. Play via the SDK — GASLESS, server-relayed: \`await sdk.onchain.write({ fn, args })\` → \`{hash}\` (player auto-stamped; NEVER pass an address as the first arg) and \`await sdk.onchain.read({ fn, args })\` (view; big numbers return as decimal strings — \`Number(x)\`/\`BigInt(x)\`). Wrap in try/catch, show a pending state, then re-\`read\`. Gate the action on \`!sdk.standalone\` (and mint/value actions on \`ctx.user.worldVerified\`).${reporting}
+2. Play via the SDK — GASLESS, server-relayed: \`await sdk.onchain.write({ fn, args })\` → \`{hash}\` (player auto-stamped; NEVER pass an address as the first arg) and \`await sdk.onchain.read({ fn, args })\` (view; big numbers return as decimal strings — \`Number(x)\`/\`BigInt(x)\`). Wrap in try/catch, show a pending state, then re-\`read\`. Gate the action on \`!sdk.standalone\` (and mint/value actions on \`ctx.user.worldVerified\`).
 
 Below: the authoritative SuperJam SDK reference, then the archetype recipes that match this spec — imitate the closest one.`;
 };
 
 /**
- * Assemble the system prompt: the base rules (with the driver's deploy/report
- * seams slotted in) + the authoritative SDK reference + the archetype recipes
- * matched to the spec. Call with no `seams` for a driver-agnostic prompt; a driver
- * passes its own deploy/report wording to reproduce its harness's instructions.
+ * Assemble the system prompt: the base rules (with the driver's deploy/tools seams
+ * slotted in) + the authoritative SDK reference + the archetype recipes matched to
+ * the spec. Call with no `seams` for a bare prompt; the driver passes its own deploy
+ * wording.
  */
 export const buildSystemPrompt = async (
   spec: AppSpec,
@@ -200,9 +184,8 @@ export interface TaskPromptArgs {
   project: string;
   /** Presigned GET URLs for user-attached reference files (§17), if any. */
   attachmentUrls?: string[];
-  /** Driver-specific tail (e.g. the per-build /report callback instructions). The
-   *  shared body covers WHAT to build; the driver supplies HOW to report it, since
-   *  the callback shape/transport differs per harness. Appended verbatim. */
+  /** Driver-specific tail appended verbatim (e.g. where the pre-downloaded uploads
+   *  live, or build/deploy reminders). The shared body covers WHAT to build. */
   tail?: string;
 }
 

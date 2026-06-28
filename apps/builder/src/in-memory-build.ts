@@ -1,17 +1,16 @@
-// harness-build — the AI-SDK build driver (BUILD_DRIVER=harness). The alternative
-// to the free-roaming Claude Agent SDK path (agent-build.ts): a tight, inspectable
-// loop built on the Vercel AI SDK's `generateText` tool loop. The model edits the
-// seeded skeleton through write_file / read_file + a SANDBOXED `bash` (just-bash:
-// built-in coreutils only, no host shell, no host env, no native binaries — scoped
-// to the workspace via a ReadWriteFs). The harness — not the model — owns the
-// control flow AND the real toolchain: it runs the AUTHORITATIVE `npm install` +
-// `next build` on the host, loops the error back until green, then DETERMINISTICALLY
-// deploys. So a build is "agent edits (sandboxed) → harness builds → (green?) deploy",
-// with the model only responsible for making the code compile against the spec.
+// in-memory-build — the in-process build driver. A tight, inspectable loop built on
+// the Vercel AI SDK's `generateText` tool loop, running IN-MEMORY inside the builder
+// service (no external agent CLI). The model edits the seeded skeleton through
+// write_file / read_file + a SANDBOXED `bash` (just-bash: built-in coreutils only,
+// no host shell, no host env, no native binaries — scoped to the workspace via a
+// ReadWriteFs). The loop — not the model — owns the control flow AND the real
+// toolchain: it runs the AUTHORITATIVE `bun install` + `next build` on the host,
+// loops the error back until green, then DETERMINISTICALLY deploys. So a build is
+// "model edits (sandboxed) → builder builds → (green?) deploy", with the model only
+// responsible for making the code compile against the spec.
 //
-// Reporting reuses the SAME loopback /report protocol the agent path uses (so
-// queue.ts/app.ts are untouched) — but over `fetch`, not a shelled-out curl, since
-// this driver runs in-process.
+// Progress + results stream over the loopback /report protocol (queue.ts/app.ts),
+// via `fetch` since this driver runs in-process.
 import { generateText, stepCountIs, tool, type LanguageModel } from "ai";
 import exifr from "exifr";
 import { Bash, ReadWriteFs } from "just-bash";
@@ -35,7 +34,7 @@ import { generateApp } from "./generate.ts";
 import { genericGate, resultCardComponent, selectKit } from "./kits/index.ts";
 
 // Tool steps the model gets PER build round (one round = one `generateText` call
-// followed by the harness's authoritative `next build`).
+// followed by the builder's authoritative `next build`).
 const STEPS_PER_ROUND = 30;
 // How many times we feed a failed build back before giving up.
 const MAX_BUILD_ROUNDS = 4;
@@ -49,7 +48,7 @@ const workspaceRoot = (): string =>
 /** Keep tool/build output small in the model's context — only the tail matters. */
 const tail = (s: string, n = 4000): string => (s.length > n ? s.slice(-n) : s);
 
-export interface HarnessBuildArgs {
+export interface InMemoryBuildArgs {
   spec: AppSpec;
   buildId: string;
   /** Pre-generated app id (JWT aud), baked into the skeleton + the project name. */
@@ -64,11 +63,11 @@ export interface HarnessBuildArgs {
   attachmentUrls?: string[];
 }
 
-export interface HarnessBuildDeps {
+export interface InMemoryBuildDeps {
   /** Build-execution substrate factory (local host / sandbox), per BUILD_BACKEND. */
   backendFactory: BackendFactory;
   /** The coding model (any AI-SDK provider) — built in the composition root so the
-   *  harness is provider-agnostic (Gemini via @ai-sdk/google, Claude, …). */
+   *  builder is provider-agnostic (Gemini via @ai-sdk/google, Claude, …). */
   model: LanguageModel;
   /** Vercel operator token; omit to use the box's logged-in CLI session. */
   vercelToken?: string;
@@ -80,18 +79,17 @@ export interface HarnessBuildDeps {
   dryRun?: boolean;
 }
 
-// The model's deploy/report seams for the shared system preamble. Unlike the agent
-// path, the harness OWNS the toolchain + deploy + reporting — the model only EDITS
-// files in a sandbox; it cannot run npm/next/vercel. So the seam tells it the build
-// is run FOR it between rounds, and redirects it away from real commands entirely.
-const HARNESS_SEAMS: DriverSeams = {
+// The model's deploy seam for the shared system preamble. The builder OWNS the
+// toolchain + deploy — the model only EDITS files in a sandbox; it cannot run
+// npm/next/vercel. So the seam tells it the build is run FOR it between rounds, and
+// redirects it away from real commands entirely.
+const IN_MEMORY_SEAMS: DriverSeams = {
   toolsIntro: "(bash, write_file, and read_file)",
-  deploy: `## Your goal: code that compiles — the harness builds & deploys for you
-Edit files with write_file (whole files) and the bash tool (a SANDBOXED shell — ls, cat, sed, grep, find, etc., scoped to the app workspace). You CANNOT run \`npm\`, \`next\`, \`vercel\`, or any other real binary — bash only has built-in coreutils, and the harness runs the real toolchain for you. When you stop editing, the harness runs \`next build\`; if it fails you get the errors back to fix, and once it's green the harness deploys automatically. Do not try to install packages, build, or deploy yourself.`,
-  // No reporting seam: the harness streams progress to /report, not the model.
+  deploy: `## Your goal: code that compiles — the builder builds & deploys for you
+Edit files with write_file (whole files) and the bash tool (a SANDBOXED shell — ls, cat, sed, grep, find, etc., scoped to the app workspace). You CANNOT run \`npm\`, \`next\`, \`vercel\`, or any other real binary — bash only has built-in coreutils, and the builder runs the real toolchain for you. When you stop editing, the builder runs \`next build\`; if it fails you get the errors back to fix, and once it's green the builder deploys automatically. Do not try to install packages, build, or deploy yourself.`,
 };
 
-/** Loopback /report client — same protocol as the agent path, over fetch. */
+/** Loopback /report client, over fetch. */
 const reporter = (port: number, buildId: string, token: string) => {
   const url = `http://127.0.0.1:${port}/builds/${buildId}/report`;
   const headers = {
@@ -115,7 +113,7 @@ const reporter = (port: number, buildId: string, token: string) => {
   };
 };
 
-/** Normalize an agent-supplied path to an absolute path inside the sandbox FS. */
+/** Normalize a model-supplied path to an absolute path inside the sandbox FS. */
 const fsPath = (p: string): string => (p.startsWith("/") ? p : `/${p}`);
 
 interface PhotoMeta {
@@ -128,7 +126,7 @@ interface PhotoMeta {
 
 /**
  * BUILD-TIME media ingestion. The maker's uploads arrive as presigned URLs; the
- * sandboxed agent has NO network, so the HARNESS (real host) downloads them into
+ * sandboxed model has NO network, so the builder (real host) downloads them into
  * public/uploads/ (shipped + web-served by the deployed app) and extracts EXIF
  * GPS/timestamp from images into public/photos.json — the contract media kits
  * (photo-album) consume. Returns the image count so selectKit can route to a media
@@ -201,10 +199,10 @@ const ingestMedia = async (
 };
 
 /**
- * The model's toolset. The agent edits inside a SANDBOXED just-bash shell (`bash`)
+ * The model's toolset. The model edits inside a SANDBOXED just-bash shell (`bash`)
  * + structured write_file/read_file — all bound to the same in-process FS, which is
- * a ReadWriteFs rooted at the real workspace (so edits land on disk for the harness
- * to build, but the agent has NO host shell, NO host env, and CANNOT run npm/next/
+ * a ReadWriteFs rooted at the real workspace (so edits land on disk for the builder
+ * to build, but the model has NO host shell, NO host env, and CANNOT run npm/next/
  * vercel or any native binary). generate_image/generate_voice bake fixed art/audio
  * into public/. `onStep` surfaces a human progress label.
  *
@@ -252,7 +250,7 @@ const buildTools = (
     }),
     bash: tool({
       description:
-        "Run a command in a SANDBOXED shell scoped to the app workspace: built-in coreutils only (ls, cat, sed, grep, find, mkdir, mv, cp, jq, …). Use it to inspect and edit files. It CANNOT run npm, next, vercel, or any other real binary — the harness builds & deploys for you.",
+        "Run a command in a SANDBOXED shell scoped to the app workspace: built-in coreutils only (ls, cat, sed, grep, find, mkdir, mv, cp, jq, …). Use it to inspect and edit files. It CANNOT run npm, next, vercel, or any other real binary — the builder builds & deploys for you.",
       inputSchema: z.object({ cmd: z.string().min(1) }),
       execute: async ({ cmd }) => {
         onStep(cmd.length > 64 ? `${cmd.slice(0, 64)}…` : cmd);
@@ -302,14 +300,14 @@ const buildTools = (
 };
 
 /**
- * Run one build to completion via the AI-SDK harness. Seeds the skeleton, lets the
+ * Run one build to completion via the in-process loop. Seeds the skeleton, lets the
  * model implement it, loops the authoritative `next build` until green, then deploys
  * and reports the result via /report. Resolves when terminal (done/failed reported);
  * any thrown error is reported as `failed` (queue.ts also backstops a silent exit).
  */
-export const runHarnessBuild = async (
-  args: HarnessBuildArgs,
-  deps: HarnessBuildDeps
+export const runInMemoryBuild = async (
+  args: InMemoryBuildArgs,
+  deps: InMemoryBuildDeps
 ): Promise<void> => {
   const report = reporter(args.port, args.buildId, args.reportToken);
   // Stable workspace dir == the Vercel project name, so `vercel deploy` derives
@@ -374,29 +372,29 @@ export const runHarnessBuild = async (
     }
     const buildEnv = dsn ? { DATABASE_URL: dsn } : undefined;
 
-    // The agent's editing sandbox: a just-bash shell over a ReadWriteFs rooted at the
-    // real workspace. Edits land on disk (so the harness can build them) but the agent
+    // The model's editing sandbox: a just-bash shell over a ReadWriteFs rooted at the
+    // real workspace. Edits land on disk (so the builder can build them) but the model
     // gets NO host shell, NO host env (empty), and can't run any native binary — it
-    // can only manipulate files with built-in coreutils. The harness owns the toolchain.
+    // can only manipulate files with built-in coreutils. The builder owns the toolchain.
     const sandbox = new Bash({ fs: new ReadWriteFs({ root: ws }), cwd: "/", env: {} });
 
     const model = deps.model;
-    const system = await buildSystemPrompt(args.spec, HARNESS_SEAMS);
+    const system = await buildSystemPrompt(args.spec, IN_MEMORY_SEAMS);
     // A kit ships a FILLED, ordered checklist; a WORKING starter app/page.tsx (and
     // sometimes seeded components it imports) already exists, so the model's job is to
     // EXTEND it, not rewrite it.
     const planSection = kit
       ? `\n\n## Build plan — EXTEND the seeded starter (do NOT rewrite it from scratch)\nA working starter app/page.tsx is already in place. Build ON it: fill the // TODO gaps, theme it, and wire the spec. KEEP every seeded import (especially components like \`@/components/result-card\`) and KEEP the ending (the result + share button) — don't drop features the starter already has. Complete EVERY step:\n${kit.plan(args.spec)}`
       : "";
-    // The harness ALREADY downloaded the maker's uploads (the sandbox has no network)
-    // → tell the agent where they are instead of the (broken) "curl these URLs".
+    // The builder ALREADY downloaded the maker's uploads (the sandbox has no network)
+    // → tell the model where they are instead of the (broken) "curl these URLs".
     const mediaSection = args.attachmentUrls?.length
       ? `\n\n## Reference uploads (already in your workspace)\nThe maker's ${args.attachmentUrls.length} uploaded file(s) are in \`public/uploads/\` (web-served at \`/uploads/…\`). Geotagged photos also have a baked manifest at \`public/photos.json\` ([{file,lat,lng,takenAt}]); read it at runtime with \`fetch("/photos.json")\`. Build the app AROUND these files — they ship inside the deployed app.`
       : "";
     const task = buildTaskPrompt(args.spec, {
       project,
       // NOT attachmentUrls — the agent can't curl them (no network). They're pre-downloaded.
-      tail: `${planSection}${mediaSection}\n\nWrite the code; the harness compiles it and sends back any build errors OR missing pieces to fix. You cannot run npm/next/vercel — the harness builds & deploys for you.`,
+      tail: `${planSection}${mediaSection}\n\nWrite the code; the builder compiles it and sends back any build errors OR missing pieces to fix. You cannot run npm/next/vercel — the builder builds & deploys for you.`,
     });
     const tools = buildTools(sandbox, ws, deps.googleKey, (s) => void report.status(s));
 
@@ -412,7 +410,7 @@ export const runHarnessBuild = async (
     let inTokens = 0;
     let outTokens = 0;
 
-    // Outer harness loop: the model implements/fixes, then WE run the authoritative
+    // Outer build loop: the model implements/fixes, then WE run the authoritative
     // `next build` AND the anti-coast quality gate. Pass both → deploy. Build error OR
     // an incomplete (coasting) app → feed the specific gaps back for another round.
     // The model never decides "done" — the build + gate do.
@@ -443,7 +441,7 @@ export const runHarnessBuild = async (
       await report.status(`build check (attempt ${round + 1})`);
       const build = await backend.exec("npx next build", { env: buildEnv, timeoutMs: BUILD_TIMEOUT_MS });
       if (build.code !== 0) {
-        feedback = `The build (\`next build\`, run by the harness) failed:\n\n${tail(build.stderr || build.stdout || "")}`;
+        feedback = `The build (\`next build\`, run by the builder) failed:\n\n${tail(build.stderr || build.stdout || "")}`;
         continue;
       }
 
@@ -490,8 +488,8 @@ export const runHarnessBuild = async (
       return;
     }
 
-    // Onchain games: the agent edited contracts/src/Game.sol in the SANDBOX, but it
-    // can't DEPLOY (no forge/network). The HARNESS deploys it on the host now (forge +
+    // Onchain games: the model edited contracts/src/Game.sol in the SANDBOX, but it
+    // can't DEPLOY (no forge/network). The builder deploys it on the host now (forge +
     // ARC_DEPLOYER_KEY/ARC_OPERATOR_ADDRESS are in process.env), bakes lib/contract.ts,
     // and reports the address+abi so the platform wires sdk.onchain to the contract.
     let gameContract: { address: string; abi: readonly unknown[] } | undefined;
@@ -510,7 +508,7 @@ export const runHarnessBuild = async (
         // Reference for the app (it reaches the chain via the SDK, not viem). Shipped
         // BEFORE `vercel deploy` so it's in the deployed source.
         await backend.writeFiles({
-          "lib/contract.ts": `// Deployed by the harness — reference only (use sdk.onchain, not viem).\nexport const CONTRACT_ADDRESS = ${JSON.stringify(parsed.address)};\nexport const CONTRACT_ABI = ${JSON.stringify(parsed.abi)} as const;\n`,
+          "lib/contract.ts": `// Deployed by the builder — reference only (use sdk.onchain, not viem).\nexport const CONTRACT_ADDRESS = ${JSON.stringify(parsed.address)};\nexport const CONTRACT_ABI = ${JSON.stringify(parsed.abi)} as const;\n`,
         });
       } catch (e) {
         await report.failed(`couldn't parse the deployed contract: ${e instanceof Error ? e.message : String(e)}`);
@@ -551,7 +549,7 @@ export const runHarnessBuild = async (
       contractAddress: gameContract?.address,
       contractAbi: gameContract?.abi,
     });
-    console.log(`[harness] deployed ${project}${deploymentId ? ` (deployment ${deploymentId})` : ""}`);
+    console.log(`[in-memory] deployed ${project}${deploymentId ? ` (deployment ${deploymentId})` : ""}`);
   } catch (err) {
     await report.failed(err instanceof Error ? err.message : String(err));
   } finally {

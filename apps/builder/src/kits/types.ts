@@ -1,9 +1,9 @@
-// Use-case kits — per-use-case scaffolding that hand-holds the build agent so a
+// Use-case kits — per-use-case scaffolding that hand-holds the build model so a
 // cheap model produces a REAL app instead of coasting on the seeded stub. A kit
 // bundles: tailored clarifying questions (refine), a FILLED build plan (prompt +
-// user UI), starter files the agent fills marked gaps in, and an acceptance gate
-// that rejects an unfinished app. Kits are a HARNESS feature (the agent path is
-// untouched) and ride on the existing recipe/skill/generate machinery.
+// user UI), starter files the model fills marked gaps in, and an acceptance gate
+// that rejects an unfinished app. Kits ride on the existing recipe/skill/generate
+// machinery.
 import type { AppSpec, SkillName } from "@superjam/shared";
 
 export interface GateResult {
@@ -27,7 +27,7 @@ export interface MatchOpts {
 export interface Kit {
   id: string;
   title: string;
-  /** Skills this kit REQUIRES — the harness merges them into the spec before generateApp
+  /** Skills this kit REQUIRES — the builder merges them into the spec before generateApp
    *  so per-skill scaffolding seeds (e.g. "map" → the seeded <TripMap> component). */
   skills?: SkillName[];
   /** Does this kit apply? (keyword/skill/category + optional build-time signals, like selectRecipes.) */
@@ -40,7 +40,7 @@ export interface Kit {
   starterFiles(spec: AppSpec, ctx: KitContext): Record<string, string>;
   /**
    * Acceptance probes over the produced files — reject the stub / an unfilled template.
-   * Receives the files the harness pre-read (at least { "app/page.tsx": ... }).
+   * Receives the files the builder pre-read (at least { "app/page.tsx": ... }).
    */
   gate(files: Record<string, string>): GateResult;
 }

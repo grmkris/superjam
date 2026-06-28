@@ -1,7 +1,6 @@
 // Recipe corpus selection — the repo's canonical "how to build app type X" patterns
-// (apps/builder/recipes/*.md). Shared by BOTH builder paths: the agent-fill generator
-// (agent-generate.ts) and the autonomous agent (agent-build.ts), so each gets the same
-// archetype guidance grounded in the actual recipe files.
+// (apps/builder/recipes/*.md), fed into the in-memory build loop's system prompt so the
+// model's archetype guidance is grounded in the actual recipe files.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AppSpec } from "@superjam/shared";

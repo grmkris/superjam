@@ -2,7 +2,7 @@
 // success on its own: the seeded skeleton stub already compiles, so a lazy/cheap
 // model "succeeds" by doing nothing. This gate inspects app/page.tsx (+ the theme
 // files) after a green build and rejects an untouched / non-implemented / off-theme
-// app, so the harness re-prompts with the specific gaps instead of shipping junk.
+// app, so the builder re-prompts with the specific gaps instead of shipping junk.
 import type { GateResult } from "./types.ts";
 
 /** Files the gate inspects beyond the page (the theme split + agent scratch). */

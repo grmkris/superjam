@@ -25,28 +25,23 @@ const builderEnvSchema = z.object({
     .url()
     .default("https://superjam.fun/.well-known/jwks.json"),
   MAX_CONCURRENT_BUILDS: z.coerce.number().int().positive().default(2),
-  // Build DRIVER: "agent" = the free-roaming Claude Agent SDK (subscription `claude`
-  // CLI on the box); "harness" = the in-process AI-SDK tool loop (harness-build.ts).
-  // Default "agent" so the live box keeps its proven path until the harness is flipped
-  // on. The harness needs ANTHROPIC_API_KEY — absent, server.ts falls back to "agent".
-  BUILD_DRIVER: z.enum(["agent", "harness"]).default("agent"),
-  // Build BACKEND (harness only): "local" = run the toolchain on THIS host (the VPS
-  // already has node/npm/vercel); "sandbox" = an isolated microVM (stub for now).
+  // Build BACKEND: "local" = run the toolchain on THIS host (the VPS already has
+  // node/npm/vercel); "sandbox" = an isolated microVM (stub for now).
   BUILD_BACKEND: z.enum(["local", "sandbox"]).default("local"),
-  // Harness coding-model provider. "auto" (default) prefers an Anthropic key, else
-  // the Google (Gemini) key — whichever is configured. We currently only hold a
-  // Gemini key, so "auto" lights up the harness on Gemini.
-  HARNESS_PROVIDER: z.enum(["auto", "google", "anthropic"]).default("auto"),
-  // Anthropic API key for the harness coding model — OPTIONAL (we don't have one yet).
+  // Coding-model provider. "auto" (default) prefers an Anthropic key, else the Google
+  // (Gemini) key — whichever is configured. We currently only hold a Gemini key, so
+  // "auto" lights up the builder on Gemini.
+  BUILD_PROVIDER: z.enum(["auto", "google", "anthropic"]).default("auto"),
+  // Anthropic API key for the coding model — OPTIONAL (we don't have one yet).
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
-  // Override the harness coding-model id. Absent ⇒ a per-provider default
-  // (gemini-2.5-pro / claude-sonnet-4-6) chosen in server.ts.
-  HARNESS_MODEL: z.string().min(1).optional(),
+  // Override the coding-model id. Absent ⇒ a per-provider default
+  // (gemini-2.5-flash / claude-sonnet-4-6) chosen in server.ts.
+  BUILD_MODEL: z.string().min(1).optional(),
   // Google key for the build-time asset tools (image/voice). OPTIONAL — absent, the
-  // build degrades to emoji/CSS/procedural SFX. Read by BOTH drivers.
+  // build degrades to emoji/CSS/procedural SFX.
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
   // Onchain games (§ builder-deploys-contracts) — read by contracts/deploy.sh in
-  // the build workspace (the agent's Bash inherits this process env). All
+  // the build workspace (the builder's host exec inherits this process env). All
   // OPTIONAL: absent ⇒ only non-onchain jams build; an onchain build fails at the
   // deploy step. ARC_OPERATOR_ADDRESS MUST equal the platform server wallet
   // (context.onchain) so operator-relayed sdk.onchain.write passes onlyOperator.
