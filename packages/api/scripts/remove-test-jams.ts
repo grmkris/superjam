@@ -21,27 +21,24 @@ const RUN = process.env.RUN === "1";
 // EXACT allowlist (user-approved). The script NEVER deletes by status/query alone.
 // Curate Discover to a viral showcase: drop the utility/crypto/hackathon jams.
 const REMOVE_SLUGS = [
-  "what-if-calc",
-  "spending-explainer",
-  "locked-notes",
-  "stablecoin-academy",
-  "tip-jar",
-  "final-pot-demo",
-  "3d-tic-tac-toe-champ",
-  "guestbook",
-  "onchain-wrapped",
-  "judges-whimsy",
+  // Dropped when the showcase moved to one-jam-per-archetype (redundant: 2nd AI-rate,
+  // 2nd poll, 2nd tap-game).
+  "mascot-draw-off",
+  "proof-of-human-poll",
+  "gem-clicker",
 ];
-// The viral keepers that must NEVER be deleted (defense-in-depth guard).
+// The 10-jam showcase catalog that must NEVER be deleted (defense-in-depth guard).
 const KEEP_SLUGS = [
   "roast-my-bags",
   "world-cup-trivia",
-  "mascot-draw-off",
   "pineapple-pizza-poll",
-  "proof-of-human-poll",
-  "gem-clicker",
   "reflex-rush",
   "japan-itinerary",
+  "which-ai-are-you",
+  "snack-tier-list",
+  "daily-word-streak",
+  "confessions-wall",
+  "coin-flip-duel",
 ];
 
 // The two lists MUST be disjoint — a typo that lands a keeper in REMOVE would purge it.
