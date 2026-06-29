@@ -9,7 +9,7 @@
 // POSTs progress + a terminal `done`/`failed` to /builds/:id/report. `report()`
 // applies those to the in-memory state; the platform's poll sees them. The agent
 // process ending without a `done` report ⇒ failed (no deterministic fallback).
-import type { DeployEvent, DeployResult } from "@superjam/builder/deploy";
+import type { AiSpend, DeployEvent, DeployResult } from "@superjam/builder/deploy";
 import type { AppManifest, AppSpec } from "@superjam/shared";
 
 export interface BuildRunnerDeps {
@@ -74,6 +74,8 @@ export type AgentReport =
       /** For onchain games: the Base contract address + ABI the agent deployed. */
       contractAddress?: string;
       contractAbi?: readonly unknown[];
+      /** Per-build AI spend (cost tracking). */
+      ai?: AiSpend;
     }
   | { kind: "failed"; error: string };
 
@@ -185,6 +187,7 @@ export const createBuildRunner = (deps: BuildRunnerDeps): BuildRunner => {
             report.contractAddress && report.contractAbi
               ? { address: report.contractAddress, abi: report.contractAbi }
               : undefined,
+          ai: report.ai,
           durationMs: c ? now() - c.startedAt : 0,
         };
       } else {

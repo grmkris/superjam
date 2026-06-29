@@ -52,6 +52,16 @@ const ReportBody = z.discriminatedUnion("kind", [
     // platform stores them on the app row so sdk.onchain resolves the contract.
     contractAddress: z.string().min(1).optional(),
     contractAbi: z.array(z.unknown()).optional(),
+    // Per-build AI spend (cost tracking) — model id + token + asset-gen counts.
+    ai: z
+      .object({
+        model: z.string(),
+        inTokens: z.number().int().nonnegative(),
+        outTokens: z.number().int().nonnegative(),
+        images: z.number().int().nonnegative(),
+        voices: z.number().int().nonnegative(),
+      })
+      .optional(),
   }),
   z.object({ kind: z.literal("failed"), error: z.string().min(1) }),
 ]);

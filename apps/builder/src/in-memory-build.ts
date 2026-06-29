@@ -18,7 +18,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
-import { specNeedsData, type NeonClient } from "@superjam/builder/deploy";
+import { specNeedsData, type AiSpend, type NeonClient } from "@superjam/builder/deploy";
 import type { AppSpec } from "@superjam/shared";
 import { generateImage, generateVoice } from "./assets.ts";
 import type { BackendFactory } from "./backend/index.ts";
@@ -108,6 +108,7 @@ const reporter = (port: number, buildId: string, token: string) => {
       neonProjectId?: string;
       contractAddress?: string;
       contractAbi?: readonly unknown[];
+      ai?: AiSpend;
     }) => post({ kind: "done", ...r }),
     failed: (error: string) => post({ kind: "failed", error }),
   };
@@ -213,10 +214,10 @@ const buildTools = (
   sandbox: Bash,
   workdir: string,
   googleKey: string | undefined,
-  onStep: (label: string) => void
+  onStep: (label: string) => void,
+  // Caller-owned counters so the build can report generated-asset spend.
+  assets: { images: number; voices: number }
 ) => {
-  let images = 0;
-  let voices = 0;
   const writeBinary = async (rel: string, bytes: Uint8Array): Promise<string> => {
     const clean = rel.replace(/^\/+/, "");
     const p = clean.startsWith("public/") ? clean : join("public", clean);
@@ -264,10 +265,10 @@ const buildTools = (
       inputSchema: z.object({ prompt: z.string().min(1), path: z.string().min(1) }),
       execute: async ({ prompt, path }) => {
         if (!googleKey) return "image generation unavailable — use an emoji or a CSS gradient";
-        if (images >= IMAGE_BUDGET) return `image budget (${IMAGE_BUDGET}) exhausted — reuse an asset or use emoji/CSS`;
+        if (assets.images >= IMAGE_BUDGET) return `image budget (${IMAGE_BUDGET}) exhausted — reuse an asset or use emoji/CSS`;
         try {
           const rel = await writeBinary(path, await generateImage(prompt, googleKey));
-          images += 1;
+          assets.images += 1;
           onStep("generating art");
           return `wrote ${rel} (reference it at /${rel.replace(/^public\//, "")})`;
         } catch (e) {
@@ -285,10 +286,10 @@ const buildTools = (
       }),
       execute: async ({ text, path, voice }) => {
         if (!googleKey) return "voice generation unavailable — use procedural WebAudio SFX";
-        if (voices >= VOICE_BUDGET) return `voice budget (${VOICE_BUDGET}) exhausted`;
+        if (assets.voices >= VOICE_BUDGET) return `voice budget (${VOICE_BUDGET}) exhausted`;
         try {
           const rel = await writeBinary(path, await generateVoice(text, googleKey, voice));
-          voices += 1;
+          assets.voices += 1;
           onStep("generating audio");
           return `wrote ${rel} (reference it at /${rel.replace(/^public\//, "")})`;
         } catch (e) {
@@ -396,7 +397,10 @@ export const runInMemoryBuild = async (
       // NOT attachmentUrls — the agent can't curl them (no network). They're pre-downloaded.
       tail: `${planSection}${mediaSection}\n\nWrite the code; the builder compiles it and sends back any build errors OR missing pieces to fix. You cannot run npm/next/vercel — the builder builds & deploys for you.`,
     });
-    const tools = buildTools(sandbox, ws, deps.googleKey, (s) => void report.status(s));
+    // Asset-gen counters (surfaced in the done report's AI-spend) + the model id.
+    const assets = { images: 0, voices: 0 };
+    const modelId = typeof deps.model === "string" ? deps.model : deps.model.modelId;
+    const tools = buildTools(sandbox, ws, deps.googleKey, (s) => void report.status(s), assets);
 
     // Install deps CONCURRENTLY with the model's first editing round — the agent's
     // sandbox never touches node_modules, so the install overlaps the slow generation;
@@ -484,6 +488,7 @@ export const runInMemoryBuild = async (
         entryUrl: `https://${project}.vercel.app`,
         vercelProject: project,
         neonProjectId,
+        ai: { model: modelId, inTokens, outTokens, images: assets.images, voices: assets.voices },
       });
       return;
     }
@@ -548,6 +553,7 @@ export const runInMemoryBuild = async (
       neonProjectId,
       contractAddress: gameContract?.address,
       contractAbi: gameContract?.abi,
+      ai: { model: modelId, inTokens, outTokens, images: assets.images, voices: assets.voices },
     });
     console.log(`[in-memory] deployed ${project}${deploymentId ? ` (deployment ${deploymentId})` : ""}`);
   } catch (err) {
