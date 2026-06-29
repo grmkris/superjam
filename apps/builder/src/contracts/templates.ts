@@ -79,7 +79,7 @@ contract Game {
 import SuperJam, { type SuperJamSdk, type AppContext } from "@superjam/sdk";
 import { useEffect, useRef, useState } from "react";
 
-// ${title} — an onchain chance game on Arc. The contract is already deployed; we
+// ${title} — an onchain chance game on Base. The contract is already deployed; we
 // play it GASLESSLY via sdk.onchain (the platform stamps the player + pays gas).
 const LABELS: string[] = ${labels};
 
@@ -217,7 +217,7 @@ contract Game {
 import SuperJam, { type SuperJamSdk } from "@superjam/sdk";
 import { useEffect, useRef, useState } from "react";
 
-// ${title} — onchain tic-tac-toe on Arc. The board lives in the contract; moves are
+// ${title} — onchain tic-tac-toe on Base. The board lives in the contract; moves are
 // gasless via sdk.onchain. We poll state every ~2s.
 export default function Page() {
   const sdkRef = useRef<SuperJamSdk | null>(null);
@@ -329,7 +329,7 @@ contract Game {
 import SuperJam, { type SuperJamSdk, type AppContext } from "@superjam/sdk";
 import { useEffect, useRef, useState } from "react";
 
-// ${title} — mint an onchain collectible badge on Arc (gasless). Gated on a verified
+// ${title} — mint an onchain collectible badge on Base (gasless). Gated on a verified
 // human; the player owns the token after mint.
 export default function Page() {
   const sdkRef = useRef<SuperJamSdk | null>(null);

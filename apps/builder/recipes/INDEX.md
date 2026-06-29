@@ -19,7 +19,7 @@ Pick the recipe by intent:
 | `realtime.md` | a live-updating board / lightweight multiplayer | `data.subscribe` (poll fallback) | none |
 | `travel.md` | an AI trip planner / guide shown on a map | `ai.chat`, seeded `<TripMap>`, `data.counter` | none |
 | `map.md` | anything that plots places on an interactive map | seeded `<TripMap>` (maplibre-gl) | none |
-| `onchain.md` | a game whose state/rewards live **on Arc** (you deploy a contract) | `sdk.onchain` + a Foundry contract | none |
+| `onchain.md` | a game whose state/rewards live **on Base** (you deploy a contract) | `sdk.onchain` + a Foundry contract | none |
 
 Rules of thumb:
 - **Default to platform primitives** (`sdk.data` / `counter` / `pot` / `ai`) — zero-backend,

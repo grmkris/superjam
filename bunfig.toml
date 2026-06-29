@@ -1,0 +1,4 @@
+[test]
+# Global test setup: close leaked pglite clients on teardown (see test-preload.ts)
+# so `bun test` exits 0 cleanly instead of erroring on an unhandled rejection.
+preload = ["./test-preload.ts"]

@@ -14,6 +14,14 @@ const MIGRATIONS_DIR = resolve(
   "../migrations"
 );
 
+// Every created client is tracked on globalThis (so the bun-test preload can close
+// them WITHOUT importing this workspace module — avoids cross-specifier module-identity
+// issues). Tests never .close() their own client; the leaked WASM workers otherwise
+// surface as an unhandled rejection on teardown → bun test exits non-zero even with 0 fails.
+const PGLITE_REGISTRY = "__superjam_pglite_clients__";
+const openClients = ((globalThis as Record<string, unknown>)[PGLITE_REGISTRY] ??=
+  new Set<PGlite>()) as Set<PGlite>;
+
 // The pglite drizzle instance is API-compatible with the node-postgres one for
 // every query/insert/update we use, so we surface it as the same `Database`
 // type — services are DI'd one db type, never branched per driver.
@@ -22,7 +30,15 @@ export const createPgliteDb = async (): Promise<{
   client: PGlite;
 }> => {
   const client = new PGlite();
+  openClients.add(client);
   const db = drizzle(client, { schema, casing: "snake_case" });
   await migrate(db, { migrationsFolder: MIGRATIONS_DIR });
   return { db: db as unknown as Database, client };
+};
+
+/** Close + forget every pglite client created so far (global test teardown). */
+export const closeAllPgliteDbs = async (): Promise<void> => {
+  const clients = [...openClients];
+  openClients.clear();
+  await Promise.allSettled(clients.map((c) => c.close()));
 };

@@ -11,6 +11,7 @@ import {
 import type { Address, Hex } from "viem";
 import { type AppTokenIssuer, nullAppTokenIssuer } from "./auth/app-token.ts";
 import type { AuthVerifier } from "./auth/verifier.ts";
+import { type AppDataProvider, nullAppDataProvider } from "./lib/app-db.ts";
 import { type PotOracle, nullOracle } from "./lib/oracle.ts";
 import type { RateLimiter } from "./lib/rate-limit.ts";
 import { type ObjectStore, nullObjectStore } from "./services/object-store.ts";
@@ -28,6 +29,9 @@ export interface DelegatedSigner {
 
 export interface ApiContext {
   db: Database;
+  /** Per-app data plane (B1) — resolves each app's OWN libSQL/Turso DB for the
+   *  bridge data/counter/storage services. Degraded by default (no TURSO_* env). */
+  appData: AppDataProvider;
   logger: Logger;
   auth: AuthVerifier;
   rateLimiter: RateLimiter;
@@ -56,6 +60,9 @@ export interface ApiContext {
 
 export interface CreateContextDeps {
   db: Database;
+  /** Optional — defaults to the degraded provider (data ops reject) so boot/tests
+   *  stay green without TURSO_* env. */
+  appData?: AppDataProvider;
   logger: Logger;
   auth: AuthVerifier;
   rateLimiter: RateLimiter;
@@ -82,6 +89,7 @@ export const createContext = (deps: CreateContextDeps): ApiContext => {
   const onchain = deps.onchain ?? nullOnchain;
   return {
     db: deps.db,
+    appData: deps.appData ?? nullAppDataProvider,
     logger: deps.logger,
     auth: deps.auth,
     rateLimiter: deps.rateLimiter,

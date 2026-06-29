@@ -7,6 +7,7 @@ import { decryptDelegatedWebhookData } from "@dynamic-labs-wallet/node";
 import {
   type ApiContext,
   appRouter,
+  createAppDataProvider,
   createAppTokenIssuer,
   createContext,
   createDynamicVerifier,
@@ -16,6 +17,7 @@ import {
   resolveUserFromPat,
 } from "@superjam/api";
 import { createDb, runMigrations, schema } from "@superjam/db";
+import { createTursoClient } from "@superjam/db/libsql";
 import { createLogger } from "@superjam/logger";
 import { PUBLIC_CHAIN } from "@superjam/onchain";
 import { SERVICE_URLS } from "@superjam/shared";
@@ -290,9 +292,25 @@ logger.info(
   "delegated signer (Dynamic Delegated Access)",
 );
 
+// Per-app data plane (B1) — every app gets its OWN Turso/libSQL DB for
+// sdk.data/counter/storage, provisioned lazily on first use. Absent TURSO_* ⇒
+// the degraded provider (data ops reject cleanly).
+const appData =
+  env.TURSO_API_TOKEN && env.TURSO_ORG
+    ? createAppDataProvider({
+        turso: createTursoClient({
+          apiToken: env.TURSO_API_TOKEN,
+          org: env.TURSO_ORG,
+          group: env.TURSO_GROUP,
+        }),
+      })
+    : undefined;
+logger.info({ enabled: Boolean(appData) }, "per-app data plane (Turso)");
+
 const makeContext = (headers: Headers): ApiContext =>
   createContext({
     db,
+    appData,
     logger,
     auth,
     rateLimiter,

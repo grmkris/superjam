@@ -1,6 +1,8 @@
 // bridge router (§12) — called by the host shell on behalf of a sandboxed jam.
-// appId arrives from the host's trusted Window→app map; identity is the
-// session user. Every call validates the app (exists, not delisted) first.
+// appId arrives from the host's trusted Window→app map; identity is the session
+// user. Every call validates the app (exists, not delisted) first. The data plane
+// (storage/data/counter) runs against the app's OWN libSQL/Turso DB, resolved via
+// context.appData (B1); messages/social/files/onchain use the platform DB.
 import {
   AppId,
   ATTACH_MAX_MB,
@@ -34,11 +36,8 @@ const storage = {
     .input(z.object({ appId: AppId, key: z.string().min(1).max(KEY_MAX_LEN) }))
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      return createStorageService({ db: context.db }).get(
-        input.appId,
-        context.user.id,
-        input.key
-      );
+      const db = await context.appData.resolve(input.appId);
+      return createStorageService({ db }).get(context.user.id, input.key);
     }),
 
   getMany: protectedProcedure
@@ -50,11 +49,8 @@ const storage = {
     )
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      return createStorageService({ db: context.db }).getMany(
-        input.appId,
-        context.user.id,
-        input.keys
-      );
+      const db = await context.appData.resolve(input.appId);
+      return createStorageService({ db }).getMany(context.user.id, input.keys);
     }),
 
   set: protectedProcedure
@@ -67,8 +63,8 @@ const storage = {
     )
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      await createStorageService({ db: context.db }).set(
-        input.appId,
+      const db = await context.appData.resolve(input.appId);
+      await createStorageService({ db }).set(
         context.user.id,
         input.key,
         input.value
@@ -80,11 +76,8 @@ const storage = {
     .input(z.object({ appId: AppId, key: z.string().min(1).max(KEY_MAX_LEN) }))
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      await createStorageService({ db: context.db }).delete(
-        input.appId,
-        context.user.id,
-        input.key
-      );
+      const db = await context.appData.resolve(input.appId);
+      await createStorageService({ db }).delete(context.user.id, input.key);
       return { ok: true } as const;
     }),
 
@@ -92,10 +85,8 @@ const storage = {
     .input(z.object({ appId: AppId }))
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      await createStorageService({ db: context.db }).clear(
-        input.appId,
-        context.user.id
-      );
+      const db = await context.appData.resolve(input.appId);
+      await createStorageService({ db }).clear(context.user.id);
       return { ok: true } as const;
     }),
 
@@ -110,11 +101,8 @@ const storage = {
     )
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      return createStorageService({ db: context.db }).list(
-        input.appId,
-        context.user.id,
-        input
-      );
+      const db = await context.appData.resolve(input.appId);
+      return createStorageService({ db }).list(context.user.id, input);
     }),
 };
 
@@ -123,8 +111,8 @@ const data = {
     .input(z.object({ appId: AppId, collection: z.string(), doc: jsonRecord }))
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      return createDataService({ db: context.db }).insert(
-        input.appId,
+      const db = await context.appData.resolve(input.appId);
+      return createDataService({ db }).insert(
         {
           id: context.user.id,
           username: context.user.username,
@@ -139,11 +127,8 @@ const data = {
     .input(z.object({ appId: AppId, collection: z.string(), id: RecordId }))
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      return createDataService({ db: context.db }).get(
-        input.appId,
-        input.collection,
-        input.id
-      );
+      const db = await context.appData.resolve(input.appId);
+      return createDataService({ db }).get(input.collection, input.id);
     }),
 
   update: protectedProcedure
@@ -157,8 +142,8 @@ const data = {
     )
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      return createDataService({ db: context.db }).update(
-        input.appId,
+      const db = await context.appData.resolve(input.appId);
+      return createDataService({ db }).update(
         context.user.id,
         input.collection,
         input.id,
@@ -170,8 +155,8 @@ const data = {
     .input(z.object({ appId: AppId, collection: z.string(), id: RecordId }))
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      await createDataService({ db: context.db }).delete(
-        input.appId,
+      const db = await context.appData.resolve(input.appId);
+      await createDataService({ db }).delete(
         context.user.id,
         input.collection,
         input.id
@@ -194,11 +179,8 @@ const data = {
     )
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
-      return createDataService({ db: context.db }).list(
-        input.appId,
-        input.collection,
-        input
-      );
+      const db = await context.appData.resolve(input.appId);
+      return createDataService({ db }).list(input.collection, input);
     }),
 };
 
@@ -222,8 +204,8 @@ const counter = {
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
       assertAppCounter(input.counter);
-      const value = await createCounterService({ db: context.db }).increment(
-        input.appId,
+      const db = await context.appData.resolve(input.appId);
+      const value = await createCounterService({ db }).increment(
         input.counter,
         input.key,
         input.by ?? 1
@@ -242,11 +224,8 @@ const counter = {
     .handler(async ({ context, input }) => {
       await requireApp(context.db, input.appId);
       assertAppCounter(input.counter);
-      return createCounterService({ db: context.db }).top(
-        input.appId,
-        input.counter,
-        input.limit ?? 10
-      );
+      const db = await context.appData.resolve(input.appId);
+      return createCounterService({ db }).top(input.counter, input.limit ?? 10);
     }),
 };
 
@@ -353,9 +332,9 @@ const files = {
 };
 
 // onchain games (§ builder-deploys-contracts) — a jam reads/writes its OWN
-// Arc contract (the builder deployed it; address+abi live on the app row).
+// Base contract (the builder deployed it; address+abi live on the app row).
 //   read  → a plain view call (no signing).
-//   write → OPERATOR-relayed: the server wallet signs + pays Arc gas. We PIN the
+//   write → OPERATOR-relayed: the server wallet signs + pays Base gas. We PIN the
 //           target to the app's own contract (a jam can't make the operator key
 //           sign against USDC/StakeSlash/anything else) and PREPEND the verified
 //           player address as arg 0, so the contract's `fn(address player, …)`
