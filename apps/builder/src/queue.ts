@@ -71,7 +71,7 @@ export type AgentReport =
       vercelProject: string;
       /** Neon project id, when the agent provisioned a DB (for teardown). */
       neonProjectId?: string;
-      /** For onchain games: the Arc contract address + ABI the agent deployed. */
+      /** For onchain games: the Base contract address + ABI the agent deployed. */
       contractAddress?: string;
       contractAbi?: readonly unknown[];
     }

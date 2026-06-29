@@ -178,7 +178,7 @@ const schemaLib = (spec: AppSpec): string => {
 
 // --- Onchain games (§ builder-deploys-contracts) ---------------------------
 // When the spec carries the "onchain" skill we seed a self-contained Foundry
-// project the agent customizes + deploys to Arc. Everything is dependency-free
+// project the agent customizes + deploys to Base. Everything is dependency-free
 // (no OpenZeppelin / forge install) so `forge build` works offline. The deployed
 // contract's OPERATOR is the platform server wallet (passed as a constructor
 // arg), which is what makes sdk.onchain.write gasless + player-stamped.
@@ -290,28 +290,28 @@ solc = "0.8.24"
 // onchain kit overlays the matching template + a starter page; this seed is the same
 // contract for no-kit builds, so the model never authors Solidity.
 
-// Compile + deploy to Arc, print {"address","abi"} as JSON (the builder reads this,
+// Compile + deploy to Base, print {"address","abi"} as JSON (the builder reads this,
 // writes lib/contract.ts, and reports contractAddress/contractAbi). Operator =
-// ARC_OPERATOR_ADDRESS (the platform server wallet) so relayed writes pass onlyOperator.
+// BASE_OPERATOR_ADDRESS (the platform server wallet) so relayed writes pass onlyOperator.
 const deploySh = (): string => `#!/usr/bin/env bash
-# Deploy the game contract to Arc and print {"address","abi"} as JSON.
-# Env: ARC_DEPLOYER_KEY (funded with Arc USDC for gas),
-#      ARC_OPERATOR_ADDRESS (the SuperJam server wallet = the contract operator),
-#      ARC_RPC_URL (optional; defaults to the Arc testnet RPC).
+# Deploy the game contract to Base and print {"address","abi"} as JSON.
+# Env: BASE_DEPLOYER_KEY (funded with Base Sepolia ETH for gas),
+#      BASE_OPERATOR_ADDRESS (the SuperJam server wallet = the contract operator),
+#      BASE_RPC_URL (optional; defaults to the Base Sepolia RPC).
 set -euo pipefail
 cd "$(dirname "$0")"
 # forge lives in ~/.foundry/bin, which isn't on the builder service PATH.
 export PATH="$HOME/.foundry/bin:$PATH"
-: "\${ARC_RPC_URL:=https://rpc.testnet.arc.network}"
+: "\${BASE_RPC_URL:=https://sepolia.base.org}"
 forge build --silent
 # NOTE: --constructor-args is variadic — it MUST be the last flag (else it eats
 # the next flag as a 2nd arg). --json goes before it for parseable deploy output.
 ADDR=$(forge create src/Game.sol:Game \\
-  --rpc-url "$ARC_RPC_URL" \\
-  --private-key "$ARC_DEPLOYER_KEY" \\
+  --rpc-url "$BASE_RPC_URL" \\
+  --private-key "$BASE_DEPLOYER_KEY" \\
   --broadcast \\
   --json \\
-  --constructor-args "$ARC_OPERATOR_ADDRESS" | jq -r '.deployedTo')
+  --constructor-args "$BASE_OPERATOR_ADDRESS" | jq -r '.deployedTo')
 jq -nc --arg a "$ADDR" --argjson abi "$(jq -c '.abi' out/Game.sol/Game.json)" \\
   '{address:$a, abi:$abi}'
 `;

@@ -490,11 +490,11 @@ export const runInMemoryBuild = async (
 
     // Onchain games: the model edited contracts/src/Game.sol in the SANDBOX, but it
     // can't DEPLOY (no forge/network). The builder deploys it on the host now (forge +
-    // ARC_DEPLOYER_KEY/ARC_OPERATOR_ADDRESS are in process.env), bakes lib/contract.ts,
+    // BASE_DEPLOYER_KEY/BASE_OPERATOR_ADDRESS are in process.env), bakes lib/contract.ts,
     // and reports the address+abi so the platform wires sdk.onchain to the contract.
     let gameContract: { address: string; abi: readonly unknown[] } | undefined;
     if (args.spec.skills?.includes("onchain")) {
-      await report.status("deploying the game contract to Arc");
+      await report.status("deploying the game contract to Base");
       const cd = await backend.exec("bash contracts/deploy.sh", { timeoutMs: DEPLOY_TIMEOUT_MS });
       const jsonLine = cd.stdout.match(/\{[^\n]*"address"[^\n]*\}/)?.[0];
       if (cd.code !== 0 || !jsonLine) {

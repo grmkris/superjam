@@ -1,6 +1,6 @@
-# Recipe onchain — games whose state/rewards live on Arc
+# Recipe onchain — games whose state/rewards live on Base
 
-The jam plays against its OWN smart contract on **Arc**. A **vetted contract is ALREADY
+The jam plays against its OWN smart contract on **Base**. A **vetted contract is ALREADY
 seeded + filled** at `contracts/src/Game.sol` (one of the chance / tic-tac-toe / collectible
 templates, chosen from the spec) and a **working starter `app/page.tsx`** is in place. The
 builder compiles + deploys the contract and the platform resolves its address — you reach it

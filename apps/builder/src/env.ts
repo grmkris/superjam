@@ -43,11 +43,11 @@ const builderEnvSchema = z.object({
   // Onchain games (§ builder-deploys-contracts) — read by contracts/deploy.sh in
   // the build workspace (the builder's host exec inherits this process env). All
   // OPTIONAL: absent ⇒ only non-onchain jams build; an onchain build fails at the
-  // deploy step. ARC_OPERATOR_ADDRESS MUST equal the platform server wallet
+  // deploy step. BASE_OPERATOR_ADDRESS MUST equal the platform server wallet
   // (context.onchain) so operator-relayed sdk.onchain.write passes onlyOperator.
-  ARC_DEPLOYER_KEY: z.string().min(1).optional(), // funded with Arc USDC for gas
-  ARC_OPERATOR_ADDRESS: z.string().min(1).optional(), // = SuperJam server wallet
-  ARC_RPC_URL: z.string().url().optional(), // defaults to the Arc testnet RPC
+  BASE_DEPLOYER_KEY: z.string().min(1).optional(), // funded with Base Sepolia ETH for gas
+  BASE_OPERATOR_ADDRESS: z.string().min(1).optional(), // = SuperJam server wallet
+  BASE_RPC_URL: z.string().url().optional(), // defaults to the Base Sepolia RPC
 });
 
 export type BuilderEnv = z.infer<typeof builderEnvSchema>;
