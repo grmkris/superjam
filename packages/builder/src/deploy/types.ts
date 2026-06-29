@@ -54,6 +54,23 @@ export interface NeonClient {
   deleteProject(projectId: string): Promise<void>;
 }
 
+// --- Turso (per-app SQLite, the agent-native runtime — replaces Neon) ---
+
+export interface TursoDatabase {
+  /** Database name == the teardown handle. */
+  name: string;
+  /** `libsql://…` URL the platform runtime binds as the app's ctx.db. */
+  dbUrl: string;
+  /** DB-scoped auth token (stored on the app row, never shipped to the app). */
+  authToken: string;
+}
+
+export interface TursoClient {
+  createDatabase(name: string): Promise<TursoDatabase>;
+  /** Idempotent teardown (orphan GC / app delete). */
+  deleteDatabase(name: string): Promise<void>;
+}
+
 // --- Vercel (CLI deploy) ---
 
 /**
@@ -73,6 +90,18 @@ export type VercelTeardown = (projectName: string) => Promise<void>;
 
 // --- orchestration result ---
 
+/** Per-build AI spend (model + token + asset-generation counts), for cost tracking. */
+export interface AiSpend {
+  /** The coding model id, e.g. "gemini-3.5-flash". */
+  model: string;
+  inTokens: number;
+  outTokens: number;
+  /** Successful generate_image tool calls. */
+  images: number;
+  /** Successful generate_voice tool calls. */
+  voices: number;
+}
+
 export interface DeployResult {
   entryUrl: string;
   manifest: AppManifest;
@@ -80,9 +109,11 @@ export interface DeployResult {
   vercelProject: string;
   /** Only set when the app declared data (its own Neon project). */
   neonProjectId?: string;
-  /** Only set for an onchain game: the Arc contract the builder deployed. The
+  /** Only set for an onchain game: the Base contract the builder deployed. The
    *  platform stores it on the app row so sdk.onchain read/write resolve it. */
   gameContract?: { address: string; abi: readonly unknown[] };
+  /** Per-build AI spend (cost tracking); absent on older reports. */
+  ai?: AiSpend;
   durationMs: number;
 }
 
