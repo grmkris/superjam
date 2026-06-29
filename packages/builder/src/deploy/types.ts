@@ -54,23 +54,6 @@ export interface NeonClient {
   deleteProject(projectId: string): Promise<void>;
 }
 
-// --- Turso (per-app SQLite, the agent-native runtime — replaces Neon) ---
-
-export interface TursoDatabase {
-  /** Database name == the teardown handle. */
-  name: string;
-  /** `libsql://…` URL the platform runtime binds as the app's ctx.db. */
-  dbUrl: string;
-  /** DB-scoped auth token (stored on the app row, never shipped to the app). */
-  authToken: string;
-}
-
-export interface TursoClient {
-  createDatabase(name: string): Promise<TursoDatabase>;
-  /** Idempotent teardown (orphan GC / app delete). */
-  deleteDatabase(name: string): Promise<void>;
-}
-
 // --- Vercel (CLI deploy) ---
 
 /**

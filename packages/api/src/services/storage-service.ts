@@ -1,9 +1,7 @@
-// sdk.storage — user-private KV (§9). Server stamps (appId, userId); the iframe
-// never supplies identity. Quotas: ≤1000 keys/user/app, value ≤64KiB (§7).
-import type { Database } from "@superjam/db";
-import { schema } from "@superjam/db";
+// sdk.storage — user-private KV in the app's OWN SQLite DB (§9). Server stamps the
+// userId; the iframe never supplies identity. Quotas: ≤1000 keys/user, value ≤64KiB.
+import { type AppDb, appData } from "@superjam/db/libsql";
 import {
-  type AppId,
   LIST_MAX,
   STORAGE_MAX_KEYS,
   STORAGE_VALUE_MAX_BYTES,
@@ -13,7 +11,7 @@ import { ORPCError } from "@orpc/server";
 import { and, asc, eq, gt, inArray, like, sql } from "drizzle-orm";
 import { assertKey, assertSize } from "../lib/validate.ts";
 
-const { appStorage } = schema;
+const { storage } = appData;
 
 export interface ListOpts {
   prefix?: string;
@@ -21,21 +19,19 @@ export interface ListOpts {
   cursor?: string;
 }
 
-export const createStorageService = ({ db }: { db: Database }) => {
-  const scope = (appId: AppId, userId: UserId) =>
-    and(eq(appStorage.appId, appId), eq(appStorage.userId, userId));
+export const createStorageService = ({ db }: { db: AppDb }) => {
+  const scope = (userId: UserId) => eq(storage.userId, userId);
 
   return {
-    async get(appId: AppId, userId: UserId, key: string): Promise<unknown> {
+    async get(userId: UserId, key: string): Promise<unknown> {
       assertKey(key);
-      const row = await db.query.appStorage.findFirst({
-        where: and(scope(appId, userId), eq(appStorage.key, key)),
+      const row = await db.query.storage.findFirst({
+        where: and(scope(userId), eq(storage.key, key)),
       });
       return row?.value ?? null;
     },
 
     async getMany(
-      appId: AppId,
       userId: UserId,
       keys: string[]
     ): Promise<Record<string, unknown>> {
@@ -50,32 +46,27 @@ export const createStorageService = ({ db }: { db: Database }) => {
         return out;
       }
       const rows = await db
-        .select({ key: appStorage.key, value: appStorage.value })
-        .from(appStorage)
-        .where(and(scope(appId, userId), inArray(appStorage.key, keys)));
+        .select({ key: storage.key, value: storage.value })
+        .from(storage)
+        .where(and(scope(userId), inArray(storage.key, keys)));
       for (const r of rows) {
         out[r.key] = r.value ?? null;
       }
       return out;
     },
 
-    async set(
-      appId: AppId,
-      userId: UserId,
-      key: string,
-      value: unknown
-    ): Promise<void> {
+    async set(userId: UserId, key: string, value: unknown): Promise<void> {
       assertKey(key);
       assertSize(value, STORAGE_VALUE_MAX_BYTES, "value");
-      const existing = await db.query.appStorage.findFirst({
+      const existing = await db.query.storage.findFirst({
         columns: { key: true },
-        where: and(scope(appId, userId), eq(appStorage.key, key)),
+        where: and(scope(userId), eq(storage.key, key)),
       });
       if (!existing) {
         const counted = await db
-          .select({ c: sql<number>`count(*)::int` })
-          .from(appStorage)
-          .where(scope(appId, userId));
+          .select({ c: sql<number>`count(*)` })
+          .from(storage)
+          .where(scope(userId));
         if ((counted[0]?.c ?? 0) >= STORAGE_MAX_KEYS) {
           throw new ORPCError("QUOTA_EXCEEDED", {
             message: `Storage limited to ${STORAGE_MAX_KEYS} keys`,
@@ -83,42 +74,39 @@ export const createStorageService = ({ db }: { db: Database }) => {
         }
       }
       await db
-        .insert(appStorage)
-        .values({ appId, userId, key, value })
+        .insert(storage)
+        .values({ userId, key, value })
         .onConflictDoUpdate({
-          target: [appStorage.appId, appStorage.userId, appStorage.key],
+          target: [storage.userId, storage.key],
           set: { value, updatedAt: new Date() },
         });
     },
 
-    async delete(appId: AppId, userId: UserId, key: string): Promise<void> {
+    async delete(userId: UserId, key: string): Promise<void> {
       assertKey(key);
-      await db
-        .delete(appStorage)
-        .where(and(scope(appId, userId), eq(appStorage.key, key)));
+      await db.delete(storage).where(and(scope(userId), eq(storage.key, key)));
     },
 
-    async clear(appId: AppId, userId: UserId): Promise<void> {
-      await db.delete(appStorage).where(scope(appId, userId));
+    async clear(userId: UserId): Promise<void> {
+      await db.delete(storage).where(scope(userId));
     },
 
     async list(
-      appId: AppId,
       userId: UserId,
       opts: ListOpts = {}
     ): Promise<{ keys: string[]; cursor?: string }> {
       const limit = Math.min(opts.limit ?? LIST_MAX, LIST_MAX);
       const rows = await db
-        .select({ key: appStorage.key })
-        .from(appStorage)
+        .select({ key: storage.key })
+        .from(storage)
         .where(
           and(
-            scope(appId, userId),
-            opts.prefix ? like(appStorage.key, `${opts.prefix}%`) : undefined,
-            opts.cursor ? gt(appStorage.key, opts.cursor) : undefined
+            scope(userId),
+            opts.prefix ? like(storage.key, `${opts.prefix}%`) : undefined,
+            opts.cursor ? gt(storage.key, opts.cursor) : undefined
           )
         )
-        .orderBy(asc(appStorage.key))
+        .orderBy(asc(storage.key))
         .limit(limit + 1);
       const hasMore = rows.length > limit;
       const page = rows.slice(0, limit);

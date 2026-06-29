@@ -65,6 +65,11 @@ export const serverEnvSchema = z.object({
   // Money chain flip: defaults to Base Sepolia (testnet) everywhere; set to
   // "baseMainnet" ONLY on a funded deployment to go real-money.
   MONEY_CHAIN: z.enum(["baseSepolia", "baseMainnet"]).optional(),
+  // Per-app data plane (B1): Turso provisioning for each app's own SQLite DB
+  // (sdk.data.collection/counter/storage). Absent ⇒ data ops reject (degraded).
+  TURSO_API_TOKEN: optionalStr,
+  TURSO_ORG: optionalStr,
+  TURSO_GROUP: z.string().min(1).default("default"),
 });
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 

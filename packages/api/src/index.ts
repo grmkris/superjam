@@ -7,6 +7,12 @@ export {
   type CreateContextDeps,
   type DelegatedSigner,
 } from "./context.ts";
+// Per-app data plane (B1) — the composition root builds this from TURSO_* env.
+export {
+  type AppDataProvider,
+  createAppDataProvider,
+  nullAppDataProvider,
+} from "./lib/app-db.ts";
 export {
   type AuthVerifier,
   type DynamicClaims,
