@@ -113,6 +113,7 @@ The Stage theme is ALREADY loaded (theme.css): a DARK glow stage (deep ink-indig
   \`\`\`
 - BUILD THE APP THE SPEC DESCRIBES — keep its name + core concept. Do NOT rename it or turn it into a different app (a "Roast" jam must roast + score, not become a fortune teller). EXTEND the seeded starter; don't rewrite it into something else.
 - ONE screen, playable/usable instantly. No routing, no multi-page flows.
+- FITS ONE SCREEN — the jam is a fixed app screen, NOT a scrolling web page. The \`.tj-app\` shell fills the viewport and the PAGE never scrolls. Compose so the OPENING + the primary action are visible immediately WITHOUT scrolling; keep it compact (favor 1–2 \`.tj-card\`s on the first screen, not a tall stack). If ONE region is genuinely long (a feed / leaderboard / gallery), wrap just that region in \`.tj-scroll\` (or use \`.tj-gallery\`/\`.tj-list\`) so ONLY it scrolls inside the app — never the whole screen.
 - You OWN your first screen — make it distinctive and immersive (the fitting opening from OPENING above + a \`.tj-stagger\` entrance). Just don't repeat the jam's NAME as a giant \`<h1>\` slab: the host bar already shows it, so spend the opening on a hook line / call-to-action / art instead of the bare title.
 - Playful and self-contained. NEVER show build logs, file names, terminals, code, or any "AI"/"agent"/"compiler" language in the UI.
 - Render ALL user-supplied text as plain text (never dangerouslySetInnerHTML).

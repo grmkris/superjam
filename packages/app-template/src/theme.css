@@ -43,9 +43,9 @@ body {
   color: var(--text);
   display: grid;
   place-items: center;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 16px;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden; /* the jam is a fixed app screen — the PAGE never scrolls */
   /* The atmosphere: a fixed glow-mesh over the ink stage + a faint film grain. */
   background-color: var(--bg);
   background-image:
@@ -59,12 +59,26 @@ body {
 }
 #root { width: 100%; display: grid; place-items: center; }
 
-/* Responsive readable column — mobile-first, widens on desktop. Wrap a content
-   jam's screen in this so it uses the space instead of a skinny phone strip. */
-.tj-app { width: 100%; max-width: 480px; margin: 0 auto; }
-@media (min-width: 768px) {
-  .tj-app { max-width: 720px; }
+/* Single-screen app shell — fills the viewport (NOT a growing document), so a jam
+   feels like an app, not a web page. Compact jams fit with no scroll; overflow
+   scrolls INSIDE the shell (the fixed glow bg stays), never the page. */
+.tj-app {
+  width: 100%;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+@media (min-width: 768px) {
+  .tj-app { max-width: 720px; padding: 28px 24px; }
+}
+/* For a genuinely long region: keep the hero + action in the flow and give THIS
+   the remaining height so ONLY it scrolls, not the screen. */
+.tj-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 
 /* ── Surfaces ───────────────────────────────────────────────────────────── */
 .tj-card {

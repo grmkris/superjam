@@ -396,7 +396,8 @@ body {
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--text);
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden; /* the jam is a fixed app screen — the PAGE never scrolls (see .tj-app) */
   /* The atmosphere: a fixed glow-mesh (accent + blue + green) over the ink stage,
      plus a faint film grain on top — depth behind every jam, zero asset deps. */
   background-color: var(--bg);
@@ -409,12 +410,26 @@ body {
   background-attachment: fixed, fixed, fixed, fixed;
   background-size: 140px 140px, auto, auto, auto;
 }
-/* Responsive readable column — mobile-first, widens on desktop so jams use the
-   space instead of a skinny phone strip. Toys can nest a single tj-card. */
-.tj-app { max-width: 560px; margin: 0 auto; padding: 20px 16px 32px; }
-@media (min-width: 768px) {
-  .tj-app { max-width: 720px; padding: 32px 24px 48px; }
+/* Single-screen app shell — fills the viewport (NOT a growing document), so a jam
+   feels like an app, not a web page. Compact jams fit with no scroll; if content
+   overflows it scrolls INSIDE the shell (the fixed glow bg stays), never the page.
+   Mobile-first readable column, widens on desktop. */
+.tj-app {
+  height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+@media (min-width: 768px) {
+  .tj-app { max-width: 720px; padding: 28px 24px; }
+}
+/* For a genuinely long region (feed/leaderboard/gallery): keep the hero + action in
+   the flow and give THIS the remaining height so ONLY it scrolls, not the screen. */
+.tj-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 
 /* ── Opening toolkit — pick the one that FITS the app (the kit sets a default; the
    page never pastes a bright full-bleed banner — that fights the dark stage):
